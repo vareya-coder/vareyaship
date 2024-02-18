@@ -31,15 +31,15 @@ type ShipHeroAddress = {
 };
 
 type ShipHeroPackage = {
-  name: string;
+  name?: string;
   weight_in_oz: number;
-  width: number;
-  length: number;
-  height: number;
-  line_items: ShipHeroLineItem[];
-  box_code: string;
-  box_id: number;
-  box_name: string;
+  width?: number;
+  length?: number;
+  height?: number;
+  line_items?: ShipHeroLineItem[];
+  box_code?: string;
+  box_id?: number;
+  box_name?: string;
 };
 
 type ShipHeroLineItem = {

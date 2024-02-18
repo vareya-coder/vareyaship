@@ -70,7 +70,7 @@ type AddressType = {
   type ContentDescription = {
     Description: string;
     Quantity: any;
-    Weight?: any;
+    Weight?: number;
     Value?: any;
     HSTariffNr?: string;
     CountryOfOrigin?: string;

@@ -10,8 +10,9 @@ import { insertCustomerDetails, insertShipmentDetails, insertShipmentItems ,  } 
 
 export async function POST(req: NextRequest) {
   let barcode = undefined;
-
- 
+  const postnlCallingapilocal ="http://localhost:3000/api/postnl/label"
+  const postnlCallingapiProd ="https://vareyaship.vercel.app/api/postnl/label"
+  
   try {
     if (req.method === 'POST') {
       const shipmentData: ShipHeroWebhook = await req.json();
@@ -38,7 +39,7 @@ export async function POST(req: NextRequest) {
       if (req.nextUrl.pathname === '/api/shipment/postnl') {
         
         
-            const postNLApiResponse:AxiosResponse<PostNLLabelResponse> = await axios.post('https://vareyaship.vercel.app/api/postnl/label',shipmentData);
+            const postNLApiResponse = await axios.post(postnlCallingapilocal,shipmentData);
 
             
             if (postNLApiResponse.data.ResponseShipments.length > 0 && postNLApiResponse.data.ResponseShipments[0].Labels.length > 0) {
@@ -48,12 +49,12 @@ export async function POST(req: NextRequest) {
         
 
       }
-      const shipping_method = req.nextUrl.pathname.split('/api/')
+      const shipping_method = shipmentData.shipping_method ;
         
        
         let responseBodyJson = {
           code: postNLApiResponse.status,
-          shipping_method:shipping_method[1],
+          shipping_method:shipping_method,
           tracking_number: postNLApiResponse.data.ResponseShipments[0].Barcode,
           cost: 0,
           label: '',
@@ -68,10 +69,43 @@ export async function POST(req: NextRequest) {
           headers: {
             'Content-Type': 'application/json',
           },
-        });
+        });     
+          
+          
+      } else {
+        return new NextResponse('Labels are not generated for this shipment.', { status: 400 });
+      }
+    } else {
+      return new NextResponse('Method Not Allowed', { status: 405 });
+    }
+  } catch (error) {
+    console.error('Error processing the shipment update:', error);
+    console.log("hit")
+    let errorMessage :any = 'Internal Server Errowr';
+    let status = 500;
     
 
-          
+    if (axios.isAxiosError(error)) {
+      const errorResponse = error.response;
+      const axiosError: AxiosError = error;
+      if (axiosError.response) {
+        const response: AxiosResponse = axiosError.response;
+        status = response.status
+        console.log(response.data.errors)
+        errorMessage = JSON.stringify(response.data.errors);
+      }
+    }
+
+    return new NextResponse(errorMessage, {
+      status,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+  }
+}
+
+
         //   const addressData : AddressType = {
         //     address_type: 1,
         //     street: '123 Main St',
@@ -125,35 +159,4 @@ export async function POST(req: NextRequest) {
         //       console.error('Error inserting data:', error);
 
         //   }
-        
-          
-          
-      } else {
-        return new NextResponse('Labels are not generated for this shipment.', { status: 400 });
-      }
-    } else {
-      return new NextResponse('Method Not Allowed', { status: 405 });
-    }
-  } catch (error) {
-    console.error('Error processing the shipment update:', error);
-
-    let errorMessage = 'Internal Server Error';
-    let status = 500;
-
-    if (axios.isAxiosError(error)) {
-      const axiosError: AxiosError = error;
-      if (axiosError.response) {
-        const response: AxiosResponse = axiosError.response;
-        status = response.status;
-        errorMessage = response.data.message || 'Internal Server Errorss';
-      }
-    }
-
-    return new NextResponse(errorMessage, {
-      status,
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    });
-  }
-}
+   
