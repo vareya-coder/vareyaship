@@ -88,7 +88,7 @@ function handlePostNLError(error: any) {
     if (errorResponse) {
       const statusCode = errorResponse.status;
       const errorData = errorResponse.data;
-      console.log(errorData)
+  
       if (statusCode === 400) {
         const errors = errorData.Errors.map((error: any) => ({
           code: error.Code,
