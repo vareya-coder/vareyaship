@@ -15,7 +15,7 @@ export async function POST(req: NextRequest) {
   try {
     if (req.method === 'POST') {
       const shipmentData: ShipHeroWebhook = await req.json();
-      console.log(shipmentData)
+
       const fromAddress : string = shipmentData.from_address.address_1+","+shipmentData.from_address.city+","+shipmentData.from_address.country
       const firstPackage = shipmentData.packages[0];
     
@@ -38,7 +38,7 @@ export async function POST(req: NextRequest) {
       if (req.nextUrl.pathname === '/api/shipment/postnl') {
         
         
-            const postNLApiResponse:AxiosResponse<PostNLLabelResponse> = await axios.post('http://localhost:3000/api/postnl/label',shipmentData);
+            const postNLApiResponse:AxiosResponse<PostNLLabelResponse> = await axios.post('https://vareyaship.vercel.app/api/postnl/label',shipmentData);
 
             
             if (postNLApiResponse.data.ResponseShipments.length > 0 && postNLApiResponse.data.ResponseShipments[0].Labels.length > 0) {
