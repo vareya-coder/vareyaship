@@ -6,7 +6,7 @@ import { Data } from '@/app/utils/postnl/postnltypes';
 import { PostNLLabelResponse } from '@/app/utils/postnl/typeLabel';
 import { AddressType, CustomerDetailsType, ShipmentDetailsType, ShipmentItemsType, ShipmentStatusType } from '@/lib/db/schema';
 import { insertCustomerDetails, insertShipmentDetails, insertShipmentItems ,  } from '@/lib/db/dboperations';
-//import { uploadPdf } from '@/app/utils/labelPdfUrlGenerator';
+import { uploadPdf } from '@/app/utils/labelPdfUrlGenerator';
 
 
 export async function POST(req: NextRequest) {
@@ -40,14 +40,14 @@ export async function POST(req: NextRequest) {
       if (req.nextUrl.pathname === '/api/shipment/postnl') {
         
         
-            const postNLApiResponse = await axios.post(postnlCallingapiProd,shipmentData);
+            const postNLApiResponse = await axios.post(postnlCallingapilocal,shipmentData);
 
             
             if (postNLApiResponse.data.ResponseShipments.length > 0 && postNLApiResponse.data.ResponseShipments[0].Labels.length > 0) {
                 barcode = postNLApiResponse.data.ResponseShipments[0].Barcode;
                const labelContent = postNLApiResponse.data.ResponseShipments[0].Labels[0].Content;
-              //  const label = await uploadPdf(labelContent)
-              //  console.log(label)
+               const label = await uploadPdf(labelContent)
+               console.log(label)
         
 
       }
@@ -83,7 +83,7 @@ export async function POST(req: NextRequest) {
   } catch (error) {
     console.error('Error processing the shipment update:', error);
   
-    let errorMessage :any = 'Internal Server Errowr';
+    let errorMessage :any = 'Internal Server Error';
     let status = 500;
     
 
