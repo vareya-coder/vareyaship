@@ -40,7 +40,7 @@ export async function POST(req: NextRequest) {
       if (req.nextUrl.pathname === '/api/shipment/postnl') {
         
         
-            const postNLApiResponse = await axios.post(postnlCallingapilocal,shipmentData);
+            const postNLApiResponse = await axios.post(postnlCallingapiProd,shipmentData);
 
             
             if (postNLApiResponse.data.ResponseShipments.length > 0 && postNLApiResponse.data.ResponseShipments[0].Labels.length > 0) {
