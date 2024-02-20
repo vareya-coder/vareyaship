@@ -10,8 +10,8 @@ import { uploadPdf } from '@/app/utils/labelPdfUrlGenerator';
 import { Label } from '@radix-ui/react-dropdown-menu';
 import { withAxiom, AxiomRequest } from 'next-axiom';
 
-export const POST  = withAxiom(async(req: NextRequest) => {
-
+export const POST  = withAxiom(async(req: AxiomRequest) => {
+  req.log.info('Login function called');
 
   let barcode = undefined;
   let labelUrl = undefined;
