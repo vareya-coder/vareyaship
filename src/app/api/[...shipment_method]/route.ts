@@ -11,7 +11,8 @@ import { Label } from '@radix-ui/react-dropdown-menu';
 import { withAxiom, AxiomRequest } from 'next-axiom';
 
 export const POST  = withAxiom(async(req: AxiomRequest) => {
-  req.log.info('Login function called');
+  req.log.info(' function called');
+  
 
   let barcode = undefined;
   let labelUrl = undefined;
@@ -49,14 +50,16 @@ export const POST  = withAxiom(async(req: AxiomRequest) => {
                
               }
               var currentdate = new Date();
-              var datetime = currentdate.getDay() + "/" + currentdate.getMonth() 
-              + "/" + currentdate.getFullYear() + " " 
-              + currentdate.getHours() + ":" 
-              + currentdate.getMinutes() + ":" + currentdate.getSeconds();
-              const filename = `${shipmentData.order_id} ${datetime}`
+              var datetime = currentdate.getFullYear() + "-" + currentdate.getMonth()+"-" 
+               + currentdate.getDay() + "-" 
+              + currentdate.getHours() + 
+              + currentdate.getMinutes()  + currentdate.getSeconds();
+              const filename = `${shipmentData.order_id}-${shipmentData.shipping_method}- ${datetime}`
               labelUrl = await uploadPdf(labelContent , filename)
               const shipping_method = shipmentData.shipping_method ;
-        
+              if(labelUrl== undefined){
+
+              }
        
         let responseBodyJson = {
           code: postNLApiResponse.status,
@@ -96,8 +99,9 @@ export const POST  = withAxiom(async(req: AxiomRequest) => {
       if (axiosError.response) {
         const response: AxiosResponse = axiosError.response;
         status = response.status
- 
+        
         errorMessage = JSON.stringify(response.data.errors);
+        req.log.error(errorMessage)
       }
     }
 
