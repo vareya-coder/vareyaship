@@ -16,8 +16,8 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <AxiomWebVitals></AxiomWebVitals>
       <body className="">
+      <AxiomWebVitals/>
         <Header ></Header>
         {children}
         </body>
