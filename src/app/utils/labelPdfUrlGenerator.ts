@@ -5,7 +5,7 @@ config();
 
 
 
-export async function uploadPdf(labelBase64 : any) {
+export async function uploadPdf(labelBase64 : any , filename : any) {
     // Decode base64 to get the binary size
     const decodedData = Buffer.from(labelBase64, 'base64');
     const originalSize = decodedData.length;
@@ -20,10 +20,10 @@ export async function uploadPdf(labelBase64 : any) {
         const body = {
             files: [
                 {
-                    name: 'def12.pdf',
+                    name: `label-${filename}.pdf`,
                     size: increasedSize,
                     type: 'application/pdf',
-                    customsid: 'def12',
+                    customsid: `label-${filename}`,
                 },
             ],
         };

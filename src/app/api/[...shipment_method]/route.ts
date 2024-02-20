@@ -11,6 +11,7 @@ import { Label } from '@radix-ui/react-dropdown-menu';
 
 
 export async function POST(req: NextRequest) {
+
   let barcode = undefined;
   let labelUrl = undefined;
   const postnlCallingapilocal ="http://localhost:3000/api/postnl/label"
@@ -38,22 +39,22 @@ export async function POST(req: NextRequest) {
         return new NextResponse('One or more destination address fields are missing.', { status: 400 });
       }
 
-
-      if (req.nextUrl.pathname === '/api/shipment/postnl') {
-        
-        
+      let  labelContent = undefined ;
+      if (req.nextUrl.pathname === '/api/shipment/shiphero') {
             const postNLApiResponse = await axios.post(postnlCallingapiProd,shipmentData);
-
-            
             if (postNLApiResponse.data.ResponseShipments.length > 0 && postNLApiResponse.data.ResponseShipments[0].Labels.length > 0) {
                 barcode = postNLApiResponse.data.ResponseShipments[0].Barcode;
-               const labelContent = postNLApiResponse.data.ResponseShipments[0].Labels[0].Content;
-               labelUrl = await uploadPdf(labelContent)
-             
-        
-
-      }
-      const shipping_method = shipmentData.shipping_method ;
+               labelContent = postNLApiResponse.data.ResponseShipments[0].Labels[0].Content;
+               
+              }
+              var currentdate = new Date();
+              var datetime = currentdate.getDay() + "/" + currentdate.getMonth() 
+              + "/" + currentdate.getFullYear() + " " 
+              + currentdate.getHours() + ":" 
+              + currentdate.getMinutes() + ":" + currentdate.getSeconds();
+              const filename = `${shipmentData.order_id} ${datetime}`
+              labelUrl = await uploadPdf(labelContent , filename)
+              const shipping_method = shipmentData.shipping_method ;
         
        
         let responseBodyJson = {
@@ -67,7 +68,6 @@ export async function POST(req: NextRequest) {
           tracking_url : `https://postnl.post/#/tracking/items/${postNLApiResponse.data.ResponseShipments[0].Barcode}`
         };
         const responseBody =  JSON.stringify(responseBodyJson);
-
         return new NextResponse(responseBody, {
           status: 200,
           headers: {
@@ -77,7 +77,7 @@ export async function POST(req: NextRequest) {
           
           
       } else {
-        return new NextResponse('Labels are not generated for this shipment.', { status: 400 });
+        return new NextResponse('invalid shipping method .', { status: 400 });
       }
     } else {
       return new NextResponse('Method Not Allowed', { status: 405 });

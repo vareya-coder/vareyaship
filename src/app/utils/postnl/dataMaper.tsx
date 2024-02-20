@@ -125,7 +125,7 @@ export async function mapShipHeroToPostNL(shipHeroData: ShipHeroWebhook, Product
 
 
 
-
+    console.log(postNLData)
     return postNLData;
 }
 
