@@ -81,7 +81,7 @@ export async function mapShipHeroToPostNL(shipHeroData: ShipHeroWebhook, Product
     if (!EU.includes(shipHeroData.to_address.country)) {
         shipHeroData.packages.forEach((packageData: any) => {
             packageData.line_items.forEach((lineItem: any) => {
-                if (lineItem.ignore_on_customs) {
+                if (!lineItem.ignore_on_customs) {
                     postNLData.Shipments[0].Customs = {
                         Content: [{
                             CountryOfOrigin: lineItem.country_of_manufacture || "NL",
