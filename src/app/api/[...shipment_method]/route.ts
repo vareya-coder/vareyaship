@@ -7,10 +7,12 @@ import { PostNLLabelResponse } from '@/app/utils/postnl/typeLabel';
 import { AddressType, CustomerDetailsType, ShipmentDetailsType, ShipmentItemsType, ShipmentStatusType } from '@/lib/db/schema';
 import { insertCustomerDetails, insertShipmentDetails, insertShipmentItems ,  } from '@/lib/db/dboperations';
 import { uploadPdf } from '@/app/utils/labelPdfUrlGenerator';
+import { Label } from '@radix-ui/react-dropdown-menu';
 
 
 export async function POST(req: NextRequest) {
   let barcode = undefined;
+  let labelUrl = undefined;
   const postnlCallingapilocal ="http://localhost:3000/api/postnl/label"
   const postnlCallingapiProd ="https://vareyaship.vercel.app/api/postnl/label"
   
@@ -46,8 +48,8 @@ export async function POST(req: NextRequest) {
             if (postNLApiResponse.data.ResponseShipments.length > 0 && postNLApiResponse.data.ResponseShipments[0].Labels.length > 0) {
                 barcode = postNLApiResponse.data.ResponseShipments[0].Barcode;
                const labelContent = postNLApiResponse.data.ResponseShipments[0].Labels[0].Content;
-               const label = await uploadPdf(labelContent)
-               console.log(label)
+               labelUrl = await uploadPdf(labelContent)
+             
         
 
       }
@@ -59,7 +61,7 @@ export async function POST(req: NextRequest) {
           shipping_method:shipping_method,
           tracking_number: postNLApiResponse.data.ResponseShipments[0].Barcode,
           cost: 0,
-          label: '',
+          label: labelUrl,
           customs_info: '',
           shipping_carrier: 'PostNL',
           tracking_url : `https://postnl.post/#/tracking/items/${postNLApiResponse.data.ResponseShipments[0].Barcode}`

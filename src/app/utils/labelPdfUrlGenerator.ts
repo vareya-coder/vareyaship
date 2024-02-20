@@ -3,82 +3,69 @@ import { config } from 'dotenv';
 
 config();
 
-export async function uploadPdf(label: any) {
-    const encoded_labal = await compressAndEncodeData(label)
+
+
+export async function uploadPdf(labelBase64 : any) {
+    // Decode base64 to get the binary size
+    const decodedData = Buffer.from(labelBase64, 'base64');
+    const originalSize = decodedData.length;
+
+
+    // Calculate increased size
+    const increasedSize = increaseSizeByPercentage(originalSize, 50);
+
+
     try {
+        // Prepare the request body for the initial API call
         const body = {
             files: [
                 {
-                    name: 'def',
-                    size: 10,
-                    type: 'pdf',
-                    customsid: 'def',
-                }
-            ]
+                    name: 'def12.pdf',
+                    size: increasedSize,
+                    type: 'application/pdf',
+                    customsid: 'def12',
+                },
+            ],
         };
 
-        const response = await axios.post('https://uploadthing.com/api/uploadFiles', JSON.stringify(body), {
+        // Initial API call to get the presigned URL and other details
+        const response = await axios.post('https://uploadthing.com/api/uploadFiles', body, {
             headers: {
                 'Content-Type': 'application/json',
                 'X-Uploadthing-Api-Key': process.env.UPLOADTHING_SECRET,
             },
         });
-        const FormData = require('form-data');
-        const fileUrl = response.data.data[0].fileUrl;
-        const responseData = response.data.data[0];
-        const key = responseData.key;
-        const presignedUrl = responseData.presignedUrl;
-        const fields = responseData.fields;
 
+        // Destructure necessary data from response
+        const { fileUrl, presignedUrl, fields } = response.data.data[0];
+
+        // Convert the base64 string to a binary Blob
+        const pdfBlob =  Buffer.from(labelBase64, 'base64');
+
+        // Create FormData to append fields and file for S3 upload
+        const FormData = require('form-data');
         const formData = new FormData();
-        Object.entries(fields).forEach(([name, value]) => {
-            formData.append(name, value);
+        Object.entries(fields).forEach(([key, value]) => {
+            formData.append(key, value);
+        });
+        formData.append('file', pdfBlob);
+
+        // Upload the file to the presigned URL
+        await axios.post(presignedUrl, formData, {
+            headers: {
+                // FormData will set the Content-Type to 'multipart/form-data' with the correct boundary
+                // Do not manually set Content-Length here, let axios and FormData handle it
+                'X-Uploadthing-Api-Key': process.env.UPLOADTHING_SECRET,
+            },
         });
 
-        formData.append('file', encoded_labal);
-
-        try {
-            const response2 = await axios.post(presignedUrl, formData, {
-                headers: {
-                    'Content-Type': 'multipart/form-data'
-                }
-            });
-            console.log('File uploaded successfully:', response2.data);
-        } catch (error : any ) {
-            if (error.response) {
-                console.log('Error uploading file to presigned URL:', error.response.data);
-            } else {
-                console.log('Error uploading file to presigned URL:', error.message);
-            }
-           
-        }
-        console.log(fileUrl)
-
+        console.log('File uploaded successfully:', fileUrl);
         return fileUrl;
-    } catch (error :any) {
-        if(error.response)
-        console.log('Error uploading file:', error.response.data);
-        
+    } catch (error : any) {
+        console.error('Error uploading file:', error.response ? error.response.data : error.message);
     }
 }
 
-import { gzip } from 'zlib';
-import { promisify } from 'util';
-
-
-const gzipAsync = promisify(gzip);
-
-async function compressAndEncodeData(data: string): Promise<string> {
-    try {
-        // Compress data using gzip
-        const compressedData = await gzipAsync(data);
-
-        // Encode compressed data to base64
-        const encodedData = compressedData.toString('base64');
-
-        return encodedData;
-    } catch (error) {
-        console.error('Error compressing and encoding data:', error);
-        throw error;
-    }
+function increaseSizeByPercentage(size : any, percentage : number) {
+    return Math.ceil(size * (1 + percentage / 100));
 }
