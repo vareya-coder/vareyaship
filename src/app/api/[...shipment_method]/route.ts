@@ -8,9 +8,10 @@ import { AddressType, CustomerDetailsType, ShipmentDetailsType, ShipmentItemsTyp
 import { insertCustomerDetails, insertShipmentDetails, insertShipmentItems ,  } from '@/lib/db/dboperations';
 import { uploadPdf } from '@/app/utils/labelPdfUrlGenerator';
 import { Label } from '@radix-ui/react-dropdown-menu';
+import { withAxiom, AxiomRequest } from 'next-axiom';
 
+export const POST  = withAxiom(async(req: NextRequest) => {
 
-export async function POST(req: NextRequest) {
 
   let barcode = undefined;
   let labelUrl = undefined;
@@ -77,7 +78,7 @@ export async function POST(req: NextRequest) {
           
           
       } else {
-        return new NextResponse('invalid shipping method .', { status: 400 });
+        return new NextResponse('not found .', { status: 404 });
       }
     } else {
       return new NextResponse('Method Not Allowed', { status: 405 });
@@ -107,7 +108,7 @@ export async function POST(req: NextRequest) {
       },
     });
   }
-}
+})
 
 
         //   const addressData : AddressType = {
