@@ -20,7 +20,7 @@ export async function POST(req: NextRequest) {
 
       const postNLApiKey = process.env.POSTNL_API_KEY as string;
       const postnlbody : Data = await mapShipHeroToPostNL(shipmentData, Product_code);
-
+      console.log(postnlbody)
       try {
         const postNLApiResponse = await callPostNLApi(postNLApiKey, JSON.stringify(postnlbody));
         

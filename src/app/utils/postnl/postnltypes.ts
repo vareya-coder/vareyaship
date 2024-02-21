@@ -68,8 +68,8 @@ type AddressType = {
   };
   
   type ContentDescription = {
-    Description: string;
-    Quantity: any;
+    Description?: string;
+    Quantity?: any;
     Weight?: number;
     Value?: any;
     HSTariffNr?: string;
@@ -119,14 +119,14 @@ type AddressType = {
   };
   
   type ShipmentsType = {
-    Addresses: AddressType[];
+    Addresses?: AddressType[];
     Amounts?: AmountType[];
     Barcode?: string;
     CodingText?: string;
     CollectionTimeStampStart?: string;
     CollectionTimeStampEnd?: string;
-    Contacts: ContactType[];
-    Content?: ContentDescription[];
+    Contacts?: ContactType[];
+    
     CostCenter?: string;
     CustomerOrderNumber?: string;
     Customs?: CustomsType;
@@ -143,8 +143,8 @@ type AddressType = {
     ReturnBarcode?: string;
     ReturnReference?: string;
     TimeslotID?: string;
-    ProductCodeDelivery: string;
-    Dimension: DimensionType;
+    ProductCodeDelivery?: string;
+    Dimension?: DimensionType;
     // ... add other fields as needed
   };
   

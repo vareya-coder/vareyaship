@@ -59,7 +59,7 @@ export async function uploadPdf(labelBase64 : any , filename : any) {
             },
         });
 
-        console.log('File uploaded successfully:', fileUrl);
+
         return fileUrl;
     } catch (error : any) {
         console.error('Error uploading file:', error.response ? error.response.data : error.message);

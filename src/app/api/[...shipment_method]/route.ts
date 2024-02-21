@@ -4,8 +4,8 @@ import { db } from '@/lib/db';
 import { ShipHeroWebhook } from '@/app/utils/types';
 import { Data } from '@/app/utils/postnl/postnltypes';
 import { PostNLLabelResponse } from '@/app/utils/postnl/typeLabel';
-import { AddressType, CustomerDetailsType, ShipmentDetailsType, ShipmentItemsType, ShipmentStatusType } from '@/lib/db/schema';
-import { insertCustomerDetails, insertShipmentDetails, insertShipmentItems ,  } from '@/lib/db/dboperations';
+import {  CustomerDetailsType, ShipmentDetailsType, ShipmentItemsType, ShipmentStatusType } from '@/lib/db/schema';
+import { insertCustomerDetails, insertShipmentDetails, insertShipmentItems, insertShipmentStatus ,  } from '@/lib/db/dboperations';
 import { uploadPdf } from '@/app/utils/labelPdfUrlGenerator';
 import { Label } from '@radix-ui/react-dropdown-menu';
 import { withAxiom, AxiomRequest } from 'next-axiom';
@@ -43,7 +43,7 @@ export const POST  = withAxiom(async(req: AxiomRequest) => {
 
       let  labelContent = undefined ;
       if (req.nextUrl.pathname === '/api/shipment/shiphero') {
-            const postNLApiResponse = await axios.post(postnlCallingapiProd,shipmentData);
+            const postNLApiResponse = await axios.post(postnlCallingapilocal,shipmentData);
             if (postNLApiResponse.data.ResponseShipments.length > 0 && postNLApiResponse.data.ResponseShipments[0].Labels.length > 0) {
                 barcode = postNLApiResponse.data.ResponseShipments[0].Barcode;
                labelContent = postNLApiResponse.data.ResponseShipments[0].Labels[0].Content;
@@ -60,6 +60,58 @@ export const POST  = withAxiom(async(req: AxiomRequest) => {
               if(labelUrl== undefined){
 
               }
+              
+            
+            const shipmentDetailsData : ShipmentDetailsType = {
+                barcode: barcode,
+                name : shipmentData.shop_name,
+                order_id: shipmentData.order_id,
+                label_announced_at: new Date(),
+                cancel_deadline: new Date(),
+                shipping_method:shipmentData.shipping_method,
+  
+                from_address: fromAddress ,
+                label_url : labelUrl
+            };
+            
+            const customerDetailsData : CustomerDetailsType = {
+                customer_name: shipmentData.to_address.name,
+                customer_email: shipmentData.to_address.email,
+                to_address: shipmentData.to_address.address_1+","+shipmentData.to_address.city+","+shipmentData.to_address.country,
+                order_id: shipmentData.order_id,
+            };
+            
+            const shipmentStatusData : ShipmentStatusType = {
+                order_id: shipmentData.order_id, 
+                status_code: '1',
+                status_description: '	Shipment pre-alerted',
+                timestamp: new Date(),
+                carrier_message: 'Carrier message goes here',
+            };
+            
+            const shipmentItemsData : ShipmentItemsType = {
+                order_id: shipmentData.order_id, 
+                item_description: 'Example Item',
+                quantity: 1,
+                unit_price: "10.99",
+                shipment_weight: Weight,
+            };
+            
+            
+          
+                try {
+                    // Insert into addresses table
+                    
+                    await insertShipmentDetails(shipmentDetailsData);
+                    //await insertShipmentItems(shipmentItemsData)
+                    await insertCustomerDetails(customerDetailsData)
+                    await insertShipmentStatus(shipmentStatusData)
+    
+                }catch (error) {
+                  console.error('Error inserting data:', error);
+    
+              }
+       
        
         let responseBodyJson = {
           code: postNLApiResponse.status,
@@ -115,57 +167,4 @@ export const POST  = withAxiom(async(req: AxiomRequest) => {
 })
 
 
-        //   const addressData : AddressType = {
-        //     address_type: 1,
-        //     street: '123 Main St',
-        //     city: 'Example City',
-        //     postal_code: '12345',
-        //     country: 'Example Country',
-        // };
-        
-        // const shipmentDetailsData : ShipmentDetailsType = {
-        //     barcode: barcode,
-        //     order_id: shipmentData.order_id,
-        //     label_announced_at: new Date(),
-        //     cancel_deadline: new Date(),
-        //     shipping_method:shipmentData.shipping_method,
-        //     shipment_weight: Weight,
-        //     from_address: fromAddress ,
-        // };
-        
-        // const customerDetailsData : CustomerDetailsType = {
-        //     customer_name: shipmentData.to_address.name,
-        //     customer_email: shipmentData.to_address.email,
-        //     to_address: shipmentData.to_address.address_1+","+shipmentData.to_address.city+","+shipmentData.to_address.country,
-        //     order_id: shipmentData.order_id,
-        // };
-        
-        // const shipmentStatusData : ShipmentStatusType = {
-        //     order_id: shipmentData.order_id, 
-        //     status_code: 'labeled',
-        //     status_description: 'Shipment has been shipped',
-        //     timestamp: new Date(),
-        //     carrier_message: 'Carrier message goes here',
-        // };
-        
-        // const shipmentItemsData : ShipmentItemsType = {
-        //     order_id: shipmentData.order_id, 
-        //     item_description: 'Example Item',
-        //     quantity: 1,
-        //     unit_price: "10.99",
-        // };
-        
-        
-      
-        //     try {
-        //         // Insert into addresses table
-                
-        //         await insertShipmentDetails(shipmentDetailsData);
-        //         await insertShipmentItems(shipmentItemsData)
-        //         await insertCustomerDetails(customerDetailsData)
-
-        //     }catch (error) {
-        //       console.error('Error inserting data:', error);
-
-        //   }
    

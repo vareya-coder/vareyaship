@@ -1,0 +1,1 @@
+ALTER TABLE "shipment_details" ADD COLUMN "label_url" varchar;

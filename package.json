@@ -4,6 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "db:migrate": "tsx migrate.ts",
+    "db:generate": "drizzle-kit generate:pg",
     "build": "next build",
     "start": "next start",
     "lint": "next lint"
@@ -23,7 +25,6 @@
     "cor": "^0.0.0",
     "cors": "^2.8.5",
     "dotenv": "^16.4.1",
-    "drizzle-kit": "^0.20.14",
     "drizzle-orm": "^0.29.3",
     "eslint": "8.56.0",
     "eslint-config-next": "14.1.0",
@@ -40,7 +41,8 @@
     "typescript": "5.3.3"
   },
   "devDependencies": {
-    "@types/cors": "^2.8.17"
+    "@types/cors": "^2.8.17",
+    "drizzle-kit": "^0.20.14"
   },
   "description": "This is a [Next.js](https://nextjs.org/) project bootstrapped with [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app).",
   "main": "next.config.js",

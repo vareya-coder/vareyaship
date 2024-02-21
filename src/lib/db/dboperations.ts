@@ -1,8 +1,8 @@
 // dbOperations.ts
 
 import { db } from '@/lib/db';
-import { AddressType,ShipmentDetailsType,
-        addresses,
+import { ShipmentDetailsType,
+       
         shipmentDetails,
         customerDetails,
         shipmentItems,
@@ -13,15 +13,15 @@ import { AddressType,ShipmentDetailsType,
      } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
 
-export async function insertAddress(addressData: AddressType): Promise<void> {
-  try {
-    await db.insert(addresses).values(addressData);
-    // console.log('Address inserted successfully.');
-  } catch (error) {
-    console.error('Error inserting address:', error);
-    throw error;
-  }
-}
+// export async function insertAddress(addressData: AddressType): Promise<void> {
+//   try {
+//     await db.insert(addresses).values(addressData);
+//     // console.log('Address inserted successfully.');
+//   } catch (error) {
+//     console.error('Error inserting address:', error);
+//     throw error;
+//   }
+// }
 
 export async function insertShipmentDetails(shipmentDetailsData : ShipmentDetailsType): Promise<void> {
   try {
@@ -43,7 +43,7 @@ export async function insertCustomerDetails(customerDetailsData : CustomerDetail
   }
 }
 
-export async function insertShipmentStatus(shipmentStatusData : ShipmentStatusType): Promise<void> {
+export async function insertShipmentStatus(shipmentStatusData  : ShipmentStatusType): Promise<void> {
   try {
     await db.insert(shipmentStatus).values(shipmentStatusData);
     // console.log('Shipment status inserted successfully.');

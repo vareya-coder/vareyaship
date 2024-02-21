@@ -1,26 +1,27 @@
 
 
+import { Table } from "drizzle-orm";
 import { pgTable, serial, timestamp, text, integer, varchar, decimal , real} from "drizzle-orm/pg-core";
 
 
 
 
 //address table
-export const addresses = pgTable('addresses', {
-    address_id: serial('address_id').primaryKey(),
-    address_type: serial('address_type'),
-    street: varchar('street'),
-    city: varchar('city'),
-    postal_code: varchar('postal_code'),
-    country: varchar('country'),
+// export const addresses = pgTable('addresses', {
+//     address_id: serial('address_id').primaryKey(),
+//     address_type: serial('address_type'),
+//     street: varchar('street'),
+//     city: varchar('city'),
+//     postal_code: varchar('postal_code'),
+//     country: varchar('country'),
     
-});
-export const User=pgTable('User',{
-    id: serial('id'),
-    name: varchar('name').primaryKey(),
-    company: varchar('company'),
-    address_id: integer('address_id').references(() => addresses.address_id)
-})
+// });
+// export const User=pgTable('User',{
+//     id: serial('id'),
+//     name: varchar('name').primaryKey(),
+//     company: varchar('company'),
+//     address_id: integer('address_id').references(() => addresses.address_id)
+// })
 
 export const shipmentDetails = pgTable('shipment_details', {
     barcode: varchar('barcode'),
@@ -31,9 +32,9 @@ export const shipmentDetails = pgTable('shipment_details', {
     label_announced_at: timestamp('label_announced_at'),
     cancel_deadline: timestamp('cancel_deadline'),
     shipping_method: varchar('shipping_method'),
-    shipment_weight: real('shipment_weight'),
     from_address: varchar('from_address'),
-    shipment_status: serial('shipment_status'),
+    label_url : varchar('label_url'),
+   
 });
 
 // Customer details table
@@ -61,6 +62,7 @@ export const shipmentItems = pgTable('shipment_items', {
     order_id: integer('order_id').references(() => shipmentDetails.order_id),
     item_description: text('item_description'),
     quantity: integer('quantity'),
+    shipment_weight: real('shipment_weight'),
     unit_price: decimal('unit_price'),
 });
 
@@ -68,4 +70,4 @@ export type ShipmentDetailsType = typeof shipmentDetails.$inferInsert;
 export type CustomerDetailsType = typeof customerDetails.$inferInsert;
 export type ShipmentStatusType = typeof shipmentStatus.$inferInsert;
 export type ShipmentItemsType = typeof shipmentItems.$inferInsert;
-export type AddressType = typeof addresses.$inferInsert;
+//export type AddressType = typeof addresses.$inferInsert;
