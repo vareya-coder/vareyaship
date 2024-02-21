@@ -1,4 +1,3 @@
-
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
 import { DropdownMenuTrigger, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuItem, DropdownMenuContent, DropdownMenu } from "@/components/ui/dropdown-menu"
@@ -14,12 +13,13 @@ import { Tag } from "lucide-react"
 
 
 
+
 export default async function Hero() {
   const labelData = await getAllShipmentDetails()
   const orderDetails = await getOrderDetails()
   return (
     <div key="1" className="bg-white p-8">
-      <Tabs>
+      <Tabs >
         <TabsList className="border-b 
  ">
           <TabsTrigger className="px-4 py-2 focus:font-bold "  value="labels">
@@ -60,7 +60,11 @@ export default async function Hero() {
                 labelData.map((item : any)=>(
 
               <TableRow key={item.order_id}>
-                <TableCell className="   text-green-600 flex flex-row " >   <Tag /><h1 className="pl-2 text-black font-bold">Printed</h1> </TableCell>
+                <a target="_blank" href={item.label_url} rel="noopener noreferrer">
+   
+                <TableCell className="   text-green-600 flex flex-row " >   <Tag /><h1 className="pl-2 text-black font-bold">Print</h1> </TableCell>
+              </a>
+
                 <TableCell>At sorting centre</TableCell>
                 <TableCell>{item.order_id}</TableCell>
                 <TableCell>{item.name}</TableCell>
@@ -144,7 +148,7 @@ export default async function Hero() {
                 <TableHead>Label</TableHead>
               </TableRow>
             </TableHeader>
-            <TableBody>
+            {/* <TableBody>
               <TableRow>
                 <TableCell>At sorting centre</TableCell>
                 <TableCell>#25434</TableCell>
@@ -163,7 +167,7 @@ export default async function Hero() {
                 <TableCell>LA826677859NL</TableCell>
                 <TableCell>26/01/2024 15:01</TableCell>
               </TableRow>
-            </TableBody>
+            </TableBody> */}
           </Table>
         </TabsContent>
         <TabsContent value="canceled">
@@ -185,7 +189,7 @@ export default async function Hero() {
                 <TableHead>Label</TableHead>
               </TableRow>
             </TableHeader>
-                  <TableBody>
+                  {/* <TableBody>
                     <TableRow>
                       <TableCell className="font-semibold">O-2102</TableCell>
                       <TableCell>Olivia Martin</TableCell>
@@ -193,7 +197,7 @@ export default async function Hero() {
                       <TableCell className="hidden sm:table-cell">February 20, 2022</TableCell>
                     </TableRow>
                     
-                  </TableBody>
+                  </TableBody> */}
                 </Table>
               </div>
             </TabsContent>
@@ -201,4 +205,3 @@ export default async function Hero() {
     </div>
   )
 }
-
