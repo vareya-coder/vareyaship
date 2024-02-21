@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "db:migrate": "tsx migrate.ts",
+    "db:migrate": "tsx scripts/migrate.ts",
     "db:generate": "drizzle-kit generate:pg",
     "build": "next build",
     "start": "next start",
@@ -42,7 +42,9 @@
   },
   "devDependencies": {
     "@types/cors": "^2.8.17",
-    "drizzle-kit": "^0.20.14"
+    "drizzle-kit": "^0.20.14",
+    "postgres": "^3.4.3",
+    "tsx": "^4.7.1"
   },
   "description": "This is a [Next.js](https://nextjs.org/) project bootstrapped with [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app).",
   "main": "next.config.js",
