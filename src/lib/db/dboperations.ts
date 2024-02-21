@@ -1,5 +1,5 @@
 // dbOperations.ts
-import { useRouter } from 'next/navigation';
+
 import { db } from '@/lib/db';
 import { ShipmentDetailsType,
        
@@ -26,8 +26,7 @@ import { eq } from 'drizzle-orm';
 export async function insertShipmentDetails(shipmentDetailsData : ShipmentDetailsType): Promise<void> {
   try {
     await db.insert(shipmentDetails).values(shipmentDetailsData);
-    const router = useRouter()
-    router.refresh()
+
   } catch (error) {
     console.error('Error inserting shipment details:', error);
     throw error;

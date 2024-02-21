@@ -43,7 +43,7 @@ export const POST  = withAxiom(async(req: AxiomRequest) => {
 
       let  labelContent = undefined ;
       if (req.nextUrl.pathname === '/api/shipment/shiphero') {
-            const postNLApiResponse = await axios.post(postnlCallingapilocal,shipmentData);
+            const postNLApiResponse = await axios.post(postnlCallingapiProd,shipmentData);
             if (postNLApiResponse.data.ResponseShipments.length > 0 && postNLApiResponse.data.ResponseShipments[0].Labels.length > 0) {
                 barcode = postNLApiResponse.data.ResponseShipments[0].Barcode;
                labelContent = postNLApiResponse.data.ResponseShipments[0].Labels[0].Content;
