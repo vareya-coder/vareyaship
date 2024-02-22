@@ -20,7 +20,7 @@ const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: true
 });
-export const dynamic = 'force-dynamic';
+export const revalidate = 1; 
 
  export async function getAllShipmentDetails() {
   const client = await pool.connect();
