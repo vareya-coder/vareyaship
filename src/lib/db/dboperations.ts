@@ -25,8 +25,12 @@ const pool = new Pool({
   const client = await pool.connect();
   try {
     const response = await client.query('SELECT * from shipment_details');
-    log.info("fetched data successfully : ",{ data: response.rows })
+    log.info("fetched data successfully : ",{ data: JSON.stringify(response.rows) })
     return response.rows;
+  }catch(error : any ) {
+
+    log.error("Error fetching data", { error: error.message });
+    throw error; 
   } finally {
     await log.flush();
     client.release();
@@ -47,10 +51,11 @@ export async function insertShipmentDetails(shipmentDetailsData : ShipmentDetail
   try {
     await db.insert(shipmentDetails).values(shipmentDetailsData);
     log.info("A new shipment is added to database :",{shipment : shipmentDetails} )
+    log.debug("new shipment")
     await log.flush();
   } catch (error) {
     console.error('Error inserting shipment details:', error);
-    log.error("an error occur while inserting new shipment :" ,{errors : error})
+    log.error("an error occur while inserting new shipment to database :" ,{errors : JSON.stringify(error)})
     await log.flush();
     throw error;
   }
