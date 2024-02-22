@@ -13,6 +13,7 @@ import { ShipmentDetailsType,
      } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
 import { Pool } from 'pg';
+import { error } from 'console';
 
 const log = new Logger();
 const pool = new Pool({ 
@@ -24,9 +25,10 @@ const pool = new Pool({
   const client = await pool.connect();
   try {
     const response = await client.query('SELECT * from shipment_details');
-    log.info(response.rows as any)
+    log.info("fetched data successfully : ",{ data: response.rows })
     return response.rows;
   } finally {
+    await log.flush();
     client.release();
   }
 }
@@ -44,10 +46,12 @@ const pool = new Pool({
 export async function insertShipmentDetails(shipmentDetailsData : ShipmentDetailsType): Promise<void> {
   try {
     await db.insert(shipmentDetails).values(shipmentDetailsData);
-    log.info("A new shipment is added to database :",shipmentDetails)
+    log.info("A new shipment is added to database :",{shipment : shipmentDetails} )
+    await log.flush();
   } catch (error) {
     console.error('Error inserting shipment details:', error);
-    log.error("an error occur while inserting new shipment :" , error as any)
+    log.error("an error occur while inserting new shipment :" ,{errors : error})
+    await log.flush();
     throw error;
   }
 }
