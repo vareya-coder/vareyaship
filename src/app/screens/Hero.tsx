@@ -8,6 +8,7 @@ import { getAllShipmentDetails, getOrderDetails } from "@/lib/db/dboperations"
 import { CardTitle, CardHeader, CardContent, Card } from "@/components/ui/card"
 import { Tag } from "lucide-react"
 
+export const revalidate = 0
 export default async function Hero() {
   const labelData = (await getAllShipmentDetails()).reverse();
   const orderDetails = (await getOrderDetails()).reverse();

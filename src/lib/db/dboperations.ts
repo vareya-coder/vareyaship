@@ -20,9 +20,9 @@ const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: true
 });
-export const revalidate = 1; 
 
- export async function getAllShipmentDetails() {
+export const revalidate = 0;
+export async function getAllShipmentDetails() {
   const client = await pool.connect();
   try {
     const response = await client.query('SELECT * from shipment_details');
