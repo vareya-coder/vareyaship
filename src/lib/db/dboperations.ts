@@ -20,12 +20,13 @@ const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: true
 });
+export const dynamic = 'force-dynamic';
 
  export async function getAllShipmentDetails() {
   const client = await pool.connect();
   try {
     const response = await client.query('SELECT * from shipment_details');
-    log.info("fetched data successfully : ",{ data: JSON.stringify(response.rows) })
+    log.info("fetched data successfully : ",{ data: response.rows })
     return response.rows;
   }catch(error : any ) {
 
@@ -51,11 +52,11 @@ export async function insertShipmentDetails(shipmentDetailsData : ShipmentDetail
   try {
     await db.insert(shipmentDetails).values(shipmentDetailsData);
     log.info("A new shipment is added to database :",{shipment : shipmentDetails} )
-    log.debug("new shipment")
+    log.debug("new shipment added debug message")
     await log.flush();
   } catch (error) {
     console.error('Error inserting shipment details:', error);
-    log.error("an error occur while inserting new shipment to database :" ,{errors : JSON.stringify(error)})
+    log.error("an error occur while inserting new shipment to database :" ,{errors : error})
     await log.flush();
     throw error;
   }
