@@ -9,8 +9,8 @@ import { CardTitle, CardHeader, CardContent, Card } from "@/components/ui/card"
 import { Tag } from "lucide-react"
 
 export default async function Hero() {
-  const labelData = await getAllShipmentDetails()
-  const orderDetails = await getOrderDetails()
+  const labelData = (await getAllShipmentDetails()).reverse();
+  const orderDetails = (await getOrderDetails()).reverse();
   
   return (
     <div key="1" className="bg-white p-8">
