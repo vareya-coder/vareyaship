@@ -12,6 +12,23 @@ import { ShipmentDetailsType,
         ShipmentItemsType
      } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
+import { Pool } from 'pg';
+
+const pool = new Pool({ 
+  connectionString: process.env.DATABASE_URL,
+  ssl: true
+});
+
+ export async function getAllShipmentDetails() {
+  const client = await pool.connect();
+  try {
+    const response = await client.query('SELECT * from shipment_details');
+    console.log(response.rows);
+    return response.rows;
+  } finally {
+    client.release();
+  }
+}
 
 // export async function insertAddress(addressData: AddressType): Promise<void> {
 //   try {
@@ -63,17 +80,18 @@ export async function insertShipmentItems(shipmentItemsData : ShipmentItemsType)
   }
 }
 
-export async function getAllShipmentDetails() {
-  try {
+// export async function getAllShipmentDetails() {
+  
+//   try {
     
-    const result  = await db.select().from(shipmentDetails)
+//     const result  = await db.select().from(shipmentDetails)
 
-    return result;
-  } catch (error) {
-    console.error('Error fetching shipment details:', error);
-    throw error; // You can handle the error as per your application's requirements
-  }
-}
+//     return result;
+//   } catch (error) {
+//     console.error('Error fetching shipment details:', error);
+//     throw error; // You can handle the error as per your application's requirements
+//   }
+// }
 
 export async function getOrderDetails() {
   try {
