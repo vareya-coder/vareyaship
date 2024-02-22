@@ -8,21 +8,16 @@ import { getAllShipmentDetails, getOrderDetails } from "@/lib/db/dboperations"
 import { CardTitle, CardHeader, CardContent, Card } from "@/components/ui/card"
 import { Tag } from "lucide-react"
 
-
-
-
-
-
-
 export default async function Hero() {
   const labelData = await getAllShipmentDetails()
   const orderDetails = await getOrderDetails()
+  
   return (
     <div key="1" className="bg-white p-8">
       <Tabs >
         <TabsList className="border-b 
  ">
-          <TabsTrigger className="px-4 py-2 focus:font-bold "  value="labels">
+          <TabsTrigger className="px-4 py-2 focus:font-bold "  value="labels" >
             Created labels
           </TabsTrigger>
           <TabsTrigger className="px-4 py-2 focus:font-bold" value="shipped">
@@ -70,7 +65,7 @@ export default async function Hero() {
                 <TableCell>{item.name}</TableCell>
                 <TableCell>{item.shipping_method}</TableCell>
                 <TableCell>{item.barcode}</TableCell>
-                <TableCell>28/01/2024 14:29</TableCell>
+                <TableCell>{item.label_announced_at.toLocaleString()}</TableCell>
               </TableRow>
                 ))
               }
