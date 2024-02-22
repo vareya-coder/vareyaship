@@ -1,5 +1,5 @@
 // dbOperations.ts
-
+import { Logger } from 'next-axiom';
 import { db } from '@/lib/db';
 import { ShipmentDetailsType,
        
@@ -14,6 +14,7 @@ import { ShipmentDetailsType,
 import { eq } from 'drizzle-orm';
 import { Pool } from 'pg';
 
+const log = new Logger();
 const pool = new Pool({ 
   connectionString: process.env.DATABASE_URL,
   ssl: true
@@ -23,7 +24,7 @@ const pool = new Pool({
   const client = await pool.connect();
   try {
     const response = await client.query('SELECT * from shipment_details');
-    console.log(response.rows);
+    log.info(response.rows as any)
     return response.rows;
   } finally {
     client.release();
@@ -43,9 +44,10 @@ const pool = new Pool({
 export async function insertShipmentDetails(shipmentDetailsData : ShipmentDetailsType): Promise<void> {
   try {
     await db.insert(shipmentDetails).values(shipmentDetailsData);
-
+    log.info("A new shipment is added to database :",shipmentDetails)
   } catch (error) {
     console.error('Error inserting shipment details:', error);
+    log.error("an error occur while inserting new shipment :" , error as any)
     throw error;
   }
 }

@@ -56,6 +56,8 @@ type AddressType = {
     Currency: string;
     Content?:ContentDescription[],
     HandleAsNonDeliverable : boolean;
+    TrustedShipperID?: string ,
+    ImporterReferenceCode? : string
     
   };
   
