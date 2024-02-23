@@ -27,12 +27,12 @@ export default function Page() {
       });
 
       if (!response.ok) {
-        console.log("first")
+        console.log("token response not ok")
         throw new Error('Login failed');
       }
 
       const { token } = await response.json();
-
+      console.log("final token" ,token)
       const expiryDate = new Date();
 
       // Set the expiry time to 3 days from now
