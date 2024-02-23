@@ -1,11 +1,13 @@
 import axios from 'axios';
 import { config } from 'dotenv';
+import { Logger } from 'next-axiom';
 
 config();
 
 
 
 export async function uploadPdf(labelBase64 : any , filename : any) {
+    const log = new Logger()
     // Decode base64 to get the binary size
     const decodedData = Buffer.from(labelBase64, 'base64');
     const originalSize = decodedData.length;
@@ -35,10 +37,13 @@ export async function uploadPdf(labelBase64 : any , filename : any) {
                 'X-Uploadthing-Api-Key': process.env.UPLOADTHING_SECRET,
             },
         });
-
-        // Destructure necessary data from response
+        
+       
         const { fileUrl, presignedUrl, fields } = response.data.data[0];
-
+        if(!fileUrl){
+            log.error("error occured when creating Url for Label")
+            await log.flush();
+        }
         // Convert the base64 string to a binary Blob
         const pdfBlob =  Buffer.from(labelBase64, 'base64');
 
@@ -63,6 +68,8 @@ export async function uploadPdf(labelBase64 : any , filename : any) {
         return fileUrl;
     } catch (error : any) {
         console.error('Error uploading file:', error.response ? error.response.data : error.message);
+        log.error("error occured while uploading file to Uploadthing :",{error:error})
+        await log.flush();
     }
 }
 

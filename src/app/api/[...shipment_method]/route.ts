@@ -43,7 +43,7 @@ export const POST  = withAxiom(async(req: AxiomRequest) => {
             if (postNLApiResponse.data.ResponseShipments.length > 0 && postNLApiResponse.data.ResponseShipments[0].Labels.length > 0) {
                 barcode = postNLApiResponse.data.ResponseShipments[0].Barcode;
                labelContent = postNLApiResponse.data.ResponseShipments[0].Labels[0].Content;
-               
+               req.log.info('Label Generated successfully for order :' ,{order:shipmentData});
               }
               var currentdate = new Date();
               var datetime = currentdate.getFullYear() + "-" + currentdate.getMonth()+"-" 
@@ -100,6 +100,7 @@ export const POST  = withAxiom(async(req: AxiomRequest) => {
     
                 }catch (error) {
                   console.error('Error inserting data:', error);
+                  req.log.error('Error occured while inserting data to database',{error:error});
     
               }
        
@@ -144,7 +145,7 @@ export const POST  = withAxiom(async(req: AxiomRequest) => {
         status = response.status
         
         errorMessage = JSON.stringify(response.data.errors);
-        req.log.error(errorMessage)
+        req.log.error('Error occured while calling postNL API :',{error:errorMessage})
       }
     }
 

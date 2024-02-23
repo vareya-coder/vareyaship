@@ -13,7 +13,7 @@ import { ShipmentDetailsType,
      } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
 import { Pool } from 'pg';
-import { error } from 'console';
+
 
 const log = new Logger();
 const pool = new Pool({ 
@@ -26,12 +26,10 @@ export async function getAllShipmentDetails() {
 
   try {
     const response = await db.select().from(shipmentDetails)
-    log.info("fetched data successfully : ")
-
     return response
   }catch(error : any ) {
 
-    log.error("Error fetching data", { error: error.message });
+    log.error("Error fetching data from database on UI :", { error: error.message });
     throw error; 
   } finally {
     await log.flush();
@@ -53,8 +51,6 @@ export async function insertShipmentDetails(shipmentDetailsData : ShipmentDetail
   try {
     await db.insert(shipmentDetails).values(shipmentDetailsData);
     log.info("A new shipment is added to database " )
-
-
     await log.flush();
     return
   } catch (error : any ) {
