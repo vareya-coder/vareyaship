@@ -6,6 +6,7 @@ import axios from "axios";
 config();
 
 export async function mapShipHeroToPostNL(shipHeroData: ShipHeroWebhook, Product_code: string) {
+    console.log(shipHeroData)
     const EU: any = ['AT', 'BE', 'BG', 'CY', 'CZ', 'DE', 'DK', 'EE', 'ES', 'FI', 'FR', 'GR', 'HR', 'HU', 'IE', 'IT', 'LT', 'LU', 'LV', 'MT', 'NL', 'PL', 'PT', 'RO', 'SE', 'SI', 'SK'];
     
     const customer_code: string = process.env.CUSTOMER_CODE as string;
@@ -100,8 +101,21 @@ export async function mapShipHeroToPostNL(shipHeroData: ShipHeroWebhook, Product
             HandleAsNonDeliverable: false,
             Invoice: true,
             InvoiceNr: "22334455",
-            ShipmentType: "Commercial Goods"
+            ShipmentType: "Commercial Goods",
         };
+        if(shipHeroData.tax_type == 'VOEC'){
+            postNLData.Shipments[0].Customs.TrustedShipperID =`VOEC${shipHeroData.tax_id}`
+
+        }
+        if(shipHeroData.tax_type=='VAT' || shipHeroData.tax_type == 'EORI'){
+            if(shipHeroData.to_address.country =='GR'){
+                postNLData.Shipments[0].TrustedShipperID =`EL${shipHeroData.tax_id}` 
+            }else{
+                postNLData.Shipments[0].TrustedShipperID =`${shipHeroData.to_address.country}${shipHeroData.tax_id}`
+            }
+        }
+
+
     
         shipHeroData.packages.forEach((packageData: any) => {
             packageData.line_items.forEach((lineItem: any) => {
