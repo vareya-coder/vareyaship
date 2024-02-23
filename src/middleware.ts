@@ -1,18 +1,14 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
-// This function can be marked `async` if using `await` inside
+
 export function middleware(request: NextRequest) {
-  const token = request.cookies.get('token'); // Replace 'yourTokenCookieName' with the actual cookie name
+  const token = request.cookies.get('token'); 
 
-
-  console.log(token);
-
-  // If there is no token, redirect to the sign-in page
   if (!token) {
     return NextResponse.redirect(new URL('/signin', request.url));
   }
-  console.log("Token is valid, proceeding with the request.");
+  // console.log("Token is valid, proceeding with the request.");
   return NextResponse.next();
 }
 
