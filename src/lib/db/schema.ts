@@ -28,7 +28,6 @@ export const shipmentDetails = pgTable('shipment_details', {
     order_id: integer('order_id').primaryKey(),
     name : varchar('name'),
     company : varchar('company'),
-    //label : varchar('label'),
     label_announced_at: timestamp('label_announced_at').default(sql`CURRENT_TIMESTAMP`),
     cancel_deadline: timestamp('cancel_deadline'),
     shipping_method: varchar('shipping_method'),
