@@ -29,6 +29,20 @@
       "when": 1708548524225,
       "tag": "0003_unusual_silver_sable",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "5",
+      "when": 1708643852281,
+      "tag": "0004_tricky_ultimates",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "5",
+      "when": 1708644003388,
+      "tag": "0005_lethal_lady_ursula",
+      "breakpoints": true
     }
   ]
 }

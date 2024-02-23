@@ -1,6 +1,6 @@
 
 
-import { Table } from "drizzle-orm";
+import { Table ,sql } from "drizzle-orm";
 import { pgTable, serial, timestamp, text, integer, varchar, decimal , real} from "drizzle-orm/pg-core";
 
 
@@ -29,7 +29,7 @@ export const shipmentDetails = pgTable('shipment_details', {
     name : varchar('name'),
     company : varchar('company'),
     //label : varchar('label'),
-    label_announced_at: timestamp('label_announced_at'),
+    label_announced_at: timestamp('label_announced_at').default(sql`CURRENT_TIMESTAMP`),
     cancel_deadline: timestamp('cancel_deadline'),
     shipping_method: varchar('shipping_method'),
     from_address: varchar('from_address'),
@@ -43,23 +43,22 @@ export const customerDetails = pgTable('customer_details', {
     customer_name: varchar('customer_name'),
     customer_email: varchar('customer_email'),
     to_address: varchar('to_address'),
-    order_id: integer('order_id').references(() => shipmentDetails.order_id)
+    order_id: integer('order_id').references(() => shipmentDetails.order_id, { onDelete: 'cascade' })
 });
 
 // Shipment status table
 export const shipmentStatus = pgTable('shipment_status', {
     status_id: serial('status_id').primaryKey(),
-    order_id: integer('order_id').references(() => shipmentDetails.order_id),
+    order_id: integer('order_id').references(() => shipmentDetails.order_id, { onDelete: 'cascade' }),
     status_code: varchar('status_code'),
     status_description: text('status_description'),
-    timestamp: timestamp('timestamp'),
     carrier_message: text('carrier_message'),
 });
 
 // Shipment items table
 export const shipmentItems = pgTable('shipment_items', {
     item_id: serial('item_id').primaryKey(),
-    order_id: integer('order_id').references(() => shipmentDetails.order_id),
+    order_id: integer('order_id').references(() => shipmentDetails.order_id, { onDelete: 'cascade' }),
     item_description: text('item_description'),
     quantity: integer('quantity'),
     shipment_weight: real('shipment_weight'),

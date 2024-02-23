@@ -23,18 +23,19 @@ const pool = new Pool({
 
 export const revalidate = 0;
 export async function getAllShipmentDetails() {
-  const client = await pool.connect();
+
   try {
-    const response = await client.query('SELECT * from shipment_details');
-    log.info("fetched data successfully : ",{ data: response.rows })
-    return response.rows;
+    const response = await db.select().from(shipmentDetails)
+    log.info("fetched data successfully : ")
+
+    return response
   }catch(error : any ) {
 
     log.error("Error fetching data", { error: error.message });
     throw error; 
   } finally {
     await log.flush();
-    client.release();
+
   }
 }
 
@@ -51,11 +52,13 @@ export async function getAllShipmentDetails() {
 export async function insertShipmentDetails(shipmentDetailsData : ShipmentDetailsType): Promise<void> {
   try {
     await db.insert(shipmentDetails).values(shipmentDetailsData);
-    log.info("A new shipment is added to database :",{shipment : shipmentDetails} )
-    log.debug("new shipment added debug message")
+    log.info("A new shipment is added to database " )
+
+
     await log.flush();
-  } catch (error) {
-    console.error('Error inserting shipment details:', error);
+    return
+  } catch (error : any ) {
+
     log.error("an error occur while inserting new shipment to database :" ,{errors : error})
     await log.flush();
     throw error;
@@ -67,7 +70,7 @@ export async function insertCustomerDetails(customerDetailsData : CustomerDetail
     await db.insert(customerDetails).values(customerDetailsData);
     // console.log('Customer details inserted successfully.');
   } catch (error) {
-    console.error('Error inserting customer details:', error);
+    console.log('Error inserting customer details:', error);
     throw error;
   }
 }

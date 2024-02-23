@@ -1,0 +1,1 @@
+ALTER TABLE "shipment_details" ALTER COLUMN "label_announced_at" SET DEFAULT CURRENT_TIMESTAMP;

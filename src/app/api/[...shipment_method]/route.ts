@@ -1,20 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import axios, { AxiosError, AxiosResponse } from 'axios';
-import { db } from '@/lib/db';
 import { ShipHeroWebhook } from '@/app/utils/types';
-import { Data } from '@/app/utils/postnl/postnltypes';
-import { PostNLLabelResponse } from '@/app/utils/postnl/typeLabel';
 import {  CustomerDetailsType, ShipmentDetailsType, ShipmentItemsType, ShipmentStatusType } from '@/lib/db/schema';
 import { insertCustomerDetails, insertShipmentDetails, insertShipmentItems, insertShipmentStatus ,  } from '@/lib/db/dboperations';
 import { uploadPdf } from '@/app/utils/labelPdfUrlGenerator';
-import { Label } from '@radix-ui/react-dropdown-menu';
 import { withAxiom, AxiomRequest } from 'next-axiom';
 
 export const POST  = withAxiom(async(req: AxiomRequest) => {
   req.log.info(' function called');
   
 
-  let barcode = undefined;
+  let barcode = '';
   let labelUrl = undefined;
   const postnlCallingapilocal ="http://localhost:3000/api/postnl/label"
   const postnlCallingapiProd ="https://vareyaship.vercel.app/api/postnl/label"
@@ -23,7 +19,7 @@ export const POST  = withAxiom(async(req: AxiomRequest) => {
     if (req.method === 'POST') {
       const shipmentData: ShipHeroWebhook = await req.json();
 
-      const fromAddress : string = shipmentData.from_address.address_1+","+shipmentData.from_address.city+","+shipmentData.from_address.country
+     
       const firstPackage = shipmentData.packages[0];
     
       const Weight = firstPackage.weight_in_oz * 28.3495;
@@ -57,21 +53,17 @@ export const POST  = withAxiom(async(req: AxiomRequest) => {
               const filename = `${shipmentData.order_id}-${shipmentData.shipping_method}- ${datetime}`
               labelUrl = await uploadPdf(labelContent , filename)
               const shipping_method = shipmentData.shipping_method ;
-              if(labelUrl== undefined){
-
-              }
+              
               
             
             const shipmentDetailsData : ShipmentDetailsType = {
-                barcode: barcode,
-                name : shipmentData.shop_name,
                 order_id: shipmentData.order_id,
-                label_announced_at: new Date(),
+                barcode: barcode ,
+                name : shipmentData.shop_name,
                 cancel_deadline: new Date(),
                 shipping_method:shipmentData.shipping_method,
-  
-                from_address: fromAddress ,
-                label_url : labelUrl
+                from_address:shipmentData.to_address.address_1+","+shipmentData.to_address.city+","+shipmentData.to_address.country as string,
+                label_url : labelUrl as string
             };
             
             const customerDetailsData : CustomerDetailsType = {
@@ -85,7 +77,6 @@ export const POST  = withAxiom(async(req: AxiomRequest) => {
                 order_id: shipmentData.order_id, 
                 status_code: '1',
                 status_description: '	Shipment pre-alerted',
-                timestamp: new Date(),
                 carrier_message: 'Carrier message goes here',
             };
             
