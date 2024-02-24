@@ -12,27 +12,29 @@ import { ShipmentDetailsType,
         ShipmentItemsType
      } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
-import { Pool } from 'pg';
+//import { Pool } from 'pg';
 
 
 const log = new Logger();
-const pool = new Pool({ 
-  connectionString: process.env.DATABASE_URL,
-  ssl: true
-});
+// const pool = new Pool({ 
+//   connectionString: process.env.DATABASE_URL,
+//   ssl: true
+// });
 
 export const revalidate = 0;
 export async function getAllShipmentDetails() {
 
   try {
     const response = await db.select().from(shipmentDetails)
+    console.log(response)
     return response
   }catch(error : any ) {
 
-    log.error("Error fetching data from database on UI :", { error: error.message });
+    //log.error("Error fetching data from database on UI :", { error: error.message });
+    console.log(error)
     throw error; 
   } finally {
-    await log.flush();
+    //await log.flush();
 
   }
 }

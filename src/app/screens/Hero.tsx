@@ -1,21 +1,36 @@
+"use client"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
 import { DropdownMenuTrigger, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuItem, DropdownMenuContent, DropdownMenu } from "@/components/ui/dropdown-menu"
 import { TabsTrigger, TabsList, TabsContent, Tabs } from "@/components/ui/tabs"
 import { TableHead, TableRow, TableHeader, TableCell, TableBody, Table } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
+import { ShipmentDetailsType } from "@/lib/db/schema"
 import { getAllShipmentDetails, getOrderDetails } from "@/lib/db/dboperations"
 import { CardTitle, CardHeader, CardContent, Card } from "@/components/ui/card"
 import { Tag } from "lucide-react"
+import { useEffect, useState } from "react"
 
 export const revalidate = 0;
-export default async function Hero() {
-  const labelData = (await getAllShipmentDetails()).reverse();
-  const orderDetails = (await getOrderDetails()).reverse();
+export default  function Hero() {
+  const [labelData, setLabelData] = useState<ShipmentDetailsType[]>([]);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const result = await getAllShipmentDetails();
+        setLabelData(result.reverse());
+      } catch (error) {
+        console.error('Error fetching shipment details:', error);
+      }
+    };
+
+    fetchData();
+  }, []);
   
   return (
     <div key="1" className="bg-white p-8">
-      <Tabs >
+      <Tabs  defaultValue="labels">
         <TabsList className="border-b 
  ">
           <TabsTrigger className="px-4 py-2 focus:font-bold "  value="labels" >
