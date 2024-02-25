@@ -7,6 +7,7 @@ import { uploadPdf } from '@/app/utils/labelPdfUrlGenerator';
 import { withAxiom, AxiomRequest } from 'next-axiom';
 
 export const POST  = withAxiom(async(req: AxiomRequest) => {
+  console.log("hot")
   req.log.info(' function called');
   
 

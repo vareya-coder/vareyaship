@@ -2,6 +2,6 @@
 const nextConfig = {}
 const { withAxiom } = require('next-axiom');
 
-module.exports = withAxiom({
+module.exports = {
     // ... your existing config
-  });
+  };

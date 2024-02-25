@@ -6,27 +6,27 @@ import { TabsTrigger, TabsList, TabsContent, Tabs } from "@/components/ui/tabs"
 import { TableHead, TableRow, TableHeader, TableCell, TableBody, Table } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import { ShipmentDetailsType } from "@/lib/db/schema"
-import { getAllShipmentDetails, getOrderDetails } from "@/lib/db/dboperations"
+import { getAllShipmentDetails } from "@/lib/db/dboperations"
 import { CardTitle, CardHeader, CardContent, Card } from "@/components/ui/card"
 import { Tag } from "lucide-react"
 import { useEffect, useState } from "react"
 
 export const revalidate = 0;
-export default  function Hero() {
-  const [labelData, setLabelData] = useState<ShipmentDetailsType[]>([]);
+export default async function Hero() {
+  // const [labelData, setLabelData] = useState<ShipmentDetailsType[]>([]);
+  const labelData = await getAllShipmentDetails()
+  // useEffect(() => {
+  //   const fetchData = async () => {
+  //     try {
+  //       const result = await getAllShipmentDetails();
+  //       setLabelData(result.reverse());
+  //     } catch (error) {
+  //       console.error('Error fetching shipment details:', error);
+  //     }
+  //   };
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const result = await getAllShipmentDetails();
-        setLabelData(result.reverse());
-      } catch (error) {
-        console.error('Error fetching shipment details:', error);
-      }
-    };
-
-    fetchData();
-  }, []);
+  //   fetchData();
+  // }, []);
   
   return (
     <div key="1" className="bg-white p-8">

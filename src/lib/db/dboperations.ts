@@ -1,123 +1,99 @@
-// dbOperations.ts
+
+
+
 import { Logger } from 'next-axiom';
 import { db } from '@/lib/db';
-import { ShipmentDetailsType,
-       
-        shipmentDetails,
-        customerDetails,
-        shipmentItems,
-        shipmentStatus,
-        CustomerDetailsType,
-        ShipmentStatusType,
-        ShipmentItemsType
-     } from '@/lib/db/schema';
+import {
+  ShipmentDetailsType,
+  shipmentDetails,
+  customerDetails,
+  shipmentItems,
+  shipmentStatus,
+  CustomerDetailsType,
+  ShipmentStatusType,
+  ShipmentItemsType,
+} from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
-//import { Pool } from 'pg';
+import { Pool } from '@neondatabase/serverless';
 
+const client = new Pool()
 
 const log = new Logger();
-// const pool = new Pool({ 
-//   connectionString: process.env.DATABASE_URL,
-//   ssl: true
-// });
 
-export const revalidate = 0;
-export async function getAllShipmentDetails() {
 
+export async function getAllShipmentDetails(): Promise<ShipmentDetailsType[]> {
   try {
-    const response = await db.select().from(shipmentDetails)
-    console.log(response)
-    return response
-  }catch(error : any ) {
+    // Assume db.select().from() is an async operation and await its result.
+    const response = await db.select().from(shipmentDetails);
 
-    //log.error("Error fetching data from database on UI :", { error: error.message });
-    console.log(error)
-    throw error; 
-  } finally {
-    //await log.flush();
+    // Check if response is truthy and not empty. Adjust based on your ORM's response structure.
+    if (!response || response.length === 0) {
+      // Option 1: Return an empty array if no data found.
+      return [];
 
+    }
+
+   
+    return response as ShipmentDetailsType[];
+  } catch (error: unknown) {
+    if (error instanceof Error) {
+      console.log(error.message);
+    }
+    throw error;
   }
 }
 
-// export async function insertAddress(addressData: AddressType): Promise<void> {
-//   try {
-//     await db.insert(addresses).values(addressData);
-//     // console.log('Address inserted successfully.');
-//   } catch (error) {
-//     console.error('Error inserting address:', error);
-//     throw error;
-//   }
-// }
 
-export async function insertShipmentDetails(shipmentDetailsData : ShipmentDetailsType): Promise<void> {
+export async function insertShipmentDetails(shipmentDetailsData: ShipmentDetailsType): Promise<void> {
   try {
     await db.insert(shipmentDetails).values(shipmentDetailsData);
-    log.info("A new shipment is added to database " )
+    log.info("A new shipment is added to database");
     await log.flush();
-    return
-  } catch (error : any ) {
-
-    log.error("an error occur while inserting new shipment to database :" ,{errors : error})
+  } catch (error: unknown) {
+    if (error instanceof Error) {
+      log.error("An error occurred while inserting a new shipment into the database:", { errors: error.message });
+    }
     await log.flush();
     throw error;
   }
 }
 
-export async function insertCustomerDetails(customerDetailsData : CustomerDetailsType): Promise<void> {
+export async function insertCustomerDetails(customerDetailsData: CustomerDetailsType): Promise<void> {
   try {
     await db.insert(customerDetails).values(customerDetailsData);
-    // console.log('Customer details inserted successfully.');
-  } catch (error) {
-    console.log('Error inserting customer details:', error);
+  } catch (error: unknown) {
+    console.error('Error inserting customer details:', error);
     throw error;
   }
 }
 
-export async function insertShipmentStatus(shipmentStatusData  : ShipmentStatusType): Promise<void> {
+export async function insertShipmentStatus(shipmentStatusData: ShipmentStatusType): Promise<void> {
   try {
     await db.insert(shipmentStatus).values(shipmentStatusData);
-    // console.log('Shipment status inserted successfully.');
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error inserting shipment status:', error);
     throw error;
   }
 }
 
-export async function insertShipmentItems(shipmentItemsData : ShipmentItemsType): Promise<void> {
+export async function insertShipmentItems(shipmentItemsData: ShipmentItemsType): Promise<void> {
   try {
     await db.insert(shipmentItems).values(shipmentItemsData);
-    // console.log('Shipment items inserted successfully.');
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error inserting shipment items:', error);
     throw error;
   }
 }
 
-// export async function getAllShipmentDetails() {
-  
-//   try {
-    
-//     const result  = await db.select().from(shipmentDetails)
-
-//     return result;
-//   } catch (error) {
-//     console.error('Error fetching shipment details:', error);
-//     throw error; // You can handle the error as per your application's requirements
-//   }
-// }
-
-export async function getOrderDetails() {
+export async function getOrderDetails(): Promise<any> { // Consider defining a more specific return type
   try {
     const result = await db
       .select()
       .from(shipmentDetails)
-      .fullJoin(customerDetails, eq(shipmentDetails.order_id , customerDetails.order_id))
-      
-      
-    // console.log(result);
-    return result; // Return the fetched data
-  } catch (error) {
+      .fullJoin(customerDetails, eq(shipmentDetails.order_id, customerDetails.order_id));
+    return result; 
+  } catch (error: unknown) {
     console.error("Error fetching order details:", error);
-    throw error; // Re-throw the error or handle it as needed
+    throw error;
   }
 }
