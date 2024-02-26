@@ -10,19 +10,8 @@ import { Label } from "@/components/ui/label";
 
 export default function Page() {
   const router = useRouter();
-  const cookies = document.cookie.split(';');
-  let isauth = false
-  for (let cookie of cookies) {
-    const [name, value] = cookie.trim().split('=');
-    if (name === 'token') {
-      isauth=true
-      break;
-    }
-  }
-  if(isauth){
-    router.push('/')
-  }
 
+  const [isauth , setisauth]= useState(false)
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState(false); // State to hold error message
@@ -56,12 +45,16 @@ export default function Page() {
         const secure = window.location.protocol === "https:" ? "Secure;" : "";
   
         document.cookie = `token=${token}; path=/; SameSite=Lax; ${expires} ${secure}`;
+        setisauth(true)
         router.refresh()
     
     } catch (error) {
       setError(true); // Set error message
     }
   };
+  if(isauth){
+    router.push('/')
+  }
 
   return (
     <div className="flex flex-col gap-4 min-h-screen items-center justify-center p-6 sm:gap-8 bg-gray-100 dark:bg-gray-800">
