@@ -44,7 +44,7 @@ export default function Page() {
   
         document.cookie = `token=${token}; path=/; SameSite=Lax; ${expires} ${secure}`;
       }finally{
-        await router.replace('/');
+        await router.push('google.com');
       }
     
     } catch (error) {
