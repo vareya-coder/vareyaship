@@ -14,7 +14,7 @@ export default function Page() {
   const [error, setError] = useState(""); // State to hold error message
   const router = useRouter();
 
-  const handleLogin = async (e) => {
+  const handleLogin = async (e : any) => {
     e.preventDefault(); // Prevent default form submission
 
     try {
@@ -42,7 +42,7 @@ export default function Page() {
       const secure = window.location.protocol === "https:" ? "Secure;" : "";
 
       document.cookie = `token=${token}; path=/; SameSite=Lax; ${expires} ${secure}`;
-      router.push("/");
+      router.push('/');
     } catch (error) {
       setError("Invalid email or password"); // Set error message
     }
