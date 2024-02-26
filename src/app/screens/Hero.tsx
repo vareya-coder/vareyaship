@@ -72,9 +72,10 @@ export default  function Hero() {
                 labelData.map((item : any)=>(
 
               <TableRow key={item.order_id}>
-                <a target="_blank" href={item.label_url} rel="noopener noreferrer">
-                <TableCell className="text-green-600 flex flex-row " >   <Tag /><h1 className="pl-2 text-black font-bold">Print</h1> </TableCell>
-              </a>
+                
+              <Link href={item.label_url} rel="noopener noreferrer" target="_blank"> 
+              <TableCell className="text-green-600 flex flex-row " >   <Tag /><h1 className="pl-2 text-black font-bold">Print</h1> </TableCell>
+               </Link>
 
                 {/* <TableCell>At sorting centre</TableCell> */}
                 <TableCell>{item.order_id}</TableCell>

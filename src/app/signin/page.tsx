@@ -42,6 +42,7 @@ export default function Page() {
       const secure = window.location.protocol === "https:" ? "Secure;" : "";
 
       document.cookie = `token=${token}; path=/; SameSite=Lax; ${expires} ${secure}`;
+      router.refresh()
       router.push('/');
     } catch (error) {
       setError(true); // Set error message
