@@ -13,9 +13,9 @@ interface INavLink {
 
 const navLinks: INavLink[] = [
   { href: '/', label: 'Home' },
-  { href: '/services', label: 'Services' },
-  { href: '/tracking', label: 'Track Shipment' },
-  { href: '/faq', label: 'FAQ' },
+  { href: '/', label: 'Services' },
+  { href: '/', label: 'Track Shipment' },
+  { href: '/', label: 'FAQ' },
 ];
 
 const Header: React.FC = () => {

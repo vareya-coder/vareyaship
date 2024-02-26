@@ -59,7 +59,7 @@ export default  function Hero() {
                 <TableHeader>
               <TableRow>
                 <TableHead>Label</TableHead>
-                <TableHead>Status</TableHead>
+                {/* <TableHead>Status</TableHead> */}
                 <TableHead>Order Id</TableHead>
                 <TableHead>Name</TableHead>
                 <TableHead>Shipping Method</TableHead>
@@ -76,7 +76,7 @@ export default  function Hero() {
                 <TableCell className="text-green-600 flex flex-row " >   <Tag /><h1 className="pl-2 text-black font-bold">Print</h1> </TableCell>
               </a>
 
-                <TableCell>At sorting centre</TableCell>
+                {/* <TableCell>At sorting centre</TableCell> */}
                 <TableCell>{item.order_id}</TableCell>
                 <TableCell>{item.name}</TableCell>
                 <TableCell>{item.shipping_method}</TableCell>
