@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label";
 export default function Page() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState(""); // State to hold error message
+  const [error, setError] = useState(false); // State to hold error message
   const router = useRouter();
 
   const handleLogin = async (e : any) => {
@@ -44,7 +44,7 @@ export default function Page() {
       document.cookie = `token=${token}; path=/; SameSite=Lax; ${expires} ${secure}`;
       router.push('/');
     } catch (error) {
-      setError("Invalid email or password"); // Set error message
+      setError(true); // Set error message
     }
   };
 
@@ -69,7 +69,7 @@ export default function Page() {
             </Label>
             <Input className="w-full" id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
           </div>
-          {error && <div className="text-red-500 text-sm">{error}</div>} {/* Display error message if exists */}
+          {error && <div className="text-red-500 text-sm">invalid email or password</div>} 
           <form onSubmit={handleLogin}>
             <Button type="submit" className="w-full bg-blue-600 text-white hover:bg-blue-700 dark:bg-blue-400 dark:hover:bg-blue-500">
               Login
