@@ -54,6 +54,7 @@ export default function Page() {
   };
   if(isauth){
     router.push('/')
+    router.refresh()
   }
 
   return (
