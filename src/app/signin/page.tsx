@@ -34,16 +34,19 @@ export default function Page() {
       }
 
       const { token } = await response.json();
+      try{
 
-      const expiryDate = new Date();
-      expiryDate.setTime(expiryDate.getTime() + 7 * 24 * 60 * 60 * 1000);
-      const expires = `expires=${expiryDate.toUTCString()}`;
-
-      const secure = window.location.protocol === "https:" ? "Secure;" : "";
-
-      document.cookie = `token=${token}; path=/; SameSite=Lax; ${expires} ${secure}`;
+        const expiryDate = new Date();
+        expiryDate.setTime(expiryDate.getTime() + 7 * 24 * 60 * 60 * 1000);
+        const expires = `expires=${expiryDate.toUTCString()}`;
+  
+        const secure = window.location.protocol === "https:" ? "Secure;" : "";
+  
+        document.cookie = `token=${token}; path=/; SameSite=Lax; ${expires} ${secure}`;
+      }finally{
+        router.replace('/');
+      }
     
-      router.replace('/');
     } catch (error) {
       setError(true); // Set error message
     }
