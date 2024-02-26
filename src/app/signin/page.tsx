@@ -9,10 +9,23 @@ import { Label } from "@/components/ui/label";
 
 
 export default function Page() {
+  const router = useRouter();
+  const cookies = document.cookie.split(';');
+  let isauth = false
+  for (let cookie of cookies) {
+    const [name, value] = cookie.trim().split('=');
+    if (name === 'token') {
+      isauth=true
+      break;
+    }
+  }
+  if(isauth){
+    router.push('/')
+  }
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState(false); // State to hold error message
-  const router = useRouter();
 
   const handleLogin = async (e : any) => {
     e.preventDefault(); // Prevent default form submission
@@ -34,7 +47,7 @@ export default function Page() {
       }
 
       const { token } = await response.json();
-      try{
+      
 
         const expiryDate = new Date();
         expiryDate.setTime(expiryDate.getTime() + 7 * 24 * 60 * 60 * 1000);
@@ -43,10 +56,7 @@ export default function Page() {
         const secure = window.location.protocol === "https:" ? "Secure;" : "";
   
         document.cookie = `token=${token}; path=/; SameSite=Lax; ${expires} ${secure}`;
-      }finally{
         router.refresh()
-        await router.push('/');
-      }
     
     } catch (error) {
       setError(true); // Set error message
