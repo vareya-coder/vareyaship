@@ -18,7 +18,7 @@ export async function POST(req: any): Promise<Response> {
         const { email, password } = body;
 
         const isAuthenticated = authenticateUser(email, password);
-        console.log("authentcation status :",isAuthenticated)
+
         if (isAuthenticated) {
             const payload = { userId: email };
             const secret: Secret = process.env.JWT_SECRET as Secret;
@@ -26,7 +26,7 @@ export async function POST(req: any): Promise<Response> {
             const options: SignOptions = { expiresIn: '1m' };
             const token: string = jwt.sign(payload, secret, options);
 
-           console.log("token" ,token)
+           
             return new Response(JSON.stringify({ token }), {
                 status: 200,
                 headers: { 'Content-Type': 'application/json' }
