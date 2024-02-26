@@ -1,5 +1,5 @@
 {
-  "id": "b099edb1-bf68-4c5d-af35-53ea3399ea25",
+  "id": "17f5141a-6f74-465a-8c34-b3edf4e8a822",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "5",
   "dialect": "pg",
@@ -51,7 +51,7 @@
           "columnsTo": [
             "order_id"
           ],
-          "onDelete": "no action",
+          "onDelete": "cascade",
           "onUpdate": "no action"
         }
       },
@@ -90,7 +90,8 @@
           "name": "label_announced_at",
           "type": "timestamp",
           "primaryKey": false,
-          "notNull": false
+          "notNull": false,
+          "default": "CURRENT_TIMESTAMP"
         },
         "cancel_deadline": {
           "name": "cancel_deadline",
@@ -104,41 +105,21 @@
           "primaryKey": false,
           "notNull": false
         },
-        "shipment_weight": {
-          "name": "shipment_weight",
-          "type": "real",
-          "primaryKey": false,
-          "notNull": false
-        },
         "from_address": {
           "name": "from_address",
           "type": "varchar",
           "primaryKey": false,
           "notNull": false
         },
-        "shipment_status": {
-          "name": "shipment_status",
-          "type": "serial",
+        "label_url": {
+          "name": "label_url",
+          "type": "varchar",
           "primaryKey": false,
-          "notNull": true
+          "notNull": false
         }
       },
       "indexes": {},
-      "foreignKeys": {
-        "shipment_details_shipment_status_shipment_status_status_id_fk": {
-          "name": "shipment_details_shipment_status_shipment_status_status_id_fk",
-          "tableFrom": "shipment_details",
-          "tableTo": "shipment_status",
-          "columnsFrom": [
-            "shipment_status"
-          ],
-          "columnsTo": [
-            "status_id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
+      "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {}
     },
@@ -170,6 +151,12 @@
           "primaryKey": false,
           "notNull": false
         },
+        "shipment_weight": {
+          "name": "shipment_weight",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": false
+        },
         "unit_price": {
           "name": "unit_price",
           "type": "numeric",
@@ -189,7 +176,7 @@
           "columnsTo": [
             "order_id"
           ],
-          "onDelete": "no action",
+          "onDelete": "cascade",
           "onUpdate": "no action"
         }
       },
@@ -224,12 +211,6 @@
           "primaryKey": false,
           "notNull": false
         },
-        "timestamp": {
-          "name": "timestamp",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": false
-        },
         "carrier_message": {
           "name": "carrier_message",
           "type": "text",
@@ -249,7 +230,7 @@
           "columnsTo": [
             "order_id"
           ],
-          "onDelete": "no action",
+          "onDelete": "cascade",
           "onUpdate": "no action"
         }
       },
