@@ -1,24 +1,29 @@
 "use client"
-import { Label } from "@/components/ui/label"
+
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useState } from "react"
+import { Label } from "@/components/ui/label";
+
 
 export default function Page() {
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const router = useRouter()
+  const router = useRouter();
+
+  const [isauth , setisauth]= useState(false)
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState(false); // State to hold error message
 
   const handleLogin = async (e : any) => {
     e.preventDefault(); // Prevent default form submission
 
     try {
-      const response = await fetch('/api/login', {
-        method: 'POST',
+      const response = await fetch("/api/login", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({
           email,
@@ -27,29 +32,30 @@ export default function Page() {
       });
 
       if (!response.ok) {
-        console.log("token response not ok")
-        throw new Error('Login failed');
+        throw new Error("Login failed");
       }
 
       const { token } = await response.json();
-      console.log("final token" ,token)
-      const expiryDate = new Date();
+      
 
-      // Set the expiry time to 3 days from now
-      expiryDate.setTime(expiryDate.getTime() + (3 * 24 * 60 * 60 * 1000)); // Correctly setting to 3 days
-      const expires = `expires=${expiryDate.toUTCString()}`;
-      
-      // Determine if the current page is served over HTTPS
-      const secure = window.location.protocol === 'https:' ? 'Secure;' : '';
-      
-      // Correctly set the cookie with the updated expiration time to 3 days
-      document.cookie = `token=${token}; path=/; SameSite=Lax; ${expires} ${secure}`;
-      router.push('/')
+        const expiryDate = new Date();
+        expiryDate.setTime(expiryDate.getTime() + 7 * 24 * 60 * 60 * 1000);
+        const expires = `expires=${expiryDate.toUTCString()}`;
+  
+        const secure = window.location.protocol === "https:" ? "Secure;" : "";
+  
+        document.cookie = `token=${token}; path=/; SameSite=Lax; ${expires} ${secure}`;
+        setisauth(true)
+        router.refresh()
+    
     } catch (error) {
-      console.log(error);
-      // Handle error appropriately, show error message to user, etc.
+      setError(true); // Set error message
     }
   };
+  if(isauth){
+    router.push('/')
+    router.refresh()
+  }
 
   return (
     <div className="flex flex-col gap-4 min-h-screen items-center justify-center p-6 sm:gap-8 bg-gray-100 dark:bg-gray-800">
@@ -72,9 +78,12 @@ export default function Page() {
             </Label>
             <Input className="w-full" id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
           </div>
-          <Button className="w-full bg-blue-600 text-white hover:bg-blue-700 dark:bg-blue-400 dark:hover:bg-blue-500" onClick={handleLogin}>
-            Login
-          </Button>
+          {error && <div className="text-red-500 text-sm">invalid email or password</div>} 
+          <form onSubmit={handleLogin}>
+            <Button type="submit" className="w-full bg-blue-600 text-white hover:bg-blue-700 dark:bg-blue-400 dark:hover:bg-blue-500">
+              Login
+            </Button>
+          </form>
         </div>
         <div className="text-center text-sm">
           <Link className="underline text-blue-600 dark:text-blue-400" href="#">
@@ -83,7 +92,7 @@ export default function Page() {
         </div>
       </div>
     </div>
-  )
+  );
 }
 
 function FlagIcon(props : any) {

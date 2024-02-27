@@ -11,22 +11,23 @@ import { CardTitle, CardHeader, CardContent, Card } from "@/components/ui/card"
 import { Tag } from "lucide-react"
 import { useEffect, useState } from "react"
 
-export const revalidate = 0;
-export default async function Hero() {
-  // const [labelData, setLabelData] = useState<ShipmentDetailsType[]>([]);
-  const labelData = await getAllShipmentDetails()
-  // useEffect(() => {
-  //   const fetchData = async () => {
-  //     try {
-  //       const result = await getAllShipmentDetails();
-  //       setLabelData(result.reverse());
-  //     } catch (error) {
-  //       console.error('Error fetching shipment details:', error);
-  //     }
-  //   };
 
-  //   fetchData();
-  // }, []);
+
+export default  function Hero() {
+   const [labelData, setLabelData] = useState<ShipmentDetailsType[]>([]);
+  // const labelData =  await getAllShipmentDetails()
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const result = await getAllShipmentDetails();
+        setLabelData(result.reverse());
+      } catch (error) {
+        console.error('Error fetching shipment details:', error);
+      }
+    };
+
+    fetchData();
+  }, []);
   
   return (
     <div key="1" className="bg-white p-8">
@@ -58,7 +59,7 @@ export default async function Hero() {
                 <TableHeader>
               <TableRow>
                 <TableHead>Label</TableHead>
-                <TableHead>Status</TableHead>
+                {/* <TableHead>Status</TableHead> */}
                 <TableHead>Order Id</TableHead>
                 <TableHead>Name</TableHead>
                 <TableHead>Shipping Method</TableHead>
@@ -71,12 +72,12 @@ export default async function Hero() {
                 labelData.map((item : any)=>(
 
               <TableRow key={item.order_id}>
-                <a target="_blank" href={item.label_url} rel="noopener noreferrer">
-   
-                <TableCell className="   text-green-600 flex flex-row " >   <Tag /><h1 className="pl-2 text-black font-bold">Print</h1> </TableCell>
-              </a>
+                
+              <Link href={item.label_url} rel="noopener noreferrer" target="_blank"> 
+              <TableCell className="text-green-600 flex flex-row " >   <Tag /><h1 className="pl-2 text-black font-bold">Print</h1> </TableCell>
+               </Link>
 
-                <TableCell>At sorting centre</TableCell>
+                {/* <TableCell>At sorting centre</TableCell> */}
                 <TableCell>{item.order_id}</TableCell>
                 <TableCell>{item.name}</TableCell>
                 <TableCell>{item.shipping_method}</TableCell>
