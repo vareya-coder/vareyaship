@@ -129,7 +129,7 @@ export async function POST(req: NextRequest){
 
         // get attribute codes and populate
         
-        console.log('Asendia Shipment SOAP request attributes setup.', JSON.stringify(codes));
+ 
 
        
           shipmentAttributeObject[2]['ns2:Value'][0] = ASENDIA_PRODUCT_FULLY_TRACKED_GOODS;
