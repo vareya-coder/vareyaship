@@ -41,9 +41,9 @@ export async function POST(req: NextRequest){
     const DEFAULT_SHIPMENT_TRACKING_STATUS_CODE = '-1';
     const SHIPMENT_TRACKING_CARRIER_NAME = 'Asendia';
   
-    const headers = {
+    let headers = {
       'Content-Type': 'text/xml;charset=UTF-8',
-      'SOAPAction': ASENDIA_AUTH_SOAP_ACTION,
+      SOAPAction: ASENDIA_AUTH_SOAP_ACTION,
     };
   
     const defaultAuthXml = getAuthXml(); // Ensure this function returns a valid XML string
@@ -60,26 +60,12 @@ export async function POST(req: NextRequest){
         throw new Error(`SOAP request failed with status ${response.status}`);
       }
       const authRespHeaders = response.headers;
-    console.log('Asendia Authenticate response headers: ', authRespHeaders);
+
     const authRespBody = response.body;
-    console.log('Asendia Authenticate response body: ', authRespBody);
-    //const authRespStatusCode = response.statusCode
-    //console.log('Asendia Authenticate response status code: ', authRespStatusCode);
+
 
     let authTokenInResp = '';
-    let authRespParser = new xml2js.Parser(
-      {
-        tagNameProcessors: [xml2js.processors.stripPrefix],
-        valueProcessors: [function (name, value) {
-          // console.log('Asendia Authenticate response parsing:', `${value}: ${name}`);
-          if (value == 'AuthenticationTicket') {
-            // console.log('Asendia Authenticate response AuthnticateTicket tag:', `${value}: ${name}`);
-            authTokenInResp = name; //parse response xml and retrieve AuthenticationTicket
-          }
-          return name;
-        }]
-      }
-    );
+ 
   
     const textResponse = await response.text();
     // Extract the AuthenticationTicket from the response
@@ -231,7 +217,7 @@ export async function POST(req: NextRequest){
           if (!(packages[0].line_items[i].ignore_on_customs)) {
             lineItemObjects[tempWorkingIndex]['ns2:CountryOfOrigin'][0] = packages[0].line_items[i].country_of_manufacture;
 
-            let orderCurrency = "EUR";
+            let orderCurrency = " ";
             if (!orderCurrency || orderCurrency == '') {
               // orderCurrency = shipHeroData.data.order.data ? shipHeroData.data.order.data.currency : 'EUR';
               orderCurrency = 'EUR';
@@ -334,16 +320,27 @@ export async function POST(req: NextRequest){
         }
       }
     }
+    let shipmentXmlWithValues = '';
+    headers.SOAPAction = ASENDIA_SHIPMENT_SOAP_ACTION;
+
+    var shipmentXmlBuilder = new xml2js.Builder();
+    shipmentXmlWithValues = shipmentXmlBuilder.buildObject(asendiaShipmentAPIRequestAsJsonObj);
+    console.log('Asendia Shipment request XML interpolated:', shipmentXmlWithValues);
+    var url2 = ASENDIA_SHIPMENT_URL_UAT;
+    const labelresponse = await fetch(url2, {
+        method: 'POST',
+        headers: headers,
+        body: shipmentXmlWithValues,
+      }).catch(error => console.log('Fetch error:', error));
+
+
+
+      console.log("label response :",labelresponse)
 
 
 
 
-
-
-
-
-
-    return new Response(authTokenInResp, { status: 200, headers: { 'Content-Type': 'text/plain' } });
+    return new Response(JSON.stringify(labelresponse), { status: 200, headers: { 'Content-Type': 'text/plain' } });
   
 }
 
