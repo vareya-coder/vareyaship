@@ -201,7 +201,7 @@ export async function mapShipHeroToPostNL(shipHeroData: ShipHeroWebhook, Product
         postNLData.Shipments[0].Addresses[0].Street =
             shipHeroData.to_address.address_1.replace(found[0], '').trim();
     }
-    let orderNumCleaned = `${shipHeroData.order_number.replace(/[#]+[A-Z]+/gi, '')}`;
+    let orderNumCleaned = `${shipHeroData.order_number.replace(/[#A-Z-]+/gi, '')}`;
     postNLData.Shipments[0].CustomerOrderNumber = orderNumCleaned;
     postNLData.Shipments[0].Reference = orderNumCleaned;
 
