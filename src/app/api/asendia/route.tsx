@@ -106,7 +106,8 @@ export async function POST(req: NextRequest) {
   const orderNumCleaned = body.order_number.replace(/#/g, '');
   shipmentObject['ns2:ShipDate'][0] = currTime.toISOString();
   shipmentObject['ns2:ShipmentIdentifier'][0] = `${orderNumCleaned}P${currTime.getTime()}`;
-  shipmentObject['ns2:OrderNumber'][0] = orderNumCleaned;
+  shipmentObject['ns2:OrderNumber'][0] =`${orderNumCleaned}P${currTime.getTime()}`;
+  shipmentObject['ns2:SenderCode'][0] = "NL21010001"
 
   var productCodeUsed = ASENDIA_PRODUCT_FULLY_TRACKED_GOODS;
   var packages = body.packages;
@@ -194,11 +195,8 @@ export async function POST(req: NextRequest) {
   
           lineItemObjects[tempWorkingIndex]['ns2:CountryOfOrigin'][0] = packages[0].line_items[i].country_of_manufacture;
   
-          let orderCurrency = " ";
-          if (!orderCurrency || orderCurrency == '') {
-            // orderCurrency = shipHeroData.data.order.data ? shipHeroData.data.order.data.currency : 'EUR';
-            orderCurrency = 'EUR';
-          }
+          let orderCurrency = "EUR";
+          
   
           // TODO temporary Norway check. Need to fix it properly later.
           if (body.to_address.country == 'NO' || body.to_address.country == 'CH') {
@@ -211,8 +209,9 @@ export async function POST(req: NextRequest) {
           lineItemObjects[tempWorkingIndex]['ns2:Description1'][0] = packages[0].line_items[i].customs_description;
           // send sequential/incremental number instead of line number received from ShipHero
           // asendiaShipmentAPIParamsAsJson.parcel.lineItem.orderLineNumber = packages[0].line_items[0].partner_line_item_id;
-          lineItemObjects[tempWorkingIndex]['ns2:OrderLineNumber'][0] = `${i + 1}`;
+          lineItemObjects[tempWorkingIndex]['ns2:OrderLineNumber'][0] = 1;
           lineItemObjects[tempWorkingIndex]['ns2:QuantityShipped'][0] = packages[0].line_items[i].quantity;
+          lineItemObjects[tempWorkingIndex]['ns2:ProductNumber'][0] =i ;
   
           let priceAsFloat = 0.0;
           if (packages[0].line_items[i].price !== null
@@ -291,7 +290,7 @@ export async function POST(req: NextRequest) {
 
 
 
-  return new Response(JSON.stringify(labelresponse), { status: 200, headers: { 'Content-Type': 'text/plain' } });
+  return new Response(labelresponse as any , { status: 200, headers: { 'Content-Type': 'text/plain' } });
 
 }
 
@@ -345,18 +344,6 @@ const getShipmentXml = function () {
                       <ns2:Phone></ns2:Phone> \
                       <ns2:ZipCode></ns2:ZipCode> \
                     </ns2:Address> \
-                    <ns2:Address> \
-                      <ns2:Address1></ns2:Address1> \
-                      <ns2:AddressType>Pickup</ns2:AddressType> \
-                      <ns2:CellPhone></ns2:CellPhone> \
-                      <ns2:City></ns2:City> \
-                      <ns2:Contact></ns2:Contact> \
-                      <ns2:Email></ns2:Email> \
-                      <ns2:ISOCountry></ns2:ISOCountry> \
-                      <ns2:Name></ns2:Name> \
-                      <ns2:Phone></ns2:Phone> \
-                      <ns2:ZipCode></ns2:ZipCode> \
-                    </ns2:Address> \
                   </ns2:Addresses> \
                   <ns2:Attributes> \
                     <ns2:Attribute> \
@@ -365,7 +352,7 @@ const getShipmentXml = function () {
                     </ns2:Attribute> \
                     <ns2:Attribute> \
                       <ns2:Code>CRMID</ns2:Code> \
-                      <ns2:Value>NL19090016</ns2:Value> \
+                      <ns2:Value>NL21010001</ns2:Value> \
                     </ns2:Attribute> \
                     <ns2:Attribute> \
                       <ns2:Code>Product</ns2:Code> \
@@ -385,7 +372,7 @@ const getShipmentXml = function () {
                     </ns2:Attribute> \
                     <ns2:Attribute> \
                       <ns2:Code>SenderTaxID</ns2:Code> \
-                      <ns2:Value></ns2:Value> \
+                      <ns2:Value>GB339713089000</ns2:Value> \
                     </ns2:Attribute> \
                   </ns2:Attributes> \
                   <ns2:ModeOfTransport>ACSS</ns2:ModeOfTransport> \
