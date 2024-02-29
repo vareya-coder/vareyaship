@@ -36,18 +36,28 @@ export async function mapShipHeroToPostNL(shipHeroData: ShipHeroWebhook, Product
         return weightinGrams;
     }
 
+    // Address: {
+    //     AddressType: "02",
+    //     City: shipHeroData.from_address.city || ' ',
+    //     Countrycode: shipHeroData.from_address.country || ' ',
+    //     CompanyName: shipHeroData.from_address.company_name || ' ',
+    //     HouseNr: ' ',
+    //     Name: shipHeroData.from_address.name || ' ',
+    //     Street: shipHeroData.from_address.address_1 || ' ',
+    //     Zipcode: shipHeroData.from_address.zip
+    // },
 
     const postNLData: Data = {
         Customer: {
             Address: {
                 AddressType: "02",
-                City: shipHeroData.from_address.city || ' ',
-                Countrycode: shipHeroData.from_address.country || ' ',
+                City: 'Breda',
+                Countrycode: 'NL',
                 CompanyName: shipHeroData.from_address.company_name || ' ',
-                HouseNr: ' ',
+                HouseNr: '6',
                 Name: shipHeroData.from_address.name || ' ',
-                Street: shipHeroData.from_address.address_1 || ' ',
-                Zipcode: shipHeroData.from_address.zip
+                Street: 'Bagven Park',
+                Zipcode: '4838EH'
             },
             CollectionLocation: "123456",
             ContactPerson: "Janssen",
@@ -193,6 +203,7 @@ export async function mapShipHeroToPostNL(shipHeroData: ShipHeroWebhook, Product
     }
     let orderNumCleaned = `${shipHeroData.order_number.replace(/[#]+[A-Z]+/gi, '')}`;
     postNLData.Shipments[0].CustomerOrderNumber = orderNumCleaned;
+    postNLData.Shipments[0].Reference = orderNumCleaned;
 
 
 
