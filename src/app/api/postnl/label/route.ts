@@ -20,7 +20,7 @@ export async function POST(req: NextRequest) {
 
       const postNLApiKey = process.env.POSTNL_API_KEY as string;
       const postnlbody : Data = await mapShipHeroToPostNL(shipmentData, Product_code);
-      console.log(postnlbody)
+      console.log(JSON.stringify(postnlbody))
       try {
         const postNLApiResponse = await callPostNLApi(postNLApiKey, JSON.stringify(postnlbody));
         
@@ -51,7 +51,7 @@ async function callPostNLApi(apiKey: string, requestPayload: any ) {
       'apikey': apiKey,
     };
 
-    const response: AxiosResponse<any> = await axios.post('https://api-sandbox.postnl.nl/shipment/v2_2/label', requestPayload, {
+    const response: AxiosResponse<any> = await axios.post('https://api.postnl.nl/shipment/v2_2/label', requestPayload, {
       headers,
       timeout: 10000,
     });

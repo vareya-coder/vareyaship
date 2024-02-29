@@ -40,7 +40,7 @@ export const POST  = withAxiom(async(req: AxiomRequest) => {
 
       let  labelContent = undefined ;
       if (req.nextUrl.pathname === '/api/shipment/shiphero') {
-            const postNLApiResponse = await axios.post(postnlCallingapiProd,shipmentData);
+            const postNLApiResponse = await axios.post(postnlCallingapilocal,shipmentData);
             if (postNLApiResponse.data.ResponseShipments.length > 0 && postNLApiResponse.data.ResponseShipments[0].Labels.length > 0) {
                 barcode = postNLApiResponse.data.ResponseShipments[0].Barcode;
                labelContent = postNLApiResponse.data.ResponseShipments[0].Labels[0].Content;
@@ -64,7 +64,8 @@ export const POST  = withAxiom(async(req: AxiomRequest) => {
                 cancel_deadline: new Date(),
                 shipping_method:shipmentData.shipping_method,
                 from_address:shipmentData.to_address.address_1+","+shipmentData.to_address.city+","+shipmentData.to_address.country as string,
-                label_url : labelUrl as string
+                label_url: labelUrl as string,
+                req_body: JSON.stringify(shipmentData) 
             };
             
             const customerDetailsData : CustomerDetailsType = {
@@ -94,14 +95,14 @@ export const POST  = withAxiom(async(req: AxiomRequest) => {
                 try {
                     // Insert into addresses table
                     
-                    await insertShipmentDetails(shipmentDetailsData);
+                    //await insertShipmentDetails(shipmentDetailsData);
                     //await insertShipmentItems(shipmentItemsData)
-                    await insertCustomerDetails(customerDetailsData)
-                    await insertShipmentStatus(shipmentStatusData)
+                    //await insertCustomerDetails(customerDetailsData)
+                    //await insertShipmentStatus(shipmentStatusData)
     
                 }catch (error) {
                   console.error('Error inserting data:', error);
-                  req.log.error('Error occured while inserting data to database',{error:error});
+                  req.log.error('Error occurred while inserting data to database',{error:error});
     
               }
        

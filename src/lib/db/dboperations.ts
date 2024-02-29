@@ -46,9 +46,11 @@ export async function getAllShipmentDetails(): Promise<ShipmentDetailsType[]> {
 
 export async function insertShipmentDetails(shipmentDetailsData: ShipmentDetailsType): Promise<void> {
   try {
-    await db.insert(shipmentDetails).values(shipmentDetailsData);
+    const res = await db.insert(shipmentDetails).values(shipmentDetailsData);//.returning({target: shipmentDetails.pk_id});
     log.info("A new shipment is added to database");
     await log.flush();
+    console.log("shipment_details.pk_id:", JSON.stringify(res));
+
   } catch (error: unknown) {
     if (error instanceof Error) {
       log.error("An error occurred while inserting a new shipment into the database:", { errors: error.message });

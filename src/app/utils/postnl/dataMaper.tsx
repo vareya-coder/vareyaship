@@ -6,7 +6,7 @@ import axios from "axios";
 config();
 
 export async function mapShipHeroToPostNL(shipHeroData: ShipHeroWebhook, Product_code: string) {
-    console.log(shipHeroData)
+    console.log(JSON.stringify(shipHeroData));
     const EU: any = ['AT', 'BE', 'BG', 'CY', 'CZ', 'DE', 'DK', 'EE', 'ES', 'FI', 'FR', 'GR', 'HR', 'HU', 'IE', 'IT', 'LT', 'LU', 'LV', 'MT', 'NL', 'PL', 'PT', 'RO', 'SE', 'SI', 'SK'];
 
     const customer_code: string = process.env.CUSTOMER_CODE as string;
@@ -196,7 +196,7 @@ export async function mapShipHeroToPostNL(shipHeroData: ShipHeroWebhook, Product
 
 
 
-    console.log(postNLData)
+    // console.log(JSON.stringify(postNLData))
     return postNLData;
 }
 
@@ -205,7 +205,7 @@ export async function getBarcode(customer_code: string, customer_number: string)
 
     try {
         const response = await axios.get(
-            'https://api-sandbox.postnl.nl/shipment/v1_1/barcode',
+            'https://api.postnl.nl/shipment/v1_1/barcode',
             {
                 params: {
                     CustomerNumber: customer_number,

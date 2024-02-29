@@ -1,5 +1,5 @@
 {
-  "id": "17f5141a-6f74-465a-8c34-b3edf4e8a822",
+  "id": "5a030141-2fcb-49e5-a41b-59e4ee5ada64",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "5",
   "dialect": "pg",
@@ -41,15 +41,15 @@
       },
       "indexes": {},
       "foreignKeys": {
-        "customer_details_order_id_shipment_details_order_id_fk": {
-          "name": "customer_details_order_id_shipment_details_order_id_fk",
+        "customer_details_order_id_shipment_details_pk_id_fk": {
+          "name": "customer_details_order_id_shipment_details_pk_id_fk",
           "tableFrom": "customer_details",
           "tableTo": "shipment_details",
           "columnsFrom": [
             "order_id"
           ],
           "columnsTo": [
-            "order_id"
+            "pk_id"
           ],
           "onDelete": "cascade",
           "onUpdate": "no action"
@@ -62,6 +62,12 @@
       "name": "shipment_details",
       "schema": "",
       "columns": {
+        "pk_id": {
+          "name": "pk_id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
         "barcode": {
           "name": "barcode",
           "type": "varchar",
@@ -71,8 +77,8 @@
         "order_id": {
           "name": "order_id",
           "type": "integer",
-          "primaryKey": true,
-          "notNull": true
+          "primaryKey": false,
+          "notNull": false
         },
         "name": {
           "name": "name",
@@ -113,6 +119,12 @@
         },
         "label_url": {
           "name": "label_url",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "req_body": {
+          "name": "req_body",
           "type": "varchar",
           "primaryKey": false,
           "notNull": false
@@ -166,15 +178,15 @@
       },
       "indexes": {},
       "foreignKeys": {
-        "shipment_items_order_id_shipment_details_order_id_fk": {
-          "name": "shipment_items_order_id_shipment_details_order_id_fk",
+        "shipment_items_order_id_shipment_details_pk_id_fk": {
+          "name": "shipment_items_order_id_shipment_details_pk_id_fk",
           "tableFrom": "shipment_items",
           "tableTo": "shipment_details",
           "columnsFrom": [
             "order_id"
           ],
           "columnsTo": [
-            "order_id"
+            "pk_id"
           ],
           "onDelete": "cascade",
           "onUpdate": "no action"
@@ -220,15 +232,15 @@
       },
       "indexes": {},
       "foreignKeys": {
-        "shipment_status_order_id_shipment_details_order_id_fk": {
-          "name": "shipment_status_order_id_shipment_details_order_id_fk",
+        "shipment_status_order_id_shipment_details_pk_id_fk": {
+          "name": "shipment_status_order_id_shipment_details_pk_id_fk",
           "tableFrom": "shipment_status",
           "tableTo": "shipment_details",
           "columnsFrom": [
             "order_id"
           ],
           "columnsTo": [
-            "order_id"
+            "pk_id"
           ],
           "onDelete": "cascade",
           "onUpdate": "no action"
