@@ -9,6 +9,7 @@ import { Data } from '@/app/utils/postnl/postnltypes';
 config();
 
 export async function POST(req: NextRequest) {
+  console.log("hit")
   try {
     if (req.method === 'POST') {
       const shipmentData: ShipHeroWebhook = await req.json();
@@ -20,6 +21,8 @@ export async function POST(req: NextRequest) {
 
       const postNLApiKey = process.env.POSTNL_API_KEY as string;
       const postnlbody : Data = await mapShipHeroToPostNL(shipmentData, Product_code);
+      console.log("hit")
+
       console.log(postnlbody)
       try {
         const postNLApiResponse = await callPostNLApi(postNLApiKey, JSON.stringify(postnlbody));

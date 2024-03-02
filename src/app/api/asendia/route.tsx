@@ -1,10 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { config } from "dotenv";
 import xml2js from 'xml2js';
-import { CloudLightning } from "lucide-react";
+
 
 config()
 export async function POST(req: NextRequest) {
+
+
+
   const body = await req.json();
   const WSDL_ASENDIA_AUTH_OPS_URL = 'https://uat.centiro.com/Universe.Services/TMSBasic/Wcf/c1/i1/TMSBasic/Authenticate.svc?wsdl';
   const WSDL_ASENDIA_SHIPMENT_OPS_URL = 'https://uat.centiro.com/Universe.Services/TMSBasic/Wcf/c1/i1/TMSBasic/TMSBasic.svc?wsdl';
@@ -49,15 +52,18 @@ export async function POST(req: NextRequest) {
 
   const defaultAuthXml = getAuthXml(); // Ensure this function returns a valid XML string
 
-  const url = process.env.ENVIRONMENT === 'PROD' ? ASENDIA_AUTH_URL_PROD : ASENDIA_AUTH_URL_UAT;
-
-  const response = await fetch(url, {
+  const url =  ASENDIA_AUTH_URL_PROD ;
+  console.log("hit")
+  let response = await fetch(url, {
     method: 'POST',
     headers: headers,
     body: defaultAuthXml,
   });
-
+  // var { response } = await soapRequest({ url: url, headers: headers, xml: defaultAuthXml, timeout: 10000 }); // Optional timeout parameter(milliseconds)
+  console.log(response)
   if (!response.ok) {
+   
+
     throw new Error(`SOAP request failed with status ${response.status}`);
   }
   const authRespHeaders = response.headers;
@@ -66,14 +72,24 @@ export async function POST(req: NextRequest) {
 
 
   let authTokenInResp = '';
+  console.log("hit")
 
-
+ 
   const textResponse = await response.text();
+  console.log(textResponse)
+
   // Extract the AuthenticationTicket from the response
   authTokenInResp = await extractAuthenticationTicket(textResponse);
 
 
-  console.log('Authentication Ticket:', authTokenInResp);
+  // console.log('Authentication Ticket:', authTokenInResp);
+  // let defaultShipmentXmlParser = new xml2js.Parser();
+  // var asendiaShipmentAPIRequestAsJsonObj a: any;
+  // var defaultShipmentXml = getShipmentXml();
+  // defaultShipmentXmlParser.parseString(defaultShipmentXml, function (err, result) {
+  //   console.log(util.inspect(result, false, null))
+  //   asendiaShipmentAPIRequestAsJsonObj = result;
+  // });
 
   let defaultShipmentXmlParser = new xml2js.Parser();
   var asendiaShipmentAPIRequestAsJsonObj: any;
@@ -271,26 +287,25 @@ export async function POST(req: NextRequest) {
     
   }
   let shipmentXmlWithValues = '';
-  headers.SOAPAction = ASENDIA_SHIPMENT_SOAP_ACTION;
+headers.SOAPAction = ASENDIA_SHIPMENT_SOAP_ACTION;
 
-  var shipmentXmlBuilder = new xml2js.Builder();
-  shipmentXmlWithValues = shipmentXmlBuilder.buildObject(asendiaShipmentAPIRequestAsJsonObj);
-  console.log('Asendia Shipment request XML interpolated:', shipmentXmlWithValues);
-  var url2 = ASENDIA_SHIPMENT_URL_UAT;
-  const labelresponse = await fetch(url2, {
-    method: 'POST',
-    headers: headers,
-    body: shipmentXmlWithValues,
-  }).catch(error => console.log('Fetch error:', error));
-
+var shipmentXmlBuilder = new xml2js.Builder();
+shipmentXmlWithValues = shipmentXmlBuilder.buildObject(asendiaShipmentAPIRequestAsJsonObj);
+var url2 = ASENDIA_SHIPMENT_URL_PROD;
+  let responseLabel  : any= await fetch(url2, {
+  method: 'POST',
+  headers: headers,
+  body: shipmentXmlWithValues,
+}).catch(error => console.log('Fetch error:', error));
 
 
-  console.log("label response :", labelresponse)
+  const textResponse2 = await responseLabel.text();
 
 
+  const  labelResponse = await extractSequenceNumberAndContent(textResponse2)
+  console.log(labelResponse)
 
-
-  return new Response(labelresponse as any , { status: 200, headers: { 'Content-Type': 'text/plain' } });
+  return new Response(JSON.stringify(labelResponse) , { status: 200, headers: { 'Content-Type': 'text/plain' } });
 
 }
 
@@ -319,6 +334,30 @@ const extractAuthenticationTicket = async (xml: string): Promise<string> => {
 };
 
 
+const extractSequenceNumberAndContent = async (xml: string): Promise<{ sequenceNumber: string; content: string }> => {
+  return new Promise((resolve, reject) => {
+    const parser = new xml2js.Parser({
+      explicitArray: false,
+      ignoreAttrs: false, // Change to false to include attributes
+      tagNameProcessors: [xml2js.processors.stripPrefix] // Removes namespace prefixes
+    });
+
+    parser.parseString(xml, (err, result) => {
+      if (err) {
+        reject(err);
+      } else {
+        try {
+          const sequenceNumber = result.Envelope.Body.AddAndPrintShipmentResponse.Shipments.SequenceNumber;
+          console.log(sequenceNumber)
+          const content = result.Envelope.Body.AddAndPrintShipmentResponse.ParcelDocuments.ParcelDocument.Content;
+          resolve({ sequenceNumber, content });
+        } catch (error) {
+          reject('Sequence number or content not found');
+        }
+      }
+    });
+  });
+};
 
 
 const getShipmentXml = function () {
@@ -417,6 +456,113 @@ const getShipmentXml = function () {
 
   return xml;
 }
+
+
+// const getShipmentXml = function () {
+//   const xml = `
+//       <SOAP-ENV:Envelope xmlns:SOAP-ENV="http://schemas.xmlsoap.org/soap/envelope/" xmlns:ns1="http://centiro.com/facade/tmsBasic/1/0/servicecontract" xmlns:ns2="http://schemas.datacontract.org/2004/07/Centiro.Facade.TMSBasic.Contract.c1.i1.TMSBasic.BaseTypes.DTO" xmlns:ns3="http://centiro.com/facade/shared/1/0/datacontract" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+//         <SOAP-ENV:Header>
+//           <ns3:AuthenticationTicket>ERjX...blg%3d</ns3:AuthenticationTicket>
+//         </SOAP-ENV:Header>
+//         <SOAP-ENV:Body>
+//           <ns1:AddAndPrintShipmentRequest>
+//             <ns1:LabelType>PDF</ns1:LabelType>
+//             <ns1:Shipment>
+//               <ns2:Addresses>
+//                 <ns2:Address>
+//                   <ns2:Address1>73 Caledonian Rd</ns2:Address1>
+//                   <ns2:AddressType>Receiver</ns2:AddressType>
+//                   <ns2:CellPhone></ns2:CellPhone>
+//                   <ns2:City>London</ns2:City>
+//                   <ns2:Contact>Peter Bear</ns2:Contact>
+//                   <ns2:Email>peterbear@gmail.co.uk</ns2:Email>
+//                   <ns2:ISOCountry>GB</ns2:ISOCountry>
+//                   <ns2:Name>London Bear Hotel</ns2:Name>
+//                   <ns2:Phone>+442072780206</ns2:Phone>
+//                   <ns2:ZipCode>N1 9BT</ns2:ZipCode>
+//                 </ns2:Address>
+//               </ns2:Addresses>
+//               <ns2:Attributes>
+//                 <ns2:Attribute>
+//                   <ns2:Code>OriginSub</ns2:Code>
+//                   <ns2:Value>AU</ns2:Value>
+//                 </ns2:Attribute>
+//                 <ns2:Attribute>
+//                   <ns2:Code>CRMID</ns2:Code>
+//                   <ns2:Value>AU19060001</ns2:Value>
+//                 </ns2:Attribute>
+//                 <ns2:Attribute>
+//                   <ns2:Code>Product</ns2:Code>
+//                   <ns2:Value>EPAQPLS</ns2:Value>
+//                 </ns2:Attribute>
+//                 <ns2:Attribute>
+//                   <ns2:Code>Service</ns2:Code>
+//                   <ns2:Value>CUP</ns2:Value>
+//                 </ns2:Attribute>
+//                 <ns2:Attribute>
+//                   <ns2:Code>AdditionalService</ns2:Code>
+//                   <ns2:Value></ns2:Value>
+//                 </ns2:Attribute>
+//                 <ns2:Attribute>
+//                   <ns2:Code>Format</ns2:Code>
+//                   <ns2:Value>B</ns2:Value>
+//                 </ns2:Attribute>
+//                 <ns2:Attribute>
+//                   <ns2:Code>SenderTaxID</ns2:Code>
+//                   <ns2:Value>GB1234567891</ns2:Value>
+//                 </ns2:Attribute>
+//               </ns2:Attributes>
+//               <ns2:ModeOfTransport>ACSS</ns2:ModeOfTransport>
+//               <ns2:OrderNumber>REF20210614001</ns2:OrderNumber>
+//               <ns2:Parcels>
+//                 <ns2:Parcel>
+//                   <ns2:OrderLines>
+//                     <ns2:OrderLine>
+//                       <ns2:CountryOfOrigin>AU</ns2:CountryOfOrigin>
+//                       <ns2:Currency>AUD</ns2:Currency>
+//                       <ns2:Description1>Blue Watch</ns2:Description1>
+//                       <ns2:HarmonizationCode>910310</ns2:HarmonizationCode>
+//                       <ns2:OrderLineNumber>1</ns2:OrderLineNumber>
+//                       <ns2:ProductNumber>WBLUE12345</ns2:ProductNumber>
+//                       <ns2:QuantityShipped>2</ns2:QuantityShipped>
+//                       <ns2:UnitOfMeasure>EA</ns2:UnitOfMeasure>
+//                       <ns2:UnitPrice>10</ns2:UnitPrice>
+//                       <ns2:UnitWeight></ns2:UnitWeight>
+//                       <ns2:Weight>0.2</ns2:Weight>
+//                     </ns2:OrderLine>
+//                     <ns2:OrderLine>
+//                       <ns2:CountryOfOrigin>AU</ns2:CountryOfOrigin>
+//                       <ns2:Currency>AUD</ns2:Currency>
+//                       <ns2:Description1>Red Watch</ns2:Description1>
+//                       <ns2:HarmonizationCode>910310</ns2:HarmonizationCode>
+//                       <ns2:OrderLineNumber>2</ns2:OrderLineNumber>
+//                       <ns2:ProductNumber>WRED12345</ns2:ProductNumber>
+//                       <ns2:QuantityShipped>3</ns2:QuantityShipped>
+//                       <ns2:UnitOfMeasure>EA</ns2:UnitOfMeasure>
+//                       <ns2:UnitPrice>30</ns2:UnitPrice>
+//                       <ns2:UnitWeight></ns2:UnitWeight>
+//                       <ns2:Weight>0.9</ns2:Weight>
+//                     </ns2:OrderLine>
+//                   </ns2:OrderLines>
+//                   <ns2:ParcelIdentifier>ACME20210614001</ns2:ParcelIdentifier>
+//                   <ns2:TypeOfGoods>Goods</ns2:TypeOfGoods>
+//                   <ns2:Weight>1.2</ns2:Weight>
+//                 </ns2:Parcel>
+//               </ns2:Parcels>
+//               <ns2:SenderCode>AU19060001</ns2:SenderCode>
+//               <ns2:ShipDate>2021-06-14T18:12:47</ns2:ShipDate>
+//               <ns2:ShipmentIdentifier>ACME20210614001</ns2:ShipmentIdentifier>
+//               <ns2:ShipmentType>OUTB</ns2:ShipmentType>
+//               <ns2:TermsOfDelivery>DDP</ns2:TermsOfDelivery>
+//               <ns2:Weight>1.2</ns2:Weight>
+//             </ns1:Shipment>
+//           </ns1:AddAndPrintShipmentRequest>
+//         </SOAP-ENV:Body>
+//       </SOAP-ENV:Envelope>
+//   `;
+  
+//   return xml;
+// }
 
 const getAuthXml = function () {
   const xml = ' \
