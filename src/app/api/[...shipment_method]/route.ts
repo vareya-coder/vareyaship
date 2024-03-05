@@ -46,7 +46,7 @@ export const POST = withAxiom(async (req: AxiomRequest) => {
         'postnl:nl-mailbox-package-sorted-2929',
         'postnl:nl-mailbox-package-unsorted-2928',
         'postnl:nl-standard-3085',
-        'postnl:be-standard-4946
+        'postnl:be-standard-4946'
       ];
       const asendia: string[] = [
         'asendia:epaqpls',
@@ -69,17 +69,17 @@ export const POST = withAxiom(async (req: AxiomRequest) => {
         const postNLApiResponse = await axios.post(postnlCallingapilocal, shipmentData);
     
         if (postNLApiResponse.data.ResponseShipments.length > 0 && postNLApiResponse.data.ResponseShipments[0].Labels.length > 0) {
-          trackingUrl = `https://postnl.post/#/tracking/items/${postNLApiResponse.data.ResponseShipments[0].Barcode}`
           trackingNumber = postNLApiResponse.data.ResponseShipments[0].Barcode
+          trackingUrl = `https://postnl.post/#/tracking/items/${trackingNumber}`
           labelContent = postNLApiResponse.data.ResponseShipments[0].Labels[0].Content;
           req.log.info('Label Generated successfully for order :', { order: shipmentData });
         }
 
       } else if (Carrier ==="Asendia") {
         console.log("first")
-        const asendiaResponse = await axios.post(postnlCallingapilocal, shipmentData)
-        console.log(asendiaResponse.data)
+        const asendiaResponse = await axios.post(asendiaCallingapiProd, shipmentData)
         trackingNumber = asendiaResponse.data.sequenceNumber
+        trackingUrl = `https://tracking.asendia.com/tracking/${trackingNumber}`
         labelContent  = asendiaResponse.data.content
         console.log(trackingNumber)
 

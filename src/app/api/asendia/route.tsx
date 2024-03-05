@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { config } from "dotenv";
 import xml2js from 'xml2js';
+import soapRequest from 'easy-soap-request';
+
 
 
 config()
@@ -9,6 +11,7 @@ export async function POST(req: NextRequest) {
 
 
   const body = await req.json();
+  console.log(JSON.stringify(body));
   const WSDL_ASENDIA_AUTH_OPS_URL = 'https://uat.centiro.com/Universe.Services/TMSBasic/Wcf/c1/i1/TMSBasic/Authenticate.svc?wsdl';
   const WSDL_ASENDIA_SHIPMENT_OPS_URL = 'https://uat.centiro.com/Universe.Services/TMSBasic/Wcf/c1/i1/TMSBasic/TMSBasic.svc?wsdl';
 
@@ -45,36 +48,34 @@ export async function POST(req: NextRequest) {
   const DEFAULT_SHIPMENT_TRACKING_STATUS_CODE = '-1';
   const SHIPMENT_TRACKING_CARRIER_NAME = 'Asendia';
 
-  let headers = {
+  let reqHeaders = {
     'Content-Type': 'text/xml;charset=UTF-8',
     SOAPAction: ASENDIA_AUTH_SOAP_ACTION,
   };
 
   const defaultAuthXml = getAuthXml(); // Ensure this function returns a valid XML string
+  console.log(defaultAuthXml);
 
   const url =  ASENDIA_AUTH_URL_PROD ;
-  console.log("hit")
+  
   let response = await fetch(url, {
     method: 'POST',
-    headers: headers,
+    headers: reqHeaders,
     body: defaultAuthXml,
   });
-  // var { response } = await soapRequest({ url: url, headers: headers, xml: defaultAuthXml, timeout: 10000 }); // Optional timeout parameter(milliseconds)
-  console.log(response)
-  if (!response.ok) {
-   
-
-    throw new Error(`SOAP request failed with status ${response.status}`);
-  }
+  // let { response } = await soapRequest({ url: url, headers: reqHeaders, xml: defaultAuthXml, timeout: 10000 }); // Optional timeout parameter(milliseconds)
+  // const { headers, body, statusCode } = response;
+  // console.log(response.headers);
+  // console.log(response.body);
+  // console.log(response.statusCode);
+  // if (!response.ok) {
+  //   throw new Error(`SOAP request failed with status ${response.status}`);
+  // }
   const authRespHeaders = response.headers;
 
   const authRespBody = response.body;
 
-
   let authTokenInResp = '';
-  console.log("hit")
-
- 
   const textResponse = await response.text();
   console.log(textResponse)
 
@@ -82,20 +83,12 @@ export async function POST(req: NextRequest) {
   authTokenInResp = await extractAuthenticationTicket(textResponse);
 
 
-  // console.log('Authentication Ticket:', authTokenInResp);
-  // let defaultShipmentXmlParser = new xml2js.Parser();
-  // var asendiaShipmentAPIRequestAsJsonObj a: any;
-  // var defaultShipmentXml = getShipmentXml();
-  // defaultShipmentXmlParser.parseString(defaultShipmentXml, function (err, result) {
-  //   console.log(util.inspect(result, false, null))
-  //   asendiaShipmentAPIRequestAsJsonObj = result;
-  // });
+  console.log('Authentication Ticket:', authTokenInResp);
 
   let defaultShipmentXmlParser = new xml2js.Parser();
   var asendiaShipmentAPIRequestAsJsonObj: any;
   var defaultShipmentXml = getShipmentXml();
   defaultShipmentXmlParser.parseString(defaultShipmentXml, function (err, result) {
-
     asendiaShipmentAPIRequestAsJsonObj = result;
   });
   asendiaShipmentAPIRequestAsJsonObj['SOAP-ENV:Envelope']['SOAP-ENV:Header'][0]['ns3:AuthenticationTicket'][0] = authTokenInResp
@@ -170,137 +163,129 @@ export async function POST(req: NextRequest) {
 
     var tempWorkingIndex = 1; // because by default there is one item already present in xml
 
-    // while (itemsToCopy > 1) {
-    //   //for(let i =0 ;i<body.)
-    //   if (!(packages[0].line_items[packages[0].line_items.length - itemsToCopy].ignore_on_customs)) {
+    while (itemsToCopy > 1) {
+      //for(let i =0 ;i<body.)
+      if (!(packages[0].line_items[packages[0].line_items.length - itemsToCopy].ignore_on_customs)) {
 
-    //     lineItemObjects[tempWorkingIndex] = {};
-    //     lineItemObjects[tempWorkingIndex]['ns2:CountryOfOrigin'] = [];
-    //     lineItemObjects[tempWorkingIndex]['ns2:CountryOfOrigin'][0] = lineItemObjects[0]['ns2:CountryOfOrigin'][0];
-    //     lineItemObjects[tempWorkingIndex]['ns2:Currency'] = [];
-    //     lineItemObjects[tempWorkingIndex]['ns2:Currency'][0] = lineItemObjects[0]['ns2:Currency'][0];
-    //     lineItemObjects[tempWorkingIndex]['ns2:Description1'] = [];
-    //     lineItemObjects[tempWorkingIndex]['ns2:Description1'][0] = lineItemObjects[0]['ns2:Description1'][0];
-    //     lineItemObjects[tempWorkingIndex]['ns2:HarmonizationCode'] = [];
-    //     lineItemObjects[tempWorkingIndex]['ns2:HarmonizationCode'][0] = lineItemObjects[0]['ns2:HarmonizationCode'][0];
-    //     lineItemObjects[tempWorkingIndex]['ns2:OrderLineNumber'] = [];
-    //     lineItemObjects[tempWorkingIndex]['ns2:OrderLineNumber'][0] = lineItemObjects[0]['ns2:OrderLineNumber'][0];
-    //     lineItemObjects[tempWorkingIndex]['ns2:ProductNumber'] = [];
-    //     lineItemObjects[tempWorkingIndex]['ns2:ProductNumber'][0] = lineItemObjects[0]['ns2:ProductNumber'][0];
-    //     lineItemObjects[tempWorkingIndex]['ns2:QuantityShipped'] = [];
-    //     lineItemObjects[tempWorkingIndex]['ns2:QuantityShipped'][0] = lineItemObjects[0]['ns2:QuantityShipped'][0];
-    //     lineItemObjects[tempWorkingIndex]['ns2:UnitOfMeasure'] = [];
-    //     lineItemObjects[tempWorkingIndex]['ns2:UnitOfMeasure'][0] = lineItemObjects[0]['ns2:UnitOfMeasure'][0];
-    //     lineItemObjects[tempWorkingIndex]['ns2:UnitPrice'] = [];
-    //     lineItemObjects[tempWorkingIndex]['ns2:UnitPrice'][0] = lineItemObjects[0]['ns2:UnitPrice'][0];
-    //     lineItemObjects[tempWorkingIndex]['ns2:UnitWeight'] = [];
-    //     lineItemObjects[tempWorkingIndex]['ns2:UnitWeight'][0] = lineItemObjects[0]['ns2:UnitWeight'][0];
-    //     lineItemObjects[tempWorkingIndex]['ns2:Weight'] = [];
-    //     lineItemObjects[tempWorkingIndex]['ns2:Weight'][0] = lineItemObjects[0]['ns2:Weight'][0];
-    //     tempWorkingIndex++;
-    //     itemsToCopy--;
-    //   }
-    // }
+        lineItemObjects[tempWorkingIndex] = {};
+        lineItemObjects[tempWorkingIndex]['ns2:CountryOfOrigin'] = [];
+        lineItemObjects[tempWorkingIndex]['ns2:CountryOfOrigin'][0] = lineItemObjects[0]['ns2:CountryOfOrigin'][0];
+        lineItemObjects[tempWorkingIndex]['ns2:Currency'] = [];
+        lineItemObjects[tempWorkingIndex]['ns2:Currency'][0] = lineItemObjects[0]['ns2:Currency'][0];
+        lineItemObjects[tempWorkingIndex]['ns2:Description1'] = [];
+        lineItemObjects[tempWorkingIndex]['ns2:Description1'][0] = lineItemObjects[0]['ns2:Description1'][0];
+        lineItemObjects[tempWorkingIndex]['ns2:HarmonizationCode'] = [];
+        lineItemObjects[tempWorkingIndex]['ns2:HarmonizationCode'][0] = lineItemObjects[0]['ns2:HarmonizationCode'][0];
+        lineItemObjects[tempWorkingIndex]['ns2:OrderLineNumber'] = [];
+        lineItemObjects[tempWorkingIndex]['ns2:OrderLineNumber'][0] = lineItemObjects[0]['ns2:OrderLineNumber'][0];
+        lineItemObjects[tempWorkingIndex]['ns2:ProductNumber'] = [];
+        lineItemObjects[tempWorkingIndex]['ns2:ProductNumber'][0] = lineItemObjects[0]['ns2:ProductNumber'][0];
+        lineItemObjects[tempWorkingIndex]['ns2:QuantityShipped'] = [];
+        lineItemObjects[tempWorkingIndex]['ns2:QuantityShipped'][0] = lineItemObjects[0]['ns2:QuantityShipped'][0];
+        lineItemObjects[tempWorkingIndex]['ns2:UnitOfMeasure'] = [];
+        lineItemObjects[tempWorkingIndex]['ns2:UnitOfMeasure'][0] = lineItemObjects[0]['ns2:UnitOfMeasure'][0];
+        lineItemObjects[tempWorkingIndex]['ns2:UnitPrice'] = [];
+        lineItemObjects[tempWorkingIndex]['ns2:UnitPrice'][0] = lineItemObjects[0]['ns2:UnitPrice'][0];
+        lineItemObjects[tempWorkingIndex]['ns2:UnitWeight'] = [];
+        lineItemObjects[tempWorkingIndex]['ns2:UnitWeight'][0] = lineItemObjects[0]['ns2:UnitWeight'][0];
+        lineItemObjects[tempWorkingIndex]['ns2:Weight'] = [];
+        lineItemObjects[tempWorkingIndex]['ns2:Weight'][0] = lineItemObjects[0]['ns2:Weight'][0];
+        tempWorkingIndex++;
+        itemsToCopy--;
+      }
+    }
 
     tempWorkingIndex = 0;
-    for (let i = 0; i < packages.length; i++) {
-    //  for (let j = 0; j < packages[i].line_items.length; j++) {
+    // for (let i = 0; i < packages.length; i++) {
+    for (let i = 0; i < packages[0].line_items.length; i++) {
+      if (!(packages[0].line_items[i].ignore_on_customs)) {
 
+        lineItemObjects[tempWorkingIndex]['ns2:CountryOfOrigin'][0] = packages[0].line_items[i].country_of_manufacture;
 
-        if (!(packages[0].line_items[i].ignore_on_customs)) {
-  
-          lineItemObjects[tempWorkingIndex]['ns2:CountryOfOrigin'][0] = packages[0].line_items[i].country_of_manufacture;
-  
-          let orderCurrency = "EUR";
-          
-  
+        let orderCurrency = "EUR";
+        
+
+        // TODO temporary Norway check. Need to fix it properly later.
+        if (body.to_address.country == 'NO' || body.to_address.country == 'CH') {
+          orderCurrency = 'EUR';
+        }
+
+        lineItemObjects[tempWorkingIndex]['ns2:Currency'][0] = orderCurrency;
+        lineItemObjects[tempWorkingIndex]['ns2:Description1'][0] = packages[0].line_items[i].customs_description;
+        // send sequential/incremental number instead of line number received from ShipHero
+        // asendiaShipmentAPIParamsAsJson.parcel.lineItem.orderLineNumber = packages[0].line_items[0].partner_line_item_id;
+        lineItemObjects[tempWorkingIndex]['ns2:OrderLineNumber'][0] = `${i + 1}`;
+        lineItemObjects[tempWorkingIndex]['ns2:QuantityShipped'][0] = packages[0].line_items[i].quantity;
+        // lineItemObjects[tempWorkingIndex]['ns2:ProductNumber'][0] =i ;
+
+        let priceAsFloat = 0.0;
+        if (packages[0].line_items[i].price !== null
+          && packages[0].line_items[i].price !== '') {
+          priceAsFloat = parseFloat(packages[0].line_items[i].price);
+        }
+
+        if (body.order_number.indexOf('BBSPY') >= 0) {
+          priceAsFloat = 25.0;
+        } else {
+
+          // TODO - temporary fix below to keep Asendia quiet. Need to remove this alteration when ShipHero fixes 0.0 price error
+          if (priceAsFloat == 0.0) {
+            priceAsFloat = 1.0;
+          }
+
           // TODO temporary Norway check. Need to fix it properly later.
           if (body.to_address.country == 'NO' || body.to_address.country == 'CH') {
-            orderCurrency = 'EUR';
+            priceAsFloat = 3.0;
           }
-  
-  
-  
-          lineItemObjects[tempWorkingIndex]['ns2:Currency'][0] = orderCurrency;
-          lineItemObjects[tempWorkingIndex]['ns2:Description1'][0] = packages[0].line_items[i].customs_description;
-          // send sequential/incremental number instead of line number received from ShipHero
-          // asendiaShipmentAPIParamsAsJson.parcel.lineItem.orderLineNumber = packages[0].line_items[0].partner_line_item_id;
-          lineItemObjects[tempWorkingIndex]['ns2:OrderLineNumber'][0] = 1;
-          lineItemObjects[tempWorkingIndex]['ns2:QuantityShipped'][0] = packages[0].line_items[i].quantity;
-          lineItemObjects[tempWorkingIndex]['ns2:ProductNumber'][0] =i ;
-  
-          let priceAsFloat = 0.0;
-          if (packages[0].line_items[i].price !== null
-            && packages[0].line_items[i].price !== '') {
-            priceAsFloat = parseFloat(packages[0].line_items[i].price);
+
+          if (body.to_address.country == 'IL'
+            && (('' + body.account_id) == '59965') || (('' + body.account_id) == '63984') || (('' + body.account_id) == '63932')) {
+            priceAsFloat = 5.0;
           }
-  
-          if (body.order_number.indexOf('BBSPY') >= 0) {
-            priceAsFloat = 25.0;
-          } else {
-  
-            // TODO - temporary fix below to keep Asendia quiet. Need to remove this alteration when ShipHero fixes 0.0 price error
-            if (priceAsFloat == 0.0) {
-              priceAsFloat = 1.0;
-            }
-  
-            // TODO temporary Norway check. Need to fix it properly later.
-            if (body.to_address.country == 'NO' || body.to_address.country == 'CH') {
+
+          if (priceAsFloat > 5.0) {
+            if (body.to_address.country == 'GB'
+              && (('' + body.account_id) == '59965') || (('' + body.account_id) == '63984') || (('' + body.account_id) == '63932')) {
               priceAsFloat = 3.0;
             }
-  
-            if (body.to_address.country == 'IL'
-              && (('' + body.account_id) == '59965') || (('' + body.account_id) == '63984') || (('' + body.account_id) == '63932')) {
-              priceAsFloat = 5.0;
-            }
-  
-            if (priceAsFloat > 5.0) {
-              if (body.to_address.country == 'GB'
-                && (('' + body.account_id) == '59965') || (('' + body.account_id) == '63984') || (('' + body.account_id) == '63932')) {
-                priceAsFloat = 3.0;
-              }
-            }
           }
-  
-          console.log('0:', priceAsFloat);
-  
-          lineItemObjects[tempWorkingIndex]['ns2:UnitPrice'][0] = priceAsFloat;
-  
-          const hsCodeWitoutDots = packages[0].line_items[i].tariff_code.replace(/\./g, '');
-          lineItemObjects[tempWorkingIndex]['ns2:HarmonizationCode'][0] = hsCodeWitoutDots;
-  
-          if (packages[0].line_items[i].weight) {
-            lineItemObjects[tempWorkingIndex]['ns2:UnitWeight'][0] = parseFloat(packages[0].line_items[i].weight) * OZ_TO_KG_MULTIPLIER;
-            lineItemObjects[tempWorkingIndex]['ns2:UnitWeight'][0] = lineItemObjects[tempWorkingIndex]['ns2:UnitWeight'][0].toFixed(3);
-            lineItemObjects[tempWorkingIndex]['ns2:Weight'][0] = lineItemObjects[tempWorkingIndex]['ns2:UnitWeight'][0] * parseInt(lineItemObjects[tempWorkingIndex]['ns2:QuantityShipped'][0]);
-            lineItemObjects[tempWorkingIndex]['ns2:Weight'][0] = lineItemObjects[tempWorkingIndex]['ns2:Weight'][0].toFixed(3);
-          }
-     
-          tempWorkingIndex++;
         }
-      // }
 
+        lineItemObjects[tempWorkingIndex]['ns2:UnitPrice'][0] = priceAsFloat;
 
+        const hsCodeWitoutDots = packages[0].line_items[i].tariff_code.replace(/\./g, '');
+        lineItemObjects[tempWorkingIndex]['ns2:HarmonizationCode'][0] = hsCodeWitoutDots;
+
+        if (packages[0].line_items[i].weight) {
+          lineItemObjects[tempWorkingIndex]['ns2:UnitWeight'][0] = parseFloat(packages[0].line_items[i].weight) * OZ_TO_KG_MULTIPLIER;
+          lineItemObjects[tempWorkingIndex]['ns2:UnitWeight'][0] = lineItemObjects[tempWorkingIndex]['ns2:UnitWeight'][0].toFixed(3);
+          lineItemObjects[tempWorkingIndex]['ns2:Weight'][0] = lineItemObjects[tempWorkingIndex]['ns2:UnitWeight'][0] * parseInt(lineItemObjects[tempWorkingIndex]['ns2:QuantityShipped'][0]);
+          lineItemObjects[tempWorkingIndex]['ns2:Weight'][0] = lineItemObjects[tempWorkingIndex]['ns2:Weight'][0].toFixed(3);
+        }
+    
+        tempWorkingIndex++;
+      }
     }
     
 
     
   }
   let shipmentXmlWithValues = '';
-headers.SOAPAction = ASENDIA_SHIPMENT_SOAP_ACTION;
+  reqHeaders.SOAPAction = ASENDIA_SHIPMENT_SOAP_ACTION;
 
-var shipmentXmlBuilder = new xml2js.Builder();
-shipmentXmlWithValues = shipmentXmlBuilder.buildObject(asendiaShipmentAPIRequestAsJsonObj);
-var url2 = ASENDIA_SHIPMENT_URL_PROD;
+  var shipmentXmlBuilder = new xml2js.Builder();
+  shipmentXmlWithValues = shipmentXmlBuilder.buildObject(asendiaShipmentAPIRequestAsJsonObj);
+  console.log(shipmentXmlWithValues)
+
+  var url2 = ASENDIA_SHIPMENT_URL_PROD;
   let responseLabel  : any= await fetch(url2, {
-  method: 'POST',
-  headers: headers,
-  body: shipmentXmlWithValues,
-}).catch(error => console.log('Fetch error:', error));
-
+    method: 'POST',
+    headers: reqHeaders,
+    body: shipmentXmlWithValues,
+  }).catch(error => console.log('Fetch error:', error));
 
   const textResponse2 = await responseLabel.text();
-
+  console.log(textResponse2);
 
   const  labelResponse = await extractSequenceNumberAndContent(textResponse2)
   console.log(labelResponse)
@@ -308,7 +293,6 @@ var url2 = ASENDIA_SHIPMENT_URL_PROD;
   return new Response(JSON.stringify(labelResponse) , { status: 200, headers: { 'Content-Type': 'text/plain' } });
 
 }
-
 
 const extractAuthenticationTicket = async (xml: string): Promise<string> => {
   return new Promise((resolve, reject) => {

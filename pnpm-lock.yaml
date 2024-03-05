@@ -20,6 +20,9 @@ dependencies:
   '@radix-ui/react-tabs':
     specifier: ^1.0.4
     version: 1.0.4(@types/react-dom@18.2.18)(@types/react@18.2.48)(react-dom@18.2.0)(react@18.2.0)
+  '@types/easy-soap-request':
+    specifier: ^4.1.4
+    version: 4.1.4
   '@types/node':
     specifier: 20.11.10
     version: 20.11.10
@@ -53,6 +56,9 @@ dependencies:
   drizzle-orm:
     specifier: ^0.29.3
     version: 0.29.3(@neondatabase/serverless@0.8.1)(@types/react@18.2.48)(pg@8.11.3)(postgres@3.4.3)(react@18.2.0)
+  easy-soap-request:
+    specifier: ^5.6.1
+    version: 5.6.1
   eslint:
     specifier: 8.56.0
     version: 8.56.0
@@ -1350,6 +1356,14 @@ packages:
       '@types/node': 20.11.10
     dev: true
 
+  /@types/easy-soap-request@4.1.4:
+    resolution: {integrity: sha512-KvrxS/a46n23iiMTt1bmEqWx7MS65TaL6gF7OHVpldGZKsYZehIPb5sHomepSK/fGnTElWSwa5xATK32O8iLeQ==}
+    dependencies:
+      axios: 0.21.4
+    transitivePeerDependencies:
+      - debug
+    dev: false
+
   /@types/json5@0.0.29:
     resolution: {integrity: sha512-dRLjCWHYg4oaA77cxO64oO+7JwCwnIzkZPdrrC71jQmQtlhM556pwKo5bUzqvZndkVbeFLIIi+9TC40JNF5hNQ==}
     dev: false
@@ -1677,6 +1691,14 @@ packages:
   /axe-core@4.7.0:
     resolution: {integrity: sha512-M0JtH+hlOL5pLQwHOLNYZaXuhqmvS8oExsqB1SBYgA4Dk7u/xx+YdGHXaK5pyUfed5mYXdlYiphWq3G8cRi5JQ==}
     engines: {node: '>=4'}
+    dev: false
+
+  /axios@0.21.4:
+    resolution: {integrity: sha512-ut5vewkiu8jjGBdqpM44XxjuCjq9LAKeHVmoVfHVzy8eHgxxq8SbAVQNovDA8mVi05kP0Ea/n/UzcSHcTJQfNg==}
+    dependencies:
+      follow-redirects: 1.15.5
+    transitivePeerDependencies:
+      - debug
     dev: false
 
   /axios@1.6.7:
@@ -2130,6 +2152,14 @@ packages:
 
   /eastasianwidth@0.2.0:
     resolution: {integrity: sha512-I88TYZWc9XiYHRQ4/3c5rjjfgkjhLyW2luGIheGERbNQ6OY7yTybanSpDXZa8y7VUP9YmDcYa+eyq4ca7iLqWA==}
+    dev: false
+
+  /easy-soap-request@5.6.1:
+    resolution: {integrity: sha512-Sbq59ZHUYcND8w0Y2XZ13X7hbF6gUZQlWC8pBwCaqULLE44FY7Ph6UdG0c+ndBUJt9r77M4VCteieHg1JooeJA==}
+    dependencies:
+      axios: 1.6.7
+    transitivePeerDependencies:
+      - debug
     dev: false
 
   /ecdsa-sig-formatter@1.0.11:
