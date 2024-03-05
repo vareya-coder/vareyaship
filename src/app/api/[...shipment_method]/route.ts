@@ -148,12 +148,12 @@ export const POST = withAxiom(async (req: AxiomRequest) => {
       let responseBodyJson = {
         code: 200,
         shipping_method: shipping_method,
-        tracking_number: "",
+        tracking_number: trackingNumber,
         cost: 0,
         label: labelUrl,
         customs_info: '',
         shipping_carrier: Carrier,
-        tracking_url: trackingNumber
+        tracking_url: trackingUrl
       };
       
       const responseBody = JSON.stringify(responseBodyJson);
