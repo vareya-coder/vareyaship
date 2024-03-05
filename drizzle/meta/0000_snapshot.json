@@ -1,5 +1,5 @@
 {
-  "id": "b099edb1-bf68-4c5d-af35-53ea3399ea25",
+  "id": "c7cde943-0735-4e5a-b6a4-19334d0fe68d",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "5",
   "dialect": "pg",
@@ -32,8 +32,8 @@
           "primaryKey": false,
           "notNull": false
         },
-        "order_id": {
-          "name": "order_id",
+        "shipment_id": {
+          "name": "shipment_id",
           "type": "integer",
           "primaryKey": false,
           "notNull": false
@@ -41,17 +41,17 @@
       },
       "indexes": {},
       "foreignKeys": {
-        "customer_details_order_id_shipment_details_order_id_fk": {
-          "name": "customer_details_order_id_shipment_details_order_id_fk",
+        "customer_details_shipment_id_shipment_details_shipment_id_fk": {
+          "name": "customer_details_shipment_id_shipment_details_shipment_id_fk",
           "tableFrom": "customer_details",
           "tableTo": "shipment_details",
           "columnsFrom": [
-            "order_id"
+            "shipment_id"
           ],
           "columnsTo": [
-            "order_id"
+            "shipment_id"
           ],
-          "onDelete": "no action",
+          "onDelete": "cascade",
           "onUpdate": "no action"
         }
       },
@@ -62,6 +62,12 @@
       "name": "shipment_details",
       "schema": "",
       "columns": {
+        "shipment_id": {
+          "name": "shipment_id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
         "barcode": {
           "name": "barcode",
           "type": "varchar",
@@ -71,8 +77,8 @@
         "order_id": {
           "name": "order_id",
           "type": "integer",
-          "primaryKey": true,
-          "notNull": true
+          "primaryKey": false,
+          "notNull": false
         },
         "name": {
           "name": "name",
@@ -90,7 +96,8 @@
           "name": "label_announced_at",
           "type": "timestamp",
           "primaryKey": false,
-          "notNull": false
+          "notNull": false,
+          "default": "CURRENT_TIMESTAMP"
         },
         "cancel_deadline": {
           "name": "cancel_deadline",
@@ -104,41 +111,21 @@
           "primaryKey": false,
           "notNull": false
         },
-        "shipment_weight": {
-          "name": "shipment_weight",
-          "type": "real",
-          "primaryKey": false,
-          "notNull": false
-        },
         "from_address": {
           "name": "from_address",
           "type": "varchar",
           "primaryKey": false,
           "notNull": false
         },
-        "shipment_status": {
-          "name": "shipment_status",
-          "type": "serial",
+        "label_url": {
+          "name": "label_url",
+          "type": "varchar",
           "primaryKey": false,
-          "notNull": true
+          "notNull": false
         }
       },
       "indexes": {},
-      "foreignKeys": {
-        "shipment_details_shipment_status_shipment_status_status_id_fk": {
-          "name": "shipment_details_shipment_status_shipment_status_status_id_fk",
-          "tableFrom": "shipment_details",
-          "tableTo": "shipment_status",
-          "columnsFrom": [
-            "shipment_status"
-          ],
-          "columnsTo": [
-            "status_id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
+      "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {}
     },
@@ -152,8 +139,8 @@
           "primaryKey": true,
           "notNull": true
         },
-        "order_id": {
-          "name": "order_id",
+        "shipment_id": {
+          "name": "shipment_id",
           "type": "integer",
           "primaryKey": false,
           "notNull": false
@@ -170,6 +157,12 @@
           "primaryKey": false,
           "notNull": false
         },
+        "shipment_weight": {
+          "name": "shipment_weight",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": false
+        },
         "unit_price": {
           "name": "unit_price",
           "type": "numeric",
@@ -179,17 +172,17 @@
       },
       "indexes": {},
       "foreignKeys": {
-        "shipment_items_order_id_shipment_details_order_id_fk": {
-          "name": "shipment_items_order_id_shipment_details_order_id_fk",
+        "shipment_items_shipment_id_shipment_details_shipment_id_fk": {
+          "name": "shipment_items_shipment_id_shipment_details_shipment_id_fk",
           "tableFrom": "shipment_items",
           "tableTo": "shipment_details",
           "columnsFrom": [
-            "order_id"
+            "shipment_id"
           ],
           "columnsTo": [
-            "order_id"
+            "shipment_id"
           ],
-          "onDelete": "no action",
+          "onDelete": "cascade",
           "onUpdate": "no action"
         }
       },
@@ -206,8 +199,8 @@
           "primaryKey": true,
           "notNull": true
         },
-        "order_id": {
-          "name": "order_id",
+        "shipment_id": {
+          "name": "shipment_id",
           "type": "integer",
           "primaryKey": false,
           "notNull": false
@@ -224,12 +217,6 @@
           "primaryKey": false,
           "notNull": false
         },
-        "timestamp": {
-          "name": "timestamp",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": false
-        },
         "carrier_message": {
           "name": "carrier_message",
           "type": "text",
@@ -239,17 +226,17 @@
       },
       "indexes": {},
       "foreignKeys": {
-        "shipment_status_order_id_shipment_details_order_id_fk": {
-          "name": "shipment_status_order_id_shipment_details_order_id_fk",
+        "shipment_status_shipment_id_shipment_details_shipment_id_fk": {
+          "name": "shipment_status_shipment_id_shipment_details_shipment_id_fk",
           "tableFrom": "shipment_status",
           "tableTo": "shipment_details",
           "columnsFrom": [
-            "order_id"
+            "shipment_id"
           ],
           "columnsTo": [
-            "order_id"
+            "shipment_id"
           ],
-          "onDelete": "no action",
+          "onDelete": "cascade",
           "onUpdate": "no action"
         }
       },

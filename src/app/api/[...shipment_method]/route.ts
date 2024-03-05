@@ -17,6 +17,9 @@ export const POST = withAxiom(async (req: AxiomRequest) => {
   const postnlCallingapilocal = "http://localhost:3000/api/postnl/label"
   const postnlCallingapiProd = "https://vareyaship.vercel.app/api/postnl/label"
 
+  const asendiaCallingapilocal = "http://localhost:3000/api/asendia"
+  const asendiaCallingapiProd = "https://vareyaship.vercel.app/api/asendia"
+
   try {
 
     if (req.method === 'POST') {
@@ -41,29 +44,29 @@ export const POST = withAxiom(async (req: AxiomRequest) => {
       }
       let Carrier : string =''
       const postNL: string[] = [
-        "NL Mailbox Package UnSorted 2928",
-        "NL Mailbox Package Sorted 2929",
-        "NL Standard 3085",
-        "BE Standard 4946",
-        "ROW Packet Track n Trace 6550",
-        "ROW Boxable Track n Trace 6942"
-    ];
-    const asendia: string[] = [
-      "Asendia e-PAQ Plus",
-      "Asendia e-PAQ Plus Personal Delivery",
-      "Asendia e-PAQ Plus Mailbox Delivery",
-      "Asendia e-PAQ Select",
-      "Asendia e-PAQ Select Signature",
-      "Asendia e-PAQ Plus - Boxable",
-      "Asendia e-PAQ Plus Personal Delivery - Boxable",
-      "Asendia e-PAQ Plus Mailbox Delivery - Boxable"
-  ];
+        'postnl:row-intl-boxable-track-trace-contract-6942',
+        'postnl:row-intl-packet-track-trace-contract-6550',
+        'postnl:nl-mailbox-package-sorted-2929',
+        'postnl:nl-mailbox-package-unsorted-2928',
+        'postnl:nl-standard-3085',
+        'postnl:be-standard-4946'
+      ];
+      const asendia: string[] = [
+        'asendia:epaqpls',
+        'asendia:epaqpls-personal-delivery',
+        'asendia:epaqpls-mailbox-delivery',
+        'asendia:epaqsct',
+        'asendia:epaqsct-signature',
+        'asendia:epaqpls-boxable',
+        'asendia:epaqpls-personal-delivery-boxable',
+        'asendia:epaqpls-mailbox-delivery-boxable'
+      ];
     if(asendia.includes(shipmentData.shipping_method)){
       Carrier ="Asendia"
     } else if(postNL.includes(shipmentData.shipping_method)){
       Carrier="PostNL"
     }
-    console.log(Carrier)
+
       let labelContent = undefined;
       if (Carrier ==="PostNL") {
         
@@ -80,10 +83,10 @@ export const POST = withAxiom(async (req: AxiomRequest) => {
 
       }
       else if (Carrier ==="Asendia") {
-        console.log("first")
         const asendiaResponse = await axios.post("http://localhost:3000/api/asendia", shipmentData)
-        console.log(asendiaResponse.data)
+        // console.log(asendiaResponse.data)
         trackingNumber = asendiaResponse.data.sequenceNumber
+        trackingUrl = `https://tracking.asendia.com/tracking/${trackingNumber}`
         labelContent  = asendiaResponse.data.content
         console.log(trackingNumber)
       }
@@ -110,36 +113,50 @@ export const POST = withAxiom(async (req: AxiomRequest) => {
         from_address: shipmentData.to_address.address_1 + "," + shipmentData.to_address.city + "," + shipmentData.to_address.country as string,
         label_url: labelUrl as string
       };
+      let shipmentId : any = undefined
+      let insertedShipmentId : any = undefined
+      try{
+        shipmentId  = await insertShipmentDetails(shipmentDetailsData);
+        insertedShipmentId =shipmentId[0].insertedId
+
+      } catch(error){
+        console.error('Error inserting data:', error);
+        req.log.error('Error occured while inserting data to database', { error: error });
+
+      }
 
       const customerDetailsData: CustomerDetailsType = {
         customer_name: shipmentData.to_address.name,
         customer_email: shipmentData.to_address.email,
         to_address: shipmentData.to_address.address_1 + "," + shipmentData.to_address.city + "," + shipmentData.to_address.country,
-        order_id: shipmentData.order_id,
+        shipment_id: insertedShipmentId,
       };
 
       const shipmentStatusData: ShipmentStatusType = {
-        order_id: shipmentData.order_id,
+        shipment_id:insertedShipmentId,
         status_code: '1',
         status_description: '	Shipment pre-alerted',
         carrier_message: 'Carrier message goes here',
       };
-
-      const shipmentItemsData: ShipmentItemsType = {
-        order_id: shipmentData.order_id,
-        item_description: 'Example Item',
-        quantity: 1,
-        unit_price: "10.99",
-        shipment_weight: Weight,
-      };
+      const shipmentItemsData: ShipmentItemsType[] = shipmentData.packages[0].line_items?.map((item: any) => {
+        return {
+            shipment_id: insertedShipmentId,
+            item_description: item.customs_description,
+            quantity: item.quantity,
+            unit_price: item.price,
+            shipment_weight: Weight
+        };
+    }) || [];
+    
 
 
 
       try {
         // Insert into addresses table
 
-        await insertShipmentDetails(shipmentDetailsData);
-        //await insertShipmentItems(shipmentItemsData)
+        
+       
+        await insertShipmentItems(shipmentItemsData)
         await insertCustomerDetails(customerDetailsData)
         await insertShipmentStatus(shipmentStatusData)
 

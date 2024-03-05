@@ -5,43 +5,8 @@
     {
       "idx": 0,
       "version": "5",
-      "when": 1708542323632,
-      "tag": "0000_mixed_bushwacker",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "5",
-      "when": 1708546156350,
-      "tag": "0001_ancient_silvermane",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "5",
-      "when": 1708547602758,
-      "tag": "0002_mute_giant_man",
-      "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "5",
-      "when": 1708548524225,
-      "tag": "0003_unusual_silver_sable",
-      "breakpoints": true
-    },
-    {
-      "idx": 4,
-      "version": "5",
-      "when": 1708643852281,
-      "tag": "0004_tricky_ultimates",
-      "breakpoints": true
-    },
-    {
-      "idx": 5,
-      "version": "5",
-      "when": 1708644003388,
-      "tag": "0005_lethal_lady_ursula",
+      "when": 1709646536236,
+      "tag": "0000_flaky_anthem",
       "breakpoints": true
     }
   ]

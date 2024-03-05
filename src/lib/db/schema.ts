@@ -24,8 +24,9 @@ import { pgTable, serial, timestamp, text, integer, varchar, decimal , real} fro
 // })
 
 export const shipmentDetails = pgTable('shipment_details', {
+    shipment_id : serial('shipment_id').primaryKey(),
     barcode: varchar('barcode'),
-    order_id: integer('order_id').primaryKey(),
+    order_id: integer('order_id'),
     name : varchar('name'),
     company : varchar('company'),
     label_announced_at: timestamp('label_announced_at').default(sql`CURRENT_TIMESTAMP`),
@@ -42,13 +43,13 @@ export const customerDetails = pgTable('customer_details', {
     customer_name: varchar('customer_name'),
     customer_email: varchar('customer_email'),
     to_address: varchar('to_address'),
-    order_id: integer('order_id').references(() => shipmentDetails.order_id, { onDelete: 'cascade' })
+    shipment_id: integer('shipment_id').references(() => shipmentDetails.shipment_id, { onDelete: 'cascade' })
 });
 
 // Shipment status table
 export const shipmentStatus = pgTable('shipment_status', {
     status_id: serial('status_id').primaryKey(),
-    order_id: integer('order_id').references(() => shipmentDetails.order_id, { onDelete: 'cascade' }),
+    shipment_id: integer('shipment_id').references(() => shipmentDetails.shipment_id, { onDelete: 'cascade' }),
     status_code: varchar('status_code'),
     status_description: text('status_description'),
     carrier_message: text('carrier_message'),
@@ -57,7 +58,7 @@ export const shipmentStatus = pgTable('shipment_status', {
 // Shipment items table
 export const shipmentItems = pgTable('shipment_items', {
     item_id: serial('item_id').primaryKey(),
-    order_id: integer('order_id').references(() => shipmentDetails.order_id, { onDelete: 'cascade' }),
+    shipment_id: integer('shipment_id').references(() => shipmentDetails.shipment_id, { onDelete: 'cascade' }),
     item_description: text('item_description'),
     quantity: integer('quantity'),
     shipment_weight: real('shipment_weight'),

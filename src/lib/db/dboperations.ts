@@ -16,6 +16,7 @@ import {
 import { eq } from 'drizzle-orm';
 import { Pool } from '@neondatabase/serverless';
 
+
 const client = new Pool()
 
 const log = new Logger();
@@ -46,8 +47,10 @@ export async function getAllShipmentDetails(): Promise<ShipmentDetailsType[]> {
 
 export async function insertShipmentDetails(shipmentDetailsData: ShipmentDetailsType): Promise<void> {
   try {
-    await db.insert(shipmentDetails).values(shipmentDetailsData);
+    let id = await db.insert(shipmentDetails).values(shipmentDetailsData).returning({ insertedId: shipmentDetails.shipment_id });
+
     log.info("A new shipment is added to database");
+    return id as any
     await log.flush();
   } catch (error: unknown) {
     if (error instanceof Error) {
@@ -76,7 +79,7 @@ export async function insertShipmentStatus(shipmentStatusData: ShipmentStatusTyp
   }
 }
 
-export async function insertShipmentItems(shipmentItemsData: ShipmentItemsType): Promise<void> {
+export async function insertShipmentItems(shipmentItemsData: ShipmentItemsType[]): Promise<void> {
   try {
     await db.insert(shipmentItems).values(shipmentItemsData);
   } catch (error: unknown) {
@@ -85,15 +88,15 @@ export async function insertShipmentItems(shipmentItemsData: ShipmentItemsType):
   }
 }
 
-export async function getOrderDetails(): Promise<any> { // Consider defining a more specific return type
-  try {
-    const result = await db
-      .select()
-      .from(shipmentDetails)
-      .fullJoin(customerDetails, eq(shipmentDetails.order_id, customerDetails.order_id));
-    return result; 
-  } catch (error: unknown) {
-    console.error("Error fetching order details:", error);
-    throw error;
-  }
-}
+// export async function getOrderDetails(): Promise<any> { // Consider defining a more specific return type
+//   try {
+//     const result = await db
+//       .select()
+//       .from(shipmentDetails)
+//       .fullJoin(customerDetails, eq(shipmentDetails.order_id, customerDetails.order_id));
+//     return result; 
+//   } catch (error: unknown) {
+//     console.error("Error fetching order details:", error);
+//     throw error;
+//   }
+// }
