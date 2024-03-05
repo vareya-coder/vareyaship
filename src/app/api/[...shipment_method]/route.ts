@@ -93,7 +93,10 @@ export const POST = withAxiom(async (req: AxiomRequest) => {
         + currentdate.getHours() +
         + currentdate.getMinutes() + currentdate.getSeconds();
       const filename = `${shipmentData.order_id}-${shipmentData.shipping_method}- ${datetime}`
+      
+      console.time();
       labelUrl = await uploadPdf(labelContent, filename)
+      console.timeEnd();
 
       const shipmentDetailsData: ShipmentDetailsType = {
         order_id: shipmentData.order_id,

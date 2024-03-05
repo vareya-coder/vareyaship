@@ -53,6 +53,7 @@ export async function POST(req: NextRequest) {
     SOAPAction: ASENDIA_AUTH_SOAP_ACTION,
   };
 
+  console.time();
   const defaultAuthXml = getAuthXml(); // Ensure this function returns a valid XML string
   console.log(defaultAuthXml);
 
@@ -63,6 +64,7 @@ export async function POST(req: NextRequest) {
     headers: reqHeaders,
     body: defaultAuthXml,
   });
+  console.timeEnd();
   // let { response } = await soapRequest({ url: url, headers: reqHeaders, xml: defaultAuthXml, timeout: 10000 }); // Optional timeout parameter(milliseconds)
   // const { headers, body, statusCode } = response;
   // console.log(response.headers);
@@ -85,6 +87,7 @@ export async function POST(req: NextRequest) {
 
   console.log('Authentication Ticket:', authTokenInResp);
 
+  console.time();
   let defaultShipmentXmlParser = new xml2js.Parser();
   var asendiaShipmentAPIRequestAsJsonObj: any;
   var defaultShipmentXml = getShipmentXml();
@@ -283,6 +286,8 @@ export async function POST(req: NextRequest) {
     headers: reqHeaders,
     body: shipmentXmlWithValues,
   }).catch(error => console.log('Fetch error:', error));
+  
+  console.timeEnd();
 
   const textResponse2 = await responseLabel.text();
   console.log(textResponse2);
