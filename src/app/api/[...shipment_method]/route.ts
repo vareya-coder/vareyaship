@@ -66,7 +66,7 @@ export const POST = withAxiom(async (req: AxiomRequest) => {
       console.log(Carrier)
       let labelContent = undefined;
       if (Carrier ==="PostNL") {
-        const postNLApiResponse = await axios.post(postnlCallingapilocal, shipmentData);
+        const postNLApiResponse = await axios.post(postnlCallingapiProd, shipmentData);
     
         if (postNLApiResponse.data.ResponseShipments.length > 0 && postNLApiResponse.data.ResponseShipments[0].Labels.length > 0) {
           trackingNumber = postNLApiResponse.data.ResponseShipments[0].Barcode
