@@ -9,23 +9,32 @@ import { Data } from '@/app/utils/postnl/postnltypes';
 config();
 
 export async function POST(req: NextRequest) {
-  console.log("hit")
   try {
     if (req.method === 'POST') {
       const shipmentData: ShipHeroWebhook = await req.json();
-      const Product_code = getProductCode(shipmentData.shipping_method);
+      console.log(JSON.stringify(shipmentData));
+      const postNLProductCode = getProductCode(shipmentData.shipping_method);
       
-      if (!Product_code) {
+      if (!postNLProductCode) {
         return new NextResponse('Invalid shipment method.', { status: 400 });
       }
 
+      const postNLCustomerCode: string = process.env.CUSTOMER_CODE as string;
+      const postNLCustomerNumber: string = process.env.CUSTOMER_NUMBER as string;    
+
+      console.time();
+      const barCode: string = await getBarcode(postNLCustomerCode, postNLCustomerNumber);
+      console.timeEnd();
+      console.log(barCode);
+
       const postNLApiKey = process.env.POSTNL_API_KEY as string;
-      const postnlbody : Data = await mapShipHeroToPostNL(shipmentData, Product_code);
-      console.log("hit")
-      console.log(JSON.stringify(postnlbody))
+      const postNLBody : Data = await mapShipHeroToPostNL(shipmentData, barCode, postNLProductCode, 
+                                                          postNLCustomerCode, postNLCustomerNumber);
+      console.log(JSON.stringify(postNLBody))
       try {
-        const postNLApiResponse = await callPostNLApi(postNLApiKey, JSON.stringify(postnlbody));
+        const postNLApiResponse = await callPostNLApi(postNLApiKey, JSON.stringify(postNLBody));
         
+        console.log(JSON.stringify(postNLApiResponse))
         return new NextResponse(JSON.stringify(postNLApiResponse), {
           status: 200,
           headers: {
@@ -42,6 +51,36 @@ export async function POST(req: NextRequest) {
   } catch (error) {
     console.error('Error processing the shipment update:', error);
     return new NextResponse('Internal Server Error', { status: 500 });
+  }
+}
+
+export async function getBarcode(customer_code: string, customer_number: string) {
+  const apiKey = process.env.POSTNL_API_KEY;
+
+  try {
+      const response = await axios.get(
+          'https://api.postnl.nl/shipment/v1_1/barcode',
+          {
+              params: {
+                  CustomerNumber: customer_number,
+                  CustomerCode: customer_code,
+                  Type: 'LA',
+                  Range: "NL",
+                  Serie: '00000000-99999999',
+              },
+
+              headers: {
+                  'Content-Type': 'application/json',
+                  'apikey': apiKey,
+              },
+          }
+      );
+
+      return response.data.Barcode;
+  } catch (error) {
+      console.error('Error fetching barcode:', error);
+      // Handle errors here
+      throw error;
   }
 }
 

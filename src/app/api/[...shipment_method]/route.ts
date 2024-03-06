@@ -76,7 +76,6 @@ export const POST = withAxiom(async (req: AxiomRequest) => {
         }
 
       } else if (Carrier ==="Asendia") {
-        console.log("first")
         const asendiaResponse = await axios.post(asendiaCallingapiProd, shipmentData)
         trackingNumber = asendiaResponse.data.sequenceNumber
         trackingUrl = `https://tracking.asendia.com/tracking/${trackingNumber}`
@@ -97,6 +96,7 @@ export const POST = withAxiom(async (req: AxiomRequest) => {
       console.time();
       labelUrl = await uploadPdf(labelContent, filename)
       console.timeEnd();
+      console.log(labelUrl)
 
       const shipmentDetailsData: ShipmentDetailsType = {
         order_id: shipmentData.order_id,
@@ -157,6 +157,7 @@ export const POST = withAxiom(async (req: AxiomRequest) => {
       };
       
       const responseBody = JSON.stringify(responseBodyJson);
+      console.log(responseBody)
       return new NextResponse(responseBody, {
         status: 200,
         headers: {
