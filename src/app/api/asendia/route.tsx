@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { config } from "dotenv";
 import xml2js from 'xml2js';
-import soapRequest from 'easy-soap-request';
-
+import { logger } from '@/utils/logger'
 
 
 config()
@@ -11,7 +10,7 @@ export async function POST(req: NextRequest) {
 
 
   const body = await req.json();
-  console.log(JSON.stringify(body));
+  logger.info(JSON.stringify(body));
   const WSDL_ASENDIA_AUTH_OPS_URL = 'https://uat.centiro.com/Universe.Services/TMSBasic/Wcf/c1/i1/TMSBasic/Authenticate.svc?wsdl';
   const WSDL_ASENDIA_SHIPMENT_OPS_URL = 'https://uat.centiro.com/Universe.Services/TMSBasic/Wcf/c1/i1/TMSBasic/TMSBasic.svc?wsdl';
 
@@ -53,9 +52,8 @@ export async function POST(req: NextRequest) {
     SOAPAction: ASENDIA_AUTH_SOAP_ACTION,
   };
 
-  console.time();
   const defaultAuthXml = getAuthXml(); // Ensure this function returns a valid XML string
-  console.log(defaultAuthXml);
+  logger.info(defaultAuthXml);
 
   const url =  ASENDIA_AUTH_URL_PROD ;
   
@@ -64,7 +62,6 @@ export async function POST(req: NextRequest) {
     headers: reqHeaders,
     body: defaultAuthXml,
   });
-  console.timeEnd();
   // let { response } = await soapRequest({ url: url, headers: reqHeaders, xml: defaultAuthXml, timeout: 10000 }); // Optional timeout parameter(milliseconds)
   // const { headers, body, statusCode } = response;
   // console.log(response.headers);
@@ -79,15 +76,14 @@ export async function POST(req: NextRequest) {
 
   let authTokenInResp = '';
   const textResponse = await response.text();
-  console.log(textResponse)
+  logger.info(textResponse)
 
   // Extract the AuthenticationTicket from the response
   authTokenInResp = await extractAuthenticationTicket(textResponse);
 
 
-  console.log('Authentication Ticket:', authTokenInResp);
+  logger.info('Authentication Ticket:', authTokenInResp);
 
-  console.time();
   let defaultShipmentXmlParser = new xml2js.Parser();
   var asendiaShipmentAPIRequestAsJsonObj: any;
   var defaultShipmentXml = getShipmentXml();
@@ -116,6 +112,7 @@ export async function POST(req: NextRequest) {
   var shipmentAttributeObject = shipmentObject['ns2:Attributes'][0]['ns2:Attribute'];
   var currTime = new Date();
   const orderNumCleaned = body.order_number.replace(/#/g, '');
+  logger.info(orderNumCleaned);
   shipmentObject['ns2:ShipDate'][0] = currTime.toISOString();
   shipmentObject['ns2:ShipmentIdentifier'][0] = `${orderNumCleaned}P${currTime.getTime()}`;
   shipmentObject['ns2:OrderNumber'][0] =`${orderNumCleaned}P${currTime.getTime()}`;
@@ -278,22 +275,20 @@ export async function POST(req: NextRequest) {
 
   var shipmentXmlBuilder = new xml2js.Builder();
   shipmentXmlWithValues = shipmentXmlBuilder.buildObject(asendiaShipmentAPIRequestAsJsonObj);
-  console.log(shipmentXmlWithValues)
+  logger.info(shipmentXmlWithValues)
 
   var url2 = ASENDIA_SHIPMENT_URL_PROD;
   let responseLabel  : any= await fetch(url2, {
     method: 'POST',
     headers: reqHeaders,
     body: shipmentXmlWithValues,
-  }).catch(error => console.log('Fetch error:', error));
+  }).catch(error => logger.info('Fetch error:', error));
   
-  console.timeEnd();
-
   const textResponse2 = await responseLabel.text();
-  console.log(textResponse2);
+  logger.info(textResponse2);
 
   const  labelResponse = await extractSequenceNumberAndContent(textResponse2)
-  console.log(labelResponse)
+  logger.info(labelResponse)
 
   return new Response(JSON.stringify(labelResponse) , { status: 200, headers: { 'Content-Type': 'text/plain' } });
 
@@ -337,7 +332,7 @@ const extractSequenceNumberAndContent = async (xml: string): Promise<{ sequenceN
       } else {
         try {
           const sequenceNumber = result.Envelope.Body.AddAndPrintShipmentResponse.Shipments.SequenceNumber;
-          console.log(sequenceNumber)
+          logger.info(sequenceNumber)
           const content = result.Envelope.Body.AddAndPrintShipmentResponse.ParcelDocuments.ParcelDocument.Content;
           resolve({ sequenceNumber, content });
         } catch (error) {

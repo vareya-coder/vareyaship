@@ -8,7 +8,6 @@ config();
 export async function mapShipHeroToPostNL(shipHeroData: ShipHeroWebhook, barCode: string, 
                                             postNLProductCode: string, postNLCustomerCode: string, 
                                             postNLCustomerNumber: string) {
-    console.log(JSON.stringify(shipHeroData));
     const EU: any = ['AT', 'BE', 'BG', 'CY', 'CZ', 'DE', 'DK', 'EE', 'ES', 'FI', 'FR', 'GR', 'HR', 'HU', 'IE', 'IT', 'LT', 'LU', 'LV', 'MT', 'NL', 'PL', 'PT', 'RO', 'SE', 'SI', 'SK'];
 
     // const barcode: string = await getBarcode(customer_code, customer_number);

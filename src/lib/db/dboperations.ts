@@ -1,7 +1,3 @@
-
-
-
-import { Logger } from 'next-axiom';
 import { db } from '@/lib/db';
 import {
   ShipmentDetailsType,
@@ -16,9 +12,9 @@ import {
 import { eq } from 'drizzle-orm';
 import { Pool } from '@neondatabase/serverless';
 
-const client = new Pool()
+import { logger } from '@/utils/logger'
 
-const log = new Logger();
+const client = new Pool()
 
 
 export async function getAllShipmentDetails(): Promise<ShipmentDetailsType[]> {
@@ -33,11 +29,10 @@ export async function getAllShipmentDetails(): Promise<ShipmentDetailsType[]> {
 
     }
 
-   
     return response as ShipmentDetailsType[];
   } catch (error: unknown) {
     if (error instanceof Error) {
-      console.log(error.message);
+      logger.error(error.message);
     }
     throw error;
   }
@@ -47,15 +42,12 @@ export async function getAllShipmentDetails(): Promise<ShipmentDetailsType[]> {
 export async function insertShipmentDetails(shipmentDetailsData: ShipmentDetailsType): Promise<void> {
   try {
     const res = await db.insert(shipmentDetails).values(shipmentDetailsData);//.returning({target: shipmentDetails.pk_id});
-    log.info("A new shipment is added to database");
-    await log.flush();
-    console.log("shipment_details.pk_id:", JSON.stringify(res));
+    logger.info("shipment_details.pk_id:", JSON.stringify(res));
 
   } catch (error: unknown) {
     if (error instanceof Error) {
-      log.error("An error occurred while inserting a new shipment into the database:", { errors: error.message });
+      logger.error("An error occurred while inserting a new shipment into the database:", { errors: error.message });
     }
-    await log.flush();
     throw error;
   }
 }
@@ -64,7 +56,7 @@ export async function insertCustomerDetails(customerDetailsData: CustomerDetails
   try {
     await db.insert(customerDetails).values(customerDetailsData);
   } catch (error: unknown) {
-    console.error('Error inserting customer details:', error);
+    logger.error('Error inserting customer details:', error);
     throw error;
   }
 }
@@ -73,7 +65,7 @@ export async function insertShipmentStatus(shipmentStatusData: ShipmentStatusTyp
   try {
     await db.insert(shipmentStatus).values(shipmentStatusData);
   } catch (error: unknown) {
-    console.error('Error inserting shipment status:', error);
+    logger.error('Error inserting shipment status:', error);
     throw error;
   }
 }
@@ -82,7 +74,7 @@ export async function insertShipmentItems(shipmentItemsData: ShipmentItemsType):
   try {
     await db.insert(shipmentItems).values(shipmentItemsData);
   } catch (error: unknown) {
-    console.error('Error inserting shipment items:', error);
+    logger.error('Error inserting shipment items:', error);
     throw error;
   }
 }
@@ -95,7 +87,7 @@ export async function getOrderDetails(): Promise<any> { // Consider defining a m
       .fullJoin(customerDetails, eq(shipmentDetails.order_id, customerDetails.order_id));
     return result; 
   } catch (error: unknown) {
-    console.error("Error fetching order details:", error);
+    logger.error("Error fetching order details:", error);
     throw error;
   }
 }

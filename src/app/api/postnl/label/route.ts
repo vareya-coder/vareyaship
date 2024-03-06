@@ -5,6 +5,7 @@ import { mapShipHeroToPostNL } from '@/app/utils/postnl/dataMaper';
 import { ShipHeroWebhook } from '@/app/utils/types';
 
 import { Data } from '@/app/utils/postnl/postnltypes';
+import { logger } from '@/utils/logger';
 
 config();
 
@@ -12,7 +13,7 @@ export async function POST(req: NextRequest) {
   try {
     if (req.method === 'POST') {
       const shipmentData: ShipHeroWebhook = await req.json();
-      console.log(JSON.stringify(shipmentData));
+      logger.info(JSON.stringify(shipmentData));
       const postNLProductCode = getProductCode(shipmentData.shipping_method);
       
       if (!postNLProductCode) {
@@ -22,19 +23,17 @@ export async function POST(req: NextRequest) {
       const postNLCustomerCode: string = process.env.CUSTOMER_CODE as string;
       const postNLCustomerNumber: string = process.env.CUSTOMER_NUMBER as string;    
 
-      console.time();
       const barCode: string = await getBarcode(postNLCustomerCode, postNLCustomerNumber);
-      console.timeEnd();
-      console.log(barCode);
+      logger.info(barCode);
 
       const postNLApiKey = process.env.POSTNL_API_KEY as string;
       const postNLBody : Data = await mapShipHeroToPostNL(shipmentData, barCode, postNLProductCode, 
                                                           postNLCustomerCode, postNLCustomerNumber);
-      console.log(JSON.stringify(postNLBody))
+      logger.info(JSON.stringify(postNLBody))
       try {
         const postNLApiResponse = await callPostNLApi(postNLApiKey, JSON.stringify(postNLBody));
         
-        console.log(JSON.stringify(postNLApiResponse))
+        logger.info(JSON.stringify(postNLApiResponse))
         return new NextResponse(JSON.stringify(postNLApiResponse), {
           status: 200,
           headers: {
@@ -49,12 +48,12 @@ export async function POST(req: NextRequest) {
       return new NextResponse('Method Not Allowed', { status: 405 });
     }
   } catch (error) {
-    console.error('Error processing the shipment update:', error);
+    logger.error('Error processing the shipment update:', error);
     return new NextResponse('Internal Server Error', { status: 500 });
   }
 }
 
-export async function getBarcode(customer_code: string, customer_number: string) {
+async function getBarcode(customer_code: string, customer_number: string) {
   const apiKey = process.env.POSTNL_API_KEY;
 
   try {
@@ -78,7 +77,7 @@ export async function getBarcode(customer_code: string, customer_number: string)
 
       return response.data.Barcode;
   } catch (error) {
-      console.error('Error fetching barcode:', error);
+      logger.error('Error fetching barcode:', error);
       // Handle errors here
       throw error;
   }

@@ -4,9 +4,10 @@ import { ShipHeroWebhook } from '@/app/utils/types';
 import { CustomerDetailsType, ShipmentDetailsType, ShipmentItemsType, ShipmentStatusType } from '@/lib/db/schema';
 import { insertCustomerDetails, insertShipmentDetails, insertShipmentItems, insertShipmentStatus, } from '@/lib/db/dboperations';
 import { uploadPdf } from '@/app/utils/labelPdfUrlGenerator';
-import { withAxiom, AxiomRequest } from 'next-axiom';
+// import { withAxiom, AxiomRequest } from 'next-axiom';
+import { logger } from '@/utils/logger';
 
-export const POST = withAxiom(async (req: AxiomRequest) => {
+export async function POST(req: NextRequest) {
 
   let trackingNumber = '';
   let trackingUrl = ''
@@ -63,7 +64,7 @@ export const POST = withAxiom(async (req: AxiomRequest) => {
       } else if(postNL.includes(shipmentData.shipping_method)){
         Carrier="PostNL"
       }
-      console.log(Carrier)
+      logger.info(Carrier);
       let labelContent = undefined;
       if (Carrier ==="PostNL") {
         const postNLApiResponse = await axios.post(postnlCallingapiProd, shipmentData);
@@ -72,7 +73,7 @@ export const POST = withAxiom(async (req: AxiomRequest) => {
           trackingNumber = postNLApiResponse.data.ResponseShipments[0].Barcode
           trackingUrl = `https://postnl.post/#/tracking/items/${trackingNumber}`
           labelContent = postNLApiResponse.data.ResponseShipments[0].Labels[0].Content;
-          req.log.info('Label Generated successfully for order :', { order: shipmentData });
+          // req.log.info('Label Generated successfully for order :', { order: shipmentData });
         }
 
       } else if (Carrier ==="Asendia") {
@@ -80,11 +81,13 @@ export const POST = withAxiom(async (req: AxiomRequest) => {
         trackingNumber = asendiaResponse.data.sequenceNumber
         trackingUrl = `https://tracking.asendia.com/tracking/${trackingNumber}`
         labelContent  = asendiaResponse.data.content
-        console.log(trackingNumber)
 
       } else {
         return new NextResponse('carrier not supported.', { status: 404 });
       }
+      logger.info(trackingNumber);
+
+      logger.info(trackingUrl);
       
       var currentdate = new Date();
       var datetime = currentdate.getFullYear() + "-" + currentdate.getMonth() + "-"
@@ -93,10 +96,8 @@ export const POST = withAxiom(async (req: AxiomRequest) => {
         + currentdate.getMinutes() + currentdate.getSeconds();
       const filename = `${shipmentData.order_id}-${shipmentData.shipping_method}- ${datetime}`
       
-      console.time();
       labelUrl = await uploadPdf(labelContent, filename)
-      console.timeEnd();
-      console.log(labelUrl)
+      logger.info(labelUrl);
 
       const shipmentDetailsData: ShipmentDetailsType = {
         order_id: shipmentData.order_id,
@@ -139,8 +140,7 @@ export const POST = withAxiom(async (req: AxiomRequest) => {
 //         await insertShipmentStatus(shipmentStatusData)
 
 //       } catch (error) {
-//         console.error('Error inserting data:', error);
-//         req.log.error('Error occured while inserting data to database', { error: error });
+//         logger.error('Error inserting data:', error);
 
 //       }
 
@@ -157,42 +157,39 @@ export const POST = withAxiom(async (req: AxiomRequest) => {
       };
       
       const responseBody = JSON.stringify(responseBodyJson);
-      console.log(responseBody)
+      logger.info(responseBody);
       return new NextResponse(responseBody, {
         status: 200,
         headers: {
           'Content-Type': 'application/json',
         },
       });
-  }
-
-  else {
-    return new NextResponse('Method Not Allowed', { status: 405 });
-  }
-} catch (error) {
-  console.error('Error processing the shipment update:', error);
-
-  let errorMessage: any = 'Internal Server Errorsss';
-  let status = 500;
-
-
-  if (axios.isAxiosError(error)) {
-    const errorResponse = error.response;
-    const axiosError: AxiosError = error;
-    if (axiosError.response) {
-      const response: AxiosResponse = axiosError.response;
-      status = response.status
-
-      errorMessage = JSON.stringify(response.data.errors);
-      req.log.error('Error occured while calling Carrier Endpoint :', { error: errorMessage })
+    } else {
+      return new NextResponse('Method Not Allowed', { status: 405 });
     }
-  }
+  } catch (error) {
+    logger.error('Error processing the shipment update:', error);
 
-  return new NextResponse(errorMessage, {
-    status,
-    headers: {
-      'Content-Type': 'application/json',
-    },
-  });
+    let errorMessage: any = 'Internal Server Error';
+    let status = 500;
+
+    if (axios.isAxiosError(error)) {
+      const errorResponse = error.response;
+      const axiosError: AxiosError = error;
+      if (axiosError.response) {
+        const response: AxiosResponse = axiosError.response;
+        status = response.status
+
+        errorMessage = JSON.stringify(response.data.errors);
+        // req.log.error('Error occured while calling Carrier Endpoint :', { error: errorMessage })
+      }
+    }
+
+    return new NextResponse(errorMessage, {
+      status,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+  }
 }
-})
