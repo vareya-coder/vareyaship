@@ -29,3 +29,9 @@ export const logger = winston.createLogger({
         }),
     ],
 });
+
+logger.on('finish', function (info: any) {
+  // All `info` log messages has now been logged
+});
+
+logger.on('error', function (err: any) { /* Do Something */ });
