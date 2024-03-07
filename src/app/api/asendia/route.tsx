@@ -143,6 +143,8 @@ export async function POST(req: NextRequest) {
       shipmentAttributeObject[4]['ns2:Value'][0] = ASENDIA_ADDL_SERVICE_MAIL_DELIVERY;
     } else if (body.shipping_method.includes('signature')) {
       shipmentAttributeObject[4]['ns2:Value'][0] = ASENDIA_ADDL_SERVICE_SIG;
+    } else {
+      shipmentAttributeObject[4]['ns2:Value'][0] = ASENDIA_ADDL_SERVICE_PERSONAL_DELIVERY;
     }
     
     if (body.shipping_method.includes('boxable')) {
@@ -169,8 +171,10 @@ export async function POST(req: NextRequest) {
     ];
 
     let filteredIDs = asendiaIDs.filter((rec) => {
-      return rec.accountId === body.account_id
+      return rec.accountId == body.account_id.toString()
     });
+
+    logger.info(JSON.stringify(filteredIDs))
 
     if (filteredIDs && Array.isArray(filteredIDs) && filteredIDs.length > 0) {
       shipmentAttributeObject[1]['ns2:Value'][0] = filteredIDs[0].crmId;
