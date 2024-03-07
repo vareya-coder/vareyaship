@@ -30,11 +30,14 @@ export async function POST(req: NextRequest) {
   // const ASENDIA_SERVICE_MAIL_BOX_DELIVERY = 'MBD';
   // const ASENDIA_FORMAT_NON_BOXABLE = 'N';
 
-  const ASENDIA_PRODUCT_FULLY_TRACKED_GOODS = 'EPAQPLS';
-  const ASENDIA_PRODUCT_PREMIUM_GOODS = 'EPAQPLS';
+  const ASENDIA_PRODUCT_EPAQPLS = 'EPAQPLS';
+  const ASENDIA_PRODUCT_EPAQSCT = 'EPAQSCT';
   const ASENDIA_SERVICE = 'CUP';
-  // const ASENDIA_ADDL_SERVICE_PERSONAL_DELIVERY = 'PD'
+  const ASENDIA_ADDL_SERVICE_PERSONAL_DELIVERY = 'PD'
+  const ASENDIA_ADDL_SERVICE_MAIL_DELIVERY = 'MD'
+  const ASENDIA_ADDL_SERVICE_SIG = 'SIG'
   const ASENDIA_FORMAT_NON_BOXABLE = 'N';
+  const ASENDIA_FORMAT_BOXABLE = 'B';
 
   const OZ_TO_KG_MULTIPLIER = 0.0283495231;
 
@@ -118,23 +121,60 @@ export async function POST(req: NextRequest) {
   shipmentObject['ns2:OrderNumber'][0] =`${orderNumCleaned}P${currTime.getTime()}`;
   shipmentObject['ns2:SenderCode'][0] = "NL21010001"
 
-  var productCodeUsed = ASENDIA_PRODUCT_FULLY_TRACKED_GOODS;
+  var productCodeUsed = ASENDIA_PRODUCT_EPAQPLS;
   var packages = body.packages;
   if (Array.isArray(packages)) {
     if (packages[0].weight_in_oz) {
       shipmentObject['ns2:Weight'][0] = parseFloat(packages[0].weight_in_oz) * OZ_TO_KG_MULTIPLIER;
       shipmentObject['ns2:Weight'][0] = shipmentObject['ns2:Weight'][0].toFixed(3);
+    }
+    // get attribute codes and populate
+    if (body.shipping_method.includes('epaqpls')) {
+      shipmentAttributeObject[2]['ns2:Value'][0] = ASENDIA_PRODUCT_EPAQPLS;
+    } else if (body.shipping_method.includes('epaqsct')) {
+      shipmentAttributeObject[2]['ns2:Value'][0] = ASENDIA_PRODUCT_EPAQSCT;
+    }
 
-      // get attribute codes and populate
+    shipmentAttributeObject[3]['ns2:Value'][0] = ASENDIA_SERVICE;
 
-
-
-
-      shipmentAttributeObject[2]['ns2:Value'][0] = ASENDIA_PRODUCT_FULLY_TRACKED_GOODS;
-      shipmentAttributeObject[3]['ns2:Value'][0] = ASENDIA_SERVICE;
+    if (body.shipping_method.includes('personal-delivery')) {
+      shipmentAttributeObject[4]['ns2:Value'][0] = ASENDIA_ADDL_SERVICE_PERSONAL_DELIVERY;
+    } else if (body.shipping_method.includes('mail-delivery')) {
+      shipmentAttributeObject[4]['ns2:Value'][0] = ASENDIA_ADDL_SERVICE_MAIL_DELIVERY;
+    } else if (body.shipping_method.includes('signature')) {
+      shipmentAttributeObject[4]['ns2:Value'][0] = ASENDIA_ADDL_SERVICE_SIG;
+    }
+    
+    if (body.shipping_method.includes('boxable')) {
+      shipmentAttributeObject[5]['ns2:Value'][0] = ASENDIA_FORMAT_BOXABLE;
+    } else {
       shipmentAttributeObject[5]['ns2:Value'][0] = ASENDIA_FORMAT_NON_BOXABLE;
+    }
 
+    //<option value="72262">712Brands</option>
+    //<option value="70626">Bateel International</option>
+    //<option value="68917">Bryght Labs</option>
 
+    const asendiaIDs = [
+      { customer: 'Menskin', accountId: '59965', crmId: 'NL21010001', senderTaxCode: 'GB374774750'},
+      { customer: 'Vacier', accountId: '73982', crmId: 'NL21080010', senderTaxCode: 'GB289337944'},
+      { customer: 'VUE', accountId: '74928', crmId: 'NL24010007', senderTaxCode: 'GB289337944'},
+      { customer: 'SanaDIGEST', accountId: '63819', crmId: 'NL21110007', senderTaxCode: 'FR48884514688'},
+      { customer: 'PRIMAL FX', accountId: '71893', crmId: 'NL21110007', senderTaxCode: 'GB289337944'},
+      { customer: 'Fan Of Fan', accountId: '70098', crmId: 'NL21110007', senderTaxCode: 'GB289337944'},
+      { customer: 'PSBC Limited', accountId: '69949', crmId: 'NL21110007', senderTaxCode: 'GB289337944'},
+      { customer: 'Dino Lifestyle', accountId: '73490', crmId: 'NL21110007', senderTaxCode: 'GB289337944'},
+      { customer: 'Bryght Labs', accountId: '68917', crmId: 'NL21110007', senderTaxCode: 'GB289337944'},
+      { customer: 'Elevitae', accountId: '', crmId: 'NL21110007', senderTaxCode: 'GB289337944'}
+    ];
+
+    let filteredIDs = asendiaIDs.filter((rec) => {
+      return rec.accountId === body.account_id
+    });
+
+    if (filteredIDs && Array.isArray(filteredIDs) && filteredIDs.length > 0) {
+      shipmentAttributeObject[1]['ns2:Value'][0] = filteredIDs[0].crmId;
+      shipmentAttributeObject[6]['ns2:Value'][0] = filteredIDs[0].senderTaxCode;
     }
 
     var parcelObject = shipmentObject['ns2:Parcels'][0]['ns2:Parcel'][0];
@@ -317,7 +357,6 @@ const extractAuthenticationTicket = async (xml: string): Promise<string> => {
   });
 };
 
-
 const extractSequenceNumberAndContent = async (xml: string): Promise<{ sequenceNumber: string; content: string }> => {
   return new Promise((resolve, reject) => {
     const parser = new xml2js.Parser({
@@ -342,7 +381,6 @@ const extractSequenceNumberAndContent = async (xml: string): Promise<{ sequenceN
     });
   });
 };
-
 
 const getShipmentXml = function () {
   const xml = ' \
@@ -379,19 +417,19 @@ const getShipmentXml = function () {
                     </ns2:Attribute> \
                     <ns2:Attribute> \
                       <ns2:Code>Product</ns2:Code> \
-                      <ns2:Value>EPAQPLS</ns2:Value> \
+                      <ns2:Value></ns2:Value> \
                     </ns2:Attribute> \
                     <ns2:Attribute> \
                       <ns2:Code>Service</ns2:Code> \
-                      <ns2:Value>CUP</ns2:Value> \
+                      <ns2:Value></ns2:Value> \
                     </ns2:Attribute> \
                     <ns2:Attribute> \
                       <ns2:Code>AdditionalService</ns2:Code> \
-                      <ns2:Value>PD</ns2:Value> \
+                      <ns2:Value></ns2:Value> \
                     </ns2:Attribute> \
                     <ns2:Attribute> \
                       <ns2:Code>Format</ns2:Code> \
-                      <ns2:Value>N</ns2:Value> \
+                      <ns2:Value></ns2:Value> \
                     </ns2:Attribute> \
                     <ns2:Attribute> \
                       <ns2:Code>SenderTaxID</ns2:Code> \
