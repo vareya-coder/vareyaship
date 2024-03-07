@@ -139,7 +139,7 @@ export async function POST(req: NextRequest) {
 
     if (body.shipping_method.includes('personal-delivery')) {
       shipmentAttributeObject[4]['ns2:Value'][0] = ASENDIA_ADDL_SERVICE_PERSONAL_DELIVERY;
-    } else if (body.shipping_method.includes('mail-delivery')) {
+    } else if (body.shipping_method.includes('mailbox-delivery')) {
       shipmentAttributeObject[4]['ns2:Value'][0] = ASENDIA_ADDL_SERVICE_MAIL_DELIVERY;
     } else if (body.shipping_method.includes('signature')) {
       shipmentAttributeObject[4]['ns2:Value'][0] = ASENDIA_ADDL_SERVICE_SIG;
