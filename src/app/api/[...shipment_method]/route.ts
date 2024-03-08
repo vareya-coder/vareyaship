@@ -126,7 +126,7 @@ export async function POST(req: NextRequest) {
       insertedShipmentId =shipmentId[0].insertedId
 
     } catch(error){
-    
+      console.log(error)
       logger.error('Error occured while inserting data to database', { error: error });
 
     }
