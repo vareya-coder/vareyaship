@@ -155,7 +155,6 @@ export async function POST(req: NextRequest) {
 
     //<option value="72262">712Brands</option>
     //<option value="70626">Bateel International</option>
-    //<option value="68917">Bryght Labs</option>
 
     const asendiaIDs = [
       { customer: 'Menskin', accountId: '59965', crmId: 'NL21010001', senderTaxCode: 'GB374774750'},

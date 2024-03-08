@@ -91,10 +91,10 @@ export async function POST(req: NextRequest) {
       + currentdate.getDay() + "-"
       + currentdate.getHours() +
       + currentdate.getMinutes() + currentdate.getSeconds();
-    const filename = `${shipmentData.order_id}-${shipmentData.shipping_method}- ${datetime}`
+    const filename = `${shipmentData.order_id}-${shipmentData.shipping_method}-${datetime}`
     
     labelUrl = await uploadPdf(labelContent, filename)
-    logger.info(labelUrl);
+    logger.info('label url:',labelUrl);
 
     const shipmentDetailsData: ShipmentDetailsType = {
       order_id: shipmentData.order_id,
