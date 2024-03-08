@@ -5,13 +5,12 @@ import axios from "axios";
 
 config();
 
-export async function mapShipHeroToPostNL(shipHeroData: ShipHeroWebhook, Product_code: string) {
-    console.log(shipHeroData)
+export async function mapShipHeroToPostNL(shipHeroData: ShipHeroWebhook, barCode: string, 
+                                            postNLProductCode: string, postNLCustomerCode: string, 
+                                            postNLCustomerNumber: string) {
     const EU: any = ['AT', 'BE', 'BG', 'CY', 'CZ', 'DE', 'DK', 'EE', 'ES', 'FI', 'FR', 'GR', 'HR', 'HU', 'IE', 'IT', 'LT', 'LU', 'LV', 'MT', 'NL', 'PL', 'PT', 'RO', 'SE', 'SI', 'SK'];
 
-    const customer_code: string = process.env.CUSTOMER_CODE as string;
-    const customer_number: string = process.env.CUSTOMER_NUMBER as string;
-    const barcode: string = await getBarcode(customer_code, customer_number);
+    // const barcode: string = await getBarcode(customer_code, customer_number);
     function convertOzToGrams(weightInOz: any) {
         const grams = weightInOz * 28.3495;
         return Math.round(grams);
@@ -36,23 +35,33 @@ export async function mapShipHeroToPostNL(shipHeroData: ShipHeroWebhook, Product
         return weightinGrams;
     }
 
+    // Address: {
+    //     AddressType: "02",
+    //     City: shipHeroData.from_address.city || ' ',
+    //     Countrycode: shipHeroData.from_address.country || ' ',
+    //     CompanyName: shipHeroData.from_address.company_name || ' ',
+    //     HouseNr: ' ',
+    //     Name: shipHeroData.from_address.name || ' ',
+    //     Street: shipHeroData.from_address.address_1 || ' ',
+    //     Zipcode: shipHeroData.from_address.zip
+    // },
 
     const postNLData: Data = {
         Customer: {
             Address: {
                 AddressType: "02",
-                City: shipHeroData.from_address.city || ' ',
-                Countrycode: shipHeroData.from_address.country || ' ',
+                City: 'Breda',
+                Countrycode: 'NL',
                 CompanyName: shipHeroData.from_address.company_name || ' ',
-                HouseNr: ' ',
+                HouseNr: '6',
                 Name: shipHeroData.from_address.name || ' ',
-                Street: shipHeroData.from_address.address_1 || ' ',
-                Zipcode: shipHeroData.from_address.zip
+                Street: 'Bagven Park',
+                Zipcode: '4838EH'
             },
             CollectionLocation: "123456",
             ContactPerson: "Janssen",
-            CustomerCode: customer_code,
-            CustomerNumber: customer_number,
+            CustomerCode: postNLCustomerCode,
+            CustomerNumber: postNLCustomerNumber,
             Email: "email@company.com",
             Name: "Janssen",
         },
@@ -74,7 +83,7 @@ export async function mapShipHeroToPostNL(shipHeroData: ShipHeroWebhook, Product
                 Zipcode: shipHeroData.to_address.zip,
             }],
 
-            Barcode: barcode,
+            Barcode: barCode,
             Contacts: [{
                 ContactType: "01",
                 Email: shipHeroData.to_address.email || ' ',
@@ -84,7 +93,7 @@ export async function mapShipHeroToPostNL(shipHeroData: ShipHeroWebhook, Product
             Dimension: {
                 Weight: `${getTotalWeight()}`,
             },
-            ProductCodeDelivery: Product_code,
+            ProductCodeDelivery: postNLProductCode,
             Reference: "reference for Sender"
         }],
     };
@@ -191,41 +200,12 @@ export async function mapShipHeroToPostNL(shipHeroData: ShipHeroWebhook, Product
         postNLData.Shipments[0].Addresses[0].Street =
             shipHeroData.to_address.address_1.replace(found[0], '').trim();
     }
-    let orderNumCleaned = `${shipHeroData.order_number.replace(/[#]+[A-Z]+/gi, '')}`;
+    let orderNumCleaned = `${shipHeroData.order_number.replace(/[#A-Z-]+/gi, '')}`;
     postNLData.Shipments[0].CustomerOrderNumber = orderNumCleaned;
+    postNLData.Shipments[0].Reference = orderNumCleaned;
 
 
 
-    console.log(postNLData)
+    // console.log(JSON.stringify(postNLData))
     return postNLData;
-}
-
-export async function getBarcode(customer_code: string, customer_number: string) {
-    const apiKey = process.env.POSTNL_API_KEY;
-
-    try {
-        const response = await axios.get(
-            'https://api-sandbox.postnl.nl/shipment/v1_1/barcode',
-            {
-                params: {
-                    CustomerNumber: customer_number,
-                    CustomerCode: customer_code,
-                    Type: 'LA',
-                    Range: "NL",
-                    Serie: '00000000-99999999',
-                },
-
-                headers: {
-                    'Content-Type': 'application/json',
-                    'apikey': apiKey,
-                },
-            }
-        );
-
-        return response.data.Barcode;
-    } catch (error) {
-        console.error('Error fetching barcode:', error);
-        // Handle errors here
-        throw error;
-    }
 }

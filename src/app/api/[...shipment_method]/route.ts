@@ -4,32 +4,36 @@ import { ShipHeroWebhook } from '@/app/utils/types';
 import { CustomerDetailsType, ShipmentDetailsType, ShipmentItemsType, ShipmentStatusType } from '@/lib/db/schema';
 import { insertCustomerDetails, insertShipmentDetails, insertShipmentItems, insertShipmentStatus, } from '@/lib/db/dboperations';
 import { uploadPdf } from '@/app/utils/labelPdfUrlGenerator';
-import { withAxiom, AxiomRequest } from 'next-axiom';
+// import { withAxiom, AxiomRequest } from 'next-axiom';
+import { logger } from '@/utils/logger';
 
-export const POST = withAxiom(async (req: AxiomRequest) => {
-
- 
-
+export async function POST(req: NextRequest) {
 
   let trackingNumber = '';
   let trackingUrl = ''
   let labelUrl = undefined;
   const postnlCallingapilocal = "http://localhost:3000/api/postnl/label"
   const postnlCallingapiProd = "https://vareyaship.vercel.app/api/postnl/label"
-
+  
   const asendiaCallingapilocal = "http://localhost:3000/api/asendia"
   const asendiaCallingapiProd = "https://vareyaship.vercel.app/api/asendia"
 
   try {
+    const shipmentData: ShipHeroWebhook = await req.json();
 
-    if (req.method === 'POST') {
-      const shipmentData: ShipHeroWebhook = await req.json();
+    const firstPackage = shipmentData.packages[0];
 
+    const Weight = firstPackage.weight_in_oz * 28.3495;
+    const { shipping_method, order_id, order_number, to_address, packages } = shipmentData;
 
-      const firstPackage = shipmentData.packages[0];
+    if (!shipping_method || !order_id || !order_number || !to_address || !packages) {
+      return new NextResponse('One or more required fields are missing.', { status: 400 });
+    }
 
-      const Weight = firstPackage.weight_in_oz * 28.3495;
-      const { shipping_method, order_id, order_number, to_address, packages } = shipmentData;
+    if (!Array.isArray(packages) || packages.length === 0 || !packages[0].weight_in_oz || !packages[0].width || !packages[0].length || !packages[0].height) {
+      return new NextResponse('Package information is missing or invalid.', { status: 400 });
+    }
+
 
       if (!shipping_method || !order_id || !order_number || !to_address || !packages) {
         return new NextResponse('One or more required fields are missing.', { status: 400 });
@@ -61,159 +65,158 @@ export const POST = withAxiom(async (req: AxiomRequest) => {
         'asendia:epaqpls-personal-delivery-boxable',
         'asendia:epaqpls-mailbox-delivery-boxable'
       ];
+
     if(asendia.includes(shipmentData.shipping_method)){
       Carrier ="Asendia"
     } else if(postNL.includes(shipmentData.shipping_method)){
       Carrier="PostNL"
     }
 
-      let labelContent = undefined;
-      if (Carrier ==="PostNL") {
-        
+    logger.info(Carrier);
+    let labelContent = undefined;
+    if (Carrier ==="PostNL") {
+      const postNLApiResponse = await axios.post(postnlCallingapiProd, shipmentData);
+  
+      if (postNLApiResponse.data.ResponseShipments.length > 0 && postNLApiResponse.data.ResponseShipments[0].Labels.length > 0) {
+        trackingNumber = postNLApiResponse.data.ResponseShipments[0].Barcode
+        trackingUrl = `https://postnl.post/#/tracking/items/${trackingNumber}`
+        labelContent = postNLApiResponse.data.ResponseShipments[0].Labels[0].Content;
+        // req.log.info('Label Generated successfully for order :', { order: shipmentData });
 
-        const postNLApiResponse = await axios.post(postnlCallingapilocal, shipmentData);
+      }
+
+    } else if (Carrier ==="Asendia") {
+      const asendiaResponse = await axios.post(asendiaCallingapiProd, shipmentData)
+      trackingNumber = asendiaResponse.data.sequenceNumber
+      trackingUrl = `https://tracking.asendia.com/tracking/${trackingNumber}`
+      labelContent  = asendiaResponse.data.content
+
+    } else {
+      return new NextResponse('carrier not supported.', { status: 404 });
+    }
+    logger.info(trackingNumber);
+    logger.info(trackingUrl);
+
+    var currentdate = new Date();
+    var datetime = currentdate.getFullYear() + "-" + currentdate.getMonth() + "-"
+      + currentdate.getDay() + "-"
+      + currentdate.getHours() +
+      + currentdate.getMinutes() + currentdate.getSeconds();
+    const filename = `${shipmentData.order_id}-${shipmentData.shipping_method}-${datetime}`
     
-        if (postNLApiResponse.data.ResponseShipments.length > 0 && postNLApiResponse.data.ResponseShipments[0].Labels.length > 0) {
-          trackingUrl = `https://postnl.post/#/tracking/items/${postNLApiResponse.data.ResponseShipments[0].Barcode}`
-          trackingNumber = postNLApiResponse.data.ResponseShipments[0].Barcode
-          labelContent = postNLApiResponse.data.ResponseShipments[0].Labels[0].Content;
-          req.log.info('Label Generated successfully for order :', { order: shipmentData });
-        }
-
-
-      }
-      else if (Carrier ==="Asendia") {
-        const asendiaResponse = await axios.post("http://localhost:3000/api/asendia", shipmentData)
-        // console.log(asendiaResponse.data)
-        trackingNumber = asendiaResponse.data.sequenceNumber
-        trackingUrl = `https://tracking.asendia.com/tracking/${trackingNumber}`
-        labelContent  = asendiaResponse.data.content
-        console.log(trackingNumber)
-      }
-      else {
-        return new NextResponse('not found .', { status: 404 });
-      }
-      var currentdate = new Date();
-      var datetime = currentdate.getFullYear() + "-" + currentdate.getMonth() + "-"
-        + currentdate.getDay() + "-"
-        + currentdate.getHours() +
-        + currentdate.getMinutes() + currentdate.getSeconds();
-      const filename = `${shipmentData.order_id}-${shipmentData.shipping_method}- ${datetime}`
-      labelUrl = await uploadPdf(labelContent, filename)
+    labelUrl = await uploadPdf(labelContent, filename)
+    logger.info('label url:',labelUrl);
 
 
 
 
-      const shipmentDetailsData: ShipmentDetailsType = {
-        order_id: shipmentData.order_id,
-        barcode: trackingNumber,
-        name: shipmentData.shop_name,
-        cancel_deadline: new Date(),
-        shipping_method: shipmentData.shipping_method,
-        from_address: shipmentData.to_address.address_1 + "," + shipmentData.to_address.city + "," + shipmentData.to_address.country as string,
-        label_url: labelUrl as string
+    const shipmentDetailsData: ShipmentDetailsType = {
+      order_id: shipmentData.order_id,
+      barcode: trackingNumber,
+      name: shipmentData.shop_name,
+      cancel_deadline: new Date(),
+      shipping_method: shipmentData.shipping_method,
+      from_address: shipmentData.to_address.address_1 + "," + shipmentData.to_address.city + "," + shipmentData.to_address.country as string,
+      label_url: labelUrl as string
+    };
+    let shipmentId : any = undefined
+    let insertedShipmentId : any = undefined
+    try{
+      shipmentId  = await insertShipmentDetails(shipmentDetailsData);
+      insertedShipmentId =shipmentId[0].insertedId
+
+    } catch(error){
+    
+      logger.error('Error occured while inserting data to database', { error: error });
+
+    }
+
+    const customerDetailsData: CustomerDetailsType = {
+      customer_name: shipmentData.to_address.name,
+      customer_email: shipmentData.to_address.email,
+      to_address: shipmentData.to_address.address_1 + "," + shipmentData.to_address.city + "," + shipmentData.to_address.country,
+      shipment_id: insertedShipmentId,
+    };
+
+    const shipmentStatusData: ShipmentStatusType = {
+      shipment_id:insertedShipmentId,
+      status_code: '1',
+      status_description: '	Shipment pre-alerted',
+      carrier_message: 'Carrier message goes here',
+    };
+    const shipmentItemsData: ShipmentItemsType[] = shipmentData.packages[0].line_items?.map((item: any) => {
+      return {
+          shipment_id: insertedShipmentId,
+          item_description: item.customs_description,
+          quantity: item.quantity,
+          unit_price: item.price,
+          shipment_weight: Weight
       };
-      let shipmentId : any = undefined
-      let insertedShipmentId : any = undefined
-      try{
-        shipmentId  = await insertShipmentDetails(shipmentDetailsData);
-        insertedShipmentId =shipmentId[0].insertedId
-
-      } catch(error){
-        console.error('Error inserting data:', error);
-        req.log.error('Error occured while inserting data to database', { error: error });
-
-      }
-
-      const customerDetailsData: CustomerDetailsType = {
-        customer_name: shipmentData.to_address.name,
-        customer_email: shipmentData.to_address.email,
-        to_address: shipmentData.to_address.address_1 + "," + shipmentData.to_address.city + "," + shipmentData.to_address.country,
-        shipment_id: insertedShipmentId,
-      };
-
-      const shipmentStatusData: ShipmentStatusType = {
-        shipment_id:insertedShipmentId,
-        status_code: '1',
-        status_description: '	Shipment pre-alerted',
-        carrier_message: 'Carrier message goes here',
-      };
-      const shipmentItemsData: ShipmentItemsType[] = shipmentData.packages[0].line_items?.map((item: any) => {
-        return {
-            shipment_id: insertedShipmentId,
-            item_description: item.customs_description,
-            quantity: item.quantity,
-            unit_price: item.price,
-            shipment_weight: Weight
-        };
     }) || [];
     
 
 
 
-      try {
-        // Insert into addresses table
+    try {
+      // Insert into addresses table
 
-        
-       
-        await insertShipmentItems(shipmentItemsData)
-        await insertCustomerDetails(customerDetailsData)
-        await insertShipmentStatus(shipmentStatusData)
-
-      } catch (error) {
-        console.error('Error inserting data:', error);
-        req.log.error('Error occured while inserting data to database', { error: error });
-
-      }
-
-
-      let responseBodyJson = {
-        code: 200,
-        shipping_method: shipping_method,
-        tracking_number: "",
-        cost: 0,
-        label: labelUrl,
-        customs_info: '',
-        shipping_carrier: 'PostNL',
-        tracking_url: trackingNumber
-      };
-      const responseBody = JSON.stringify(responseBodyJson);
-      return new NextResponse(responseBody, {
-        status: 200,
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });  
       
-  } 
+      
+      await insertShipmentItems(shipmentItemsData)
+      await insertCustomerDetails(customerDetailsData)
+      await insertShipmentStatus(shipmentStatusData)
 
-  else {
-    return new NextResponse('Method Not Allowed', { status: 405 });
-  }
-} catch (error) {
-  console.error('Error processing the shipment update:', error);
-
-  let errorMessage: any = 'Internal Server Errorsss';
-  let status = 500;
-
-
-  if (axios.isAxiosError(error)) {
-    const errorResponse = error.response;
-    const axiosError: AxiosError = error;
-    if (axiosError.response) {
-      const response: AxiosResponse = axiosError.response;
-      status = response.status
-
-      errorMessage = JSON.stringify(response.data.errors);
-      req.log.error('Error occured while calling Carrier Endpoint :', { error: errorMessage })
+    } catch (error) {
+      logger.error('Error occured while inserting data to database', { error: error });
     }
-  }
 
-  return new NextResponse(errorMessage, {
-    status,
-    headers: {
-      'Content-Type': 'application/json',
-    },
-  });
+    let responseBodyJson = {
+      code: 200,
+      shipping_method: shipping_method,
+      tracking_number: trackingNumber,
+      cost: 0,
+      label: labelUrl,
+      customs_info: '',
+      shipping_carrier: Carrier,
+      tracking_url: trackingUrl
+    };
+    
+    const responseBody = JSON.stringify(responseBodyJson);
+    logger.info(responseBody);
+
+    logger.end();
+
+    return new NextResponse(responseBody, {
+      status: 200,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+  } catch (error) {
+    logger.error('Error processing the shipment update:', error);
+
+    let errorMessage: any = 'Internal Server Error';
+    let status = 500;
+
+    if (axios.isAxiosError(error)) {
+      const errorResponse = error.response;
+      const axiosError: AxiosError = error;
+      if (axiosError.response) {
+        const response: AxiosResponse = axiosError.response;
+        status = response.status
+
+        errorMessage = JSON.stringify(response.data.errors);
+        // req.log.error('Error occured while calling Carrier Endpoint :', { error: errorMessage })
+      }
+    }
+
+    logger.end();
+
+    return new NextResponse(errorMessage, {
+      status,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+  }
 }
-})
