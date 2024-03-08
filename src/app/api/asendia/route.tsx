@@ -1,7 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { config } from "dotenv";
 import xml2js from 'xml2js';
+
 import { asendiaMapper , getAuthXml} from "@/app/utils/asendia/asendiaDataMapper"; 
+
+import { logger } from '@/utils/logger'
+
+
 
 config()
 export async function POST(req: NextRequest) {
@@ -9,6 +14,7 @@ export async function POST(req: NextRequest) {
 
 
   const body = await req.json();
+  logger.info(JSON.stringify(body));
   const WSDL_ASENDIA_AUTH_OPS_URL = 'https://uat.centiro.com/Universe.Services/TMSBasic/Wcf/c1/i1/TMSBasic/Authenticate.svc?wsdl';
   const WSDL_ASENDIA_SHIPMENT_OPS_URL = 'https://uat.centiro.com/Universe.Services/TMSBasic/Wcf/c1/i1/TMSBasic/TMSBasic.svc?wsdl';
 
@@ -23,91 +29,66 @@ export async function POST(req: NextRequest) {
   const ASENDIA_SHIPMENT_URL_UAT = 'https://uat.centiro.com/Universe.Services/TMSBasic/Wcf/c1/i1/TMSBasic/TMSBasic.svc/xml';
   const ASENDIA_SHIPMENT_URL_PROD = 'https://cloud.centiro.com/Universe.Services/TMSBasic/Wcf/c1/i1/TMSBasic/TMSBasic.svc/xml';
 
-  // const ASENDIA_PRODUCT_FULLY_TRACKED_GOODS = 'FTG';
-  // const ASENDIA_PRODUCT_PREMIUM_GOODS = 'PRG';
-  // const ASENDIA_SERVICE_MAIL_BOX_DELIVERY = 'MBD';
-  // const ASENDIA_FORMAT_NON_BOXABLE = 'N';
-
-  const ASENDIA_PRODUCT_FULLY_TRACKED_GOODS = 'EPAQPLS';
-  const ASENDIA_PRODUCT_PREMIUM_GOODS = 'EPAQPLS';
-  const ASENDIA_SERVICE = 'CUP';
-  // const ASENDIA_ADDL_SERVICE_PERSONAL_DELIVERY = 'PD'
-  const ASENDIA_FORMAT_NON_BOXABLE = 'N';
-
-  const OZ_TO_KG_MULTIPLIER = 0.0283495231;
-
-  const adminTableSuffix = '-527socgcarbs3d5eyfk5y75hxa-stg';
-
-  const S3_KEY_PREFIX = 'asendia/shipment-label/';
-
-  const SHIPHERO_LINE_ITEM_KIT_STATUS = 'broken_in_sets';
-
-  const DEFAULT_SHIPMENT_TRACKING_STATUS_CODE = '-1';
-  const SHIPMENT_TRACKING_CARRIER_NAME = 'Asendia';
-
-  let headers = {
+  let reqHeaders = {
     'Content-Type': 'text/xml;charset=UTF-8',
     SOAPAction: ASENDIA_AUTH_SOAP_ACTION,
   };
-  console.log("first")
+  
+  const defaultAuthXml = getAuthXml(); // Ensure this function returns a valid XML string
 
-  const defaultAuthXml = getAuthXml()
-  console.log(defaultAuthXml)
+  logger.info(defaultAuthXml);
   const url =  ASENDIA_AUTH_URL_PROD ;
-
   let response = await fetch(url, {
     method: 'POST',
-    headers: headers,
+    headers: reqHeaders,
     body: defaultAuthXml,
   });
-  // var { response } = await soapRequest({ url: url, headers: headers, xml: defaultAuthXml, timeout: 10000 }); // Optional timeout parameter(milliseconds)
-  console.log(response)
-  if (!response.ok) {
-   
-    console.log("first")
-    throw new Error(`SOAP request failed with status ${response.status}`);
-  }
-  console.log(response)
+  // let { response } = await soapRequest({ url: url, headers: reqHeaders, xml: defaultAuthXml, timeout: 10000 }); // Optional timeout parameter(milliseconds)
+  // const { headers, body, statusCode } = response;
+  // console.log(response.headers);
+  // console.log(response.body);
+  // console.log(response.statusCode);
+  // if (!response.ok) {
+  //   throw new Error(`SOAP request failed with status ${response.status}`);
+  // }
+
   const authRespHeaders = response.headers;
 
   const authRespBody = response.body;
 
-
   let authTokenInResp = '';
 
-
- 
   const textResponse = await response.text();
-  console.log(response)
-  console.log(textResponse)
+  logger.info(textResponse)
 
   // Extract the AuthenticationTicket from the response
   authTokenInResp = await extractAuthenticationTicket(textResponse);
-  console.log(authTokenInResp)
-  let shipmentXmlWithValues = '';
-headers.SOAPAction = ASENDIA_SHIPMENT_SOAP_ACTION;
 
 
-shipmentXmlWithValues = asendiaMapper(body ,authTokenInResp)
-console.log(shipmentXmlWithValues)
-var url2 = ASENDIA_SHIPMENT_URL_PROD;
+  logger.info('Authentication Ticket:', authTokenInResp);
+  let shipmentXmlWithValues = asendiaMapper(body ,authTokenInResp)
+  logger.info(shipmentXmlWithValues)
+
+  let url2 = ASENDIA_SHIPMENT_URL_PROD;
+  reqHeaders.SOAPAction = ASENDIA_SHIPMENT_SOAP_ACTION;
+  
   let responseLabel  : any= await fetch(url2, {
-  method: 'POST',
-  headers: headers,
-  body: shipmentXmlWithValues,
-}).catch(error => console.log('Fetch error:', error));
-
-
+    method: 'POST',
+    headers: reqHeaders,
+    body: shipmentXmlWithValues,
+  }).catch(error => logger.info('Fetch error:', error));
+  
   const textResponse2 = await responseLabel.text();
-  console.log(textResponse2)
+
+  logger.info(textResponse2);
+
 
   const  labelResponse = await extractSequenceNumberAndContent(textResponse2)
-  console.log(labelResponse)
+  logger.info(labelResponse)
 
   return new Response(JSON.stringify(labelResponse) , { status: 200, headers: { 'Content-Type': 'text/plain' } });
 
 }
-
 
 const extractAuthenticationTicket = async (xml: string): Promise<string> => {
   return new Promise((resolve, reject) => {
@@ -132,7 +113,6 @@ const extractAuthenticationTicket = async (xml: string): Promise<string> => {
   });
 };
 
-
 const extractSequenceNumberAndContent = async (xml: string): Promise<{ sequenceNumber: string; content: string }> => {
   return new Promise((resolve, reject) => {
     const parser = new xml2js.Parser({
@@ -147,7 +127,7 @@ const extractSequenceNumberAndContent = async (xml: string): Promise<{ sequenceN
       } else {
         try {
           const sequenceNumber = result.Envelope.Body.AddAndPrintShipmentResponse.Shipments.SequenceNumber;
-          console.log(sequenceNumber)
+          logger.info(sequenceNumber)
           const content = result.Envelope.Body.AddAndPrintShipmentResponse.ParcelDocuments.ParcelDocument.Content;
           resolve({ sequenceNumber, content });
         } catch (error) {
@@ -157,5 +137,3 @@ const extractSequenceNumberAndContent = async (xml: string): Promise<{ sequenceN
     });
   });
 };
-
-

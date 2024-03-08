@@ -1,13 +1,18 @@
-import axios from 'axios';
+// import axios from 'axios';
 import { config } from 'dotenv';
-import { Logger } from 'next-axiom';
+
+import { FormData, Blob } from 'formdata-node'
+
+import { logger } from '@/utils/logger';
+import { utapi } from '@/utils/uploadthingClient';
+
+
+// import { error } from 'console';
 
 config();
 
 
-
 export async function uploadPdf(labelBase64 : any , filename : any) {
-    const log = new Logger()
     // Decode base64 to get the binary size
     const decodedData = Buffer.from(labelBase64, 'base64');
     const originalSize = decodedData.length;
@@ -31,45 +36,55 @@ export async function uploadPdf(labelBase64 : any , filename : any) {
         };
 
         // Initial API call to get the presigned URL and other details
-        const response = await axios.post('https://uploadthing.com/api/uploadFiles', body, {
-            headers: {
-                'Content-Type': 'application/json',
-                'X-Uploadthing-Api-Key': process.env.UPLOADTHING_SECRET,
-            },
-        });
+        // const response = await axios.post('https://uploadthing.com/api/uploadFiles', body, {
+        //     headers: {
+        //         'Content-Type': 'application/json',
+        //         'X-Uploadthing-Api-Key': process.env.UPLOADTHING_SECRET,
+        //         'X-Uploadthing-Version': '6.4.0'
+        //     },
+        // });
+
+        // console.log(response);
         
-       
-        const { fileUrl, presignedUrl, fields } = response.data.data[0];
-        if(!fileUrl){
-            log.error("error occured when creating Url for Label")
-            await log.flush();
-        }
+        // const { fileUrl, presignedUrl, fields } = response.data.data[0];
+        // if(!fileUrl){
+        //     logger.error("Error occurred when creating Url for Label");
+        //     throw new Error('Error occurred creating pre-signed url');
+        // }
+
         // Convert the base64 string to a binary Blob
-        const pdfBlob =  Buffer.from(labelBase64, 'base64');
+        const pdfBuffer =  Buffer.from(labelBase64, 'base64');
+        const pdfBlob = new Blob([pdfBuffer]);
 
         // Create FormData to append fields and file for S3 upload
-        const FormData = require('form-data');
+        // const FormData = require('form-data');
         const formData = new FormData();
-        Object.entries(fields).forEach(([key, value]) => {
-            formData.append(key, value);
-        });
-        formData.append('file', pdfBlob);
+        // Object.entries(fields).forEach(([key, value]) => {
+        //     formData.append(key, value);
+        // });
+        formData.append('files', pdfBlob, `label-${filename}.pdf`);
 
         // Upload the file to the presigned URL
-        await axios.post(presignedUrl, formData, {
-            headers: {
-                // FormData will set the Content-Type to 'multipart/form-data' with the correct boundary
-                // Do not manually set Content-Length here, let axios and FormData handle it
-                'X-Uploadthing-Api-Key': process.env.UPLOADTHING_SECRET,
-            },
-        });
+        // let res = await axios.post(presignedUrl, formData, {
+        //     headers: {
+        //         // FormData will set the Content-Type to 'multipart/form-data' with the correct boundary
+        //         // Do not manually set Content-Length here, let axios and FormData handle it
+        //         'X-Uploadthing-Api-Key': process.env.UPLOADTHING_SECRET,
+        //         'X-Uploadthing-Version': '6.4.0'
+        //     },
+        // });
 
+        const response = await utapi.uploadFiles(formData.getAll('files'));
+        //    ^? UploadedFileResponse[]
 
-        return fileUrl;
+        logger.info(response && Array.isArray(response) ? response[0].data?.url : response.data?.url)
+
+        return response && Array.isArray(response) ? response[0].data?.url : response.data?.url;
+
     } catch (error : any) {
-        console.error('Error uploading file:', error.response ? error.response.data : error.message);
-        log.error("error occured while uploading file to Uploadthing :",{error:error})
-        await log.flush();
+        // console.error('Error uploading label file:', error.response ? error.response.data : error.message);
+        logger.error('Error uploading label file:', error.response ? JSON.stringify(error.response.data) : error.message);
+        throw error;
     }
 }
 

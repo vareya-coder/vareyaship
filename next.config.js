@@ -1,7 +1,17 @@
 /** @type {import('next').NextConfig} */
-const nextConfig = {}
-const { withAxiom } = require('next-axiom');
+const nextConfig = {
+  /* config options here */
+  webpack: (config, { isServer }) => {
+    
+    // If client-side, don't polyfill `fs`
+    if (!isServer) {
+      config.resolve.fallback = {
+        fs: false,
+      };
+    }
 
-module.exports = {
-    // ... your existing config
-  };
+    return config;
+  },
+}
+
+module.exports = nextConfig

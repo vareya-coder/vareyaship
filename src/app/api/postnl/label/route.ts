@@ -5,28 +5,35 @@ import { mapShipHeroToPostNL } from '@/app/utils/postnl/dataMaper';
 import { ShipHeroWebhook } from '@/app/utils/types';
 
 import { Data } from '@/app/utils/postnl/postnltypes';
+import { logger } from '@/utils/logger';
 
 config();
 
 export async function POST(req: NextRequest) {
-  console.log("hit")
   try {
     if (req.method === 'POST') {
       const shipmentData: ShipHeroWebhook = await req.json();
-      const Product_code = getProductCode(shipmentData.shipping_method);
+      logger.info(JSON.stringify(shipmentData));
+      const postNLProductCode = getProductCode(shipmentData.shipping_method);
       
-      if (!Product_code) {
+      if (!postNLProductCode) {
         return new NextResponse('Invalid shipment method.', { status: 400 });
       }
 
-      const postNLApiKey = process.env.POSTNL_API_KEY as string;
-      const postnlbody : Data = await mapShipHeroToPostNL(shipmentData, Product_code);
-      console.log("hit")
+      const postNLCustomerCode: string = process.env.CUSTOMER_CODE as string;
+      const postNLCustomerNumber: string = process.env.CUSTOMER_NUMBER as string;    
 
-      console.log(postnlbody)
+      const barCode: string = await getBarcode(postNLCustomerCode, postNLCustomerNumber);
+      logger.info(barCode);
+
+      const postNLApiKey = process.env.POSTNL_API_KEY as string;
+      const postNLBody : Data = await mapShipHeroToPostNL(shipmentData, barCode, postNLProductCode, 
+                                                          postNLCustomerCode, postNLCustomerNumber);
+      logger.info(JSON.stringify(postNLBody))
       try {
-        const postNLApiResponse = await callPostNLApi(postNLApiKey, JSON.stringify(postnlbody));
+        const postNLApiResponse = await callPostNLApi(postNLApiKey, JSON.stringify(postNLBody));
         
+        logger.info(JSON.stringify(postNLApiResponse))
         return new NextResponse(JSON.stringify(postNLApiResponse), {
           status: 200,
           headers: {
@@ -41,8 +48,38 @@ export async function POST(req: NextRequest) {
       return new NextResponse('Method Not Allowed', { status: 405 });
     }
   } catch (error) {
-    console.error('Error processing the shipment update:', error);
+    logger.error('Error processing the shipment update:', error);
     return new NextResponse('Internal Server Error', { status: 500 });
+  }
+}
+
+async function getBarcode(customer_code: string, customer_number: string) {
+  const apiKey = process.env.POSTNL_API_KEY;
+
+  try {
+      const response = await axios.get(
+          'https://api.postnl.nl/shipment/v1_1/barcode',
+          {
+              params: {
+                  CustomerNumber: customer_number,
+                  CustomerCode: customer_code,
+                  Type: 'LA',
+                  Range: "NL",
+                  Serie: '00000000-99999999',
+              },
+
+              headers: {
+                  'Content-Type': 'application/json',
+                  'apikey': apiKey,
+              },
+          }
+      );
+
+      return response.data.Barcode;
+  } catch (error) {
+      logger.error('Error fetching barcode:', error);
+      // Handle errors here
+      throw error;
   }
 }
 
@@ -54,7 +91,7 @@ async function callPostNLApi(apiKey: string, requestPayload: any ) {
       'apikey': apiKey,
     };
 
-    const response: AxiosResponse<any> = await axios.post('https://api-sandbox.postnl.nl/shipment/v2_2/label', requestPayload, {
+    const response: AxiosResponse<any> = await axios.post('https://api.postnl.nl/shipment/v2_2/label', requestPayload, {
       headers,
       timeout: 10000,
     });
@@ -68,17 +105,17 @@ async function callPostNLApi(apiKey: string, requestPayload: any ) {
 
 function getProductCode(shippingMethod: string): string | undefined {
   switch (shippingMethod) {
-    case 'ROW Boxable Track n Trace 6942':
+    case 'postnl:row-intl-boxable-track-trace-contract-6942':
       return "6942";
-    case 'ROW Packet Track n Trace 6550':
+    case 'postnl:row-intl-packet-track-trace-contract-6550':
       return "6550";
-    case 'NL Mailbox Package Sorted 2929':
+    case 'postnl:nl-mailbox-package-sorted-2929':
       return "2929";
-    case 'NL Mailbox Package UnSorted 2928':
+    case 'postnl:nl-mailbox-package-unsorted-2928':
       return "2928";
-    case 'NL Standard 3085':
+    case 'postnl:nl-standard-3085':
       return "3085";
-    case 'BE Standard 4946':
+    case 'postnl:be-standard-4946':
       return "4946";
     default:
       return undefined;
