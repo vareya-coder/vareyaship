@@ -32,9 +32,9 @@ export default function Avatar() {
       console.error("Logout error:", error);
     }
   }
-  if(logout) {
-    router.refresh()
-  }
+  // if(!logout) {
+  //   router.refresh()
+  // }
 
   return (
     <DropdownMenu >
