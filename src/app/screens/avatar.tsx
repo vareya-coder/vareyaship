@@ -26,6 +26,7 @@ export default function Avatar() {
       
       logger.info("logout triggered");
       setlogout(true) // Refreshing the page
+      router.refresh()
     } catch (error) {
       logger.info("error loging out");
       console.error("Logout error:", error);
