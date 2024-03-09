@@ -1,11 +1,11 @@
 "use client"
-
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useState } from "react"
 import { Label } from "@/components/ui/label";
+import { logger } from "@/utils/logger"
 
 
 export default function Page() {
@@ -15,9 +15,12 @@ export default function Page() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState(false); // State to hold error message
+  const [loading, setLoading] = useState(false); // State to track loading state
 
   const handleLogin = async (e : any) => {
     e.preventDefault(); // Prevent default form submission
+
+    setLoading(true); // Start loading
 
     try {
       const response = await fetch("/api/login", {
@@ -32,29 +35,33 @@ export default function Page() {
       });
 
       if (!response.ok) {
-        throw new Error("Login failed");
+        logger.info("siginin faild");
+        setError(true); // Set error message
+        setLoading(false); // Stop loading
+        return;
       }
 
       const { token } = await response.json();
-      
 
-        const expiryDate = new Date();
-        expiryDate.setTime(expiryDate.getTime() + 7 * 24 * 60 * 60 * 1000);
-        const expires = `expires=${expiryDate.toUTCString()}`;
-  
-        const secure = window.location.protocol === "https:" ? "Secure;" : "";
-  
-        document.cookie = `token=${token}; path=/; SameSite=Lax; ${expires} ${secure}`;
-        setisauth(true)
-        router.refresh()
-    
+      const expiryDate = new Date();
+      expiryDate.setTime(expiryDate.getTime() + 7 * 24 * 60 * 60 * 1000);
+      const expires = `expires=${expiryDate.toUTCString()}`;
+
+      const secure = window.location.protocol === "https:" ? "Secure;" : "";
+
+      document.cookie = `token=${token}; path=/; SameSite=Lax; ${expires} ${secure}`;
+      setisauth(true);
+      router.refresh();
     } catch (error) {
       setError(true); // Set error message
+    } finally {
+      setLoading(false); // Stop loading
     }
   };
+
   if(isauth){
-    router.push('/')
-    router.refresh()
+    router.push('/');
+    router.refresh();
   }
 
   return (
@@ -78,12 +85,12 @@ export default function Page() {
             </Label>
             <Input className="w-full" id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
           </div>
-          {error && <div className="text-red-500 text-sm">invalid email or password</div>} 
-          <form onSubmit={handleLogin}>
-            <Button type="submit" className="w-full bg-blue-600 text-white hover:bg-blue-700 dark:bg-blue-400 dark:hover:bg-blue-500">
-              Login
+          {error && <div className="text-red-500 text-sm">invalid email or password</div>}
+          <div className="flex justify-center">
+            <Button type="submit" className="w-full bg-blue-600 text-white hover:bg-blue-700 dark:bg-blue-400 dark:hover:bg-blue-500" disabled={loading} onClick={handleLogin}>
+              {loading ? "Loading..." : "Login"}
             </Button>
-          </form>
+          </div>
         </div>
         <div className="text-center text-sm">
           <Link className="underline text-blue-600 dark:text-blue-400" href="#">
