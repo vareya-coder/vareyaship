@@ -34,7 +34,7 @@ export const shipmentDetails = pgTable('shipment_details', {
     shipping_method: varchar('shipping_method'),
     from_address: varchar('from_address'),
     label_url : varchar('label_url'),
-    //req_body: varchar('req_body')
+    request_body: varchar('request_body'),
 });
 
 // Customer details table

@@ -117,7 +117,8 @@ export async function POST(req: NextRequest) {
       cancel_deadline: new Date(),
       shipping_method: shipmentData.shipping_method,
       from_address: shipmentData.to_address.address_1 + "," + shipmentData.to_address.city + "," + shipmentData.to_address.country as string,
-      label_url: labelUrl as string
+      label_url: labelUrl as string,
+      request_body : JSON.stringify(shipmentData) 
     };
     let shipmentId : any = undefined
     let insertedShipmentId : any = undefined
