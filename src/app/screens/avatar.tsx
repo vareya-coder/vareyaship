@@ -26,15 +26,12 @@ export default function Avatar() {
       
       logger.info("logout triggered");
       setlogout(true) // Refreshing the page
-      router.refresh()
+      router.push('/signin')
     } catch (error) {
       logger.info("error loging out");
       console.error("Logout error:", error);
     }
   }
-  // if(!logout) {
-  //   router.refresh()
-  // }
 
   return (
     <DropdownMenu >
