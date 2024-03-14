@@ -68,7 +68,11 @@ export async function POST(req: NextRequest) {
   
       if (postNLApiResponse.data.ResponseShipments.length > 0 && postNLApiResponse.data.ResponseShipments[0].Labels.length > 0) {
         trackingNumber = postNLApiResponse.data.ResponseShipments[0].Barcode
-        trackingUrl = `https://postnl.post/#/tracking/items/${trackingNumber}`
+        if (shipmentData.shipping_method == 'postnl:nl-mailbox-package-unsorted-2928') {
+          trackingUrl = `https://jouw.postnl.nl/track-and-trace/${trackingNumber}-${shipmentData.to_address.country}-${shipmentData.to_address.zip.replace(/\s/g,'')}?language=nl`
+        } else {
+          trackingUrl = `https://postnl.post/#/tracking/items/${trackingNumber}`
+        }
         labelContent = postNLApiResponse.data.ResponseShipments[0].Labels[0].Content;
         // req.log.info('Label Generated successfully for order :', { order: shipmentData });
       }
