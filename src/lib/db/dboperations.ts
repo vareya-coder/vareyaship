@@ -11,8 +11,8 @@ import {
 } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
 import { Pool } from '@neondatabase/serverless';
-
 import { logger } from '@/utils/logger'
+
 
 const client = new Pool()
 
@@ -41,8 +41,12 @@ export async function getAllShipmentDetails(): Promise<ShipmentDetailsType[]> {
 
 export async function insertShipmentDetails(shipmentDetailsData: ShipmentDetailsType): Promise<void> {
   try {
-    const res = await db.insert(shipmentDetails).values(shipmentDetailsData);//.returning({target: shipmentDetails.pk_id});
-    logger.info("shipment_details.pk_id:", JSON.stringify(res));
+    let id = await db.insert(shipmentDetails).values(shipmentDetailsData).returning({ insertedId: shipmentDetails.shipment_id });
+
+    logger.info("added new shipment with Id:",id );
+
+    return id as any
+
 
   } catch (error: unknown) {
     if (error instanceof Error) {
@@ -70,7 +74,7 @@ export async function insertShipmentStatus(shipmentStatusData: ShipmentStatusTyp
   }
 }
 
-export async function insertShipmentItems(shipmentItemsData: ShipmentItemsType): Promise<void> {
+export async function insertShipmentItems(shipmentItemsData: ShipmentItemsType[]): Promise<void> {
   try {
     await db.insert(shipmentItems).values(shipmentItemsData);
   } catch (error: unknown) {
@@ -79,15 +83,18 @@ export async function insertShipmentItems(shipmentItemsData: ShipmentItemsType):
   }
 }
 
-export async function getOrderDetails(): Promise<any> { // Consider defining a more specific return type
-  try {
-    const result = await db
-      .select()
-      .from(shipmentDetails)
-      .fullJoin(customerDetails, eq(shipmentDetails.order_id, customerDetails.order_id));
-    return result; 
-  } catch (error: unknown) {
-    logger.error("Error fetching order details:", error);
-    throw error;
-  }
-}
+
+// export async function getOrderDetails(): Promise<any> { // Consider defining a more specific return type
+//   try {
+//     const result = await db
+//       .select()
+//       .from(shipmentDetails)
+//       .fullJoin(customerDetails, eq(shipmentDetails.order_id, customerDetails.order_id));
+//     return result; 
+//   } catch (error: unknown) {
+
+      // logger.error("Error fetching order details:", error);
+//     throw error;
+//   }
+// }
+

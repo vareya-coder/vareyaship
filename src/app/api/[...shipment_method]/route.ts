@@ -34,33 +34,44 @@ export async function POST(req: NextRequest) {
       return new NextResponse('Package information is missing or invalid.', { status: 400 });
     }
 
-    if (!to_address.name || !to_address.address_1 || !to_address.city || !to_address.zip || !to_address.country) {
-      return new NextResponse('One or more destination address fields are missing.', { status: 400 });
-    }
-    let Carrier : string =''
-    const postNL: string[] = [
-      'postnl:row-intl-boxable-track-trace-contract-6942',
-      'postnl:row-intl-packet-track-trace-contract-6550',
-      'postnl:nl-mailbox-package-sorted-2929',
-      'postnl:nl-mailbox-package-unsorted-2928',
-      'postnl:nl-standard-3085',
-      'postnl:be-standard-4946'
-    ];
-    const asendia: string[] = [
-      'asendia:epaqpls',
-      'asendia:epaqpls-personal-delivery',
-      'asendia:epaqpls-mailbox-delivery',
-      'asendia:epaqsct',
-      'asendia:epaqsct-signature',
-      'asendia:epaqpls-boxable',
-      'asendia:epaqpls-personal-delivery-boxable',
-      'asendia:epaqpls-mailbox-delivery-boxable'
-    ];
+
+      if (!shipping_method || !order_id || !order_number || !to_address || !packages) {
+        return new NextResponse('One or more required fields are missing.', { status: 400 });
+      }
+
+      if (!Array.isArray(packages) || packages.length === 0 || !packages[0].weight_in_oz || !packages[0].width || !packages[0].length || !packages[0].height) {
+        return new NextResponse('Package information is missing or invalid.', { status: 400 });
+      }
+
+      if (!to_address.name || !to_address.address_1 || !to_address.city || !to_address.zip || !to_address.country) {
+        return new NextResponse('One or more destination address fields are missing.', { status: 400 });
+      }
+      let Carrier : string =''
+      const postNL: string[] = [
+        'postnl:row-intl-boxable-track-trace-contract-6942',
+        'postnl:row-intl-packet-track-trace-contract-6550',
+        'postnl:nl-mailbox-package-sorted-2929',
+        'postnl:nl-mailbox-package-unsorted-2928',
+        'postnl:nl-standard-3085',
+        'postnl:be-standard-4946'
+      ];
+      const asendia: string[] = [
+        'asendia:epaqpls',
+        'asendia:epaqpls-personal-delivery',
+        'asendia:epaqpls-mailbox-delivery',
+        'asendia:epaqsct',
+        'asendia:epaqsct-signature',
+        'asendia:epaqpls-boxable',
+        'asendia:epaqpls-personal-delivery-boxable',
+        'asendia:epaqpls-mailbox-delivery-boxable'
+      ];
+
     if(asendia.includes(shipmentData.shipping_method)){
       Carrier ="Asendia"
     } else if(postNL.includes(shipmentData.shipping_method)){
       Carrier="PostNL"
     }
+
     logger.info(Carrier);
     let labelContent = undefined;
     if (Carrier ==="PostNL") {
@@ -75,6 +86,7 @@ export async function POST(req: NextRequest) {
         }
         labelContent = postNLApiResponse.data.ResponseShipments[0].Labels[0].Content;
         // req.log.info('Label Generated successfully for order :', { order: shipmentData });
+
       }
 
     } else if (Carrier ==="Asendia") {
@@ -87,9 +99,8 @@ export async function POST(req: NextRequest) {
       return new NextResponse('carrier not supported.', { status: 404 });
     }
     logger.info(trackingNumber);
-
     logger.info(trackingUrl);
-    
+
     var currentdate = new Date();
     var datetime = currentdate.getFullYear() + "-" + currentdate.getMonth() + "-"
       + currentdate.getDay() + "-"
@@ -100,6 +111,9 @@ export async function POST(req: NextRequest) {
     labelUrl = await uploadPdf(labelContent, filename)
     logger.info('label url:',labelUrl);
 
+
+
+
     const shipmentDetailsData: ShipmentDetailsType = {
       order_id: shipmentData.order_id,
       barcode: trackingNumber,
@@ -107,44 +121,59 @@ export async function POST(req: NextRequest) {
       cancel_deadline: new Date(),
       shipping_method: shipmentData.shipping_method,
       from_address: shipmentData.to_address.address_1 + "," + shipmentData.to_address.city + "," + shipmentData.to_address.country as string,
-      label_url: labelUrl as string
+      label_url: labelUrl as string,
+      request_body : JSON.stringify(shipmentData) 
     };
+    let shipmentId : any = undefined
+    let insertedShipmentId : any = undefined
+    try{
+      shipmentId  = await insertShipmentDetails(shipmentDetailsData);
+      insertedShipmentId =shipmentId[0].insertedId
+
+    } catch(error){
+      console.log(error)
+      logger.error('Error occured while inserting data to database', { error: error });
+
+    }
 
     const customerDetailsData: CustomerDetailsType = {
       customer_name: shipmentData.to_address.name,
       customer_email: shipmentData.to_address.email,
       to_address: shipmentData.to_address.address_1 + "," + shipmentData.to_address.city + "," + shipmentData.to_address.country,
-      order_id: shipmentData.order_id,
+      shipment_id: insertedShipmentId,
     };
 
     const shipmentStatusData: ShipmentStatusType = {
-      order_id: shipmentData.order_id,
+      shipment_id:insertedShipmentId,
       status_code: '1',
       status_description: '	Shipment pre-alerted',
       carrier_message: 'Carrier message goes here',
     };
+    const shipmentItemsData: ShipmentItemsType[] = shipmentData.packages[0].line_items?.map((item: any) => {
+      return {
+          shipment_id: insertedShipmentId,
+          item_description: item.customs_description,
+          quantity: item.quantity,
+          unit_price: item.price,
+          shipment_weight: Weight
+      };
+    }) || [];
+    
 
-    const shipmentItemsData: ShipmentItemsType = {
-      order_id: shipmentData.order_id,
-      item_description: 'Example Item',
-      quantity: 1,
-      unit_price: "10.99",
-      shipment_weight: Weight,
-    };
 
-//       try {
-//         // Insert into addresses table
 
-//         await insertShipmentDetails(shipmentDetailsData);
-//         //await insertShipmentItems(shipmentItemsData)
-//         await insertCustomerDetails(customerDetailsData)
-//         await insertShipmentStatus(shipmentStatusData)
+    try {
+      // Insert into addresses table
 
-//       } catch (error) {
-//         logger.error('Error inserting data:', error);
+      
+      
+      await insertShipmentItems(shipmentItemsData)
+      await insertCustomerDetails(customerDetailsData)
+      await insertShipmentStatus(shipmentStatusData)
 
-//       }
-
+    } catch (error) {
+      logger.error('Error occured while inserting data to database', { error: error });
+    }
 
     let responseBodyJson = {
       code: 200,

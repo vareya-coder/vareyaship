@@ -36,14 +36,29 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
     }
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-var index_1 = require("../src/lib/db/index");
+var dotenv_1 = require("dotenv");
 var migrator_1 = require("drizzle-orm/postgres-js/migrator");
+var postgres_1 = require("postgres");
+var postgres_js_1 = require("drizzle-orm/postgres-js");
+(0, dotenv_1.config)({ path: '.env' });
+var databaseUrl = (0, postgres_js_1.drizzle)((0, postgres_1.default)("".concat(process.env.DATABASE_URL), { ssl: 'require', max: 1 }));
 var main = function () { return __awaiter(void 0, void 0, void 0, function () {
+    var error_1;
     return __generator(this, function (_a) {
         switch (_a.label) {
-            case 0: return [4 /*yield*/, (0, migrator_1.migrate)(index_1.db, { migrationsFolder: './drizzle' })];
+            case 0:
+                _a.trys.push([0, 2, , 3]);
+                return [4 /*yield*/, (0, migrator_1.migrate)(databaseUrl, { migrationsFolder: 'drizzle' })];
             case 1:
                 _a.sent();
+                console.log('Migration complete');
+                return [3 /*break*/, 3];
+            case 2:
+                error_1 = _a.sent();
+                console.log(error_1);
+                return [3 /*break*/, 3];
+            case 3:
+                process.exit(0);
                 return [2 /*return*/];
         }
     });
