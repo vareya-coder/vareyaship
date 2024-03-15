@@ -81,8 +81,6 @@ export async function POST(req: NextRequest) {
         trackingNumber = postNLApiResponse.data.ResponseShipments[0].Barcode
         trackingUrl = `https://jouw.postnl.nl/track-and-trace/${trackingNumber}-${shipmentData.to_address.country}-${shipmentData.to_address.zip.replace(/\s/g,'')}${shipmentData.to_address.country == 'NL' ? '?language=nl': ''}`
         labelContent = postNLApiResponse.data.ResponseShipments[0].Labels[0].Content;
-        // req.log.info('Label Generated successfully for order :', { order: shipmentData });
-
       }
 
     } else if (Carrier ==="Asendia") {
