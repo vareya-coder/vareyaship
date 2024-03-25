@@ -76,10 +76,11 @@ export async function mapShipHeroToPostNL(shipHeroData: ShipHeroWebhook, barCode
                 City: shipHeroData.to_address.city,
                 Countrycode: shipHeroData.to_address.country,
                 //FirstName: shipHeroData.to_address.name,
-                HouseNr: "",
+                // HouseNr: "",
+                // Street: shipHeroData.to_address.address_1,
                 //HouseNrExt: "a bis",
                 Name: shipHeroData.to_address.name,
-                Street: shipHeroData.to_address.address_1,
+                StreetHouseNrExt: `${shipHeroData.to_address.address_1} ${shipHeroData.to_address.address_2}`,
                 Zipcode: shipHeroData.to_address.zip,
             }],
 
@@ -192,14 +193,14 @@ export async function mapShipHeroToPostNL(shipHeroData: ShipHeroWebhook, barCode
     }
     found = shipHeroData.to_address.address_1.match(/[0-9]+/g);
 
-    if ((shipHeroData.to_address.country == 'BE'
-        || shipHeroData.to_address.country == 'NL'
-        || shipHeroData.to_address.country == 'LU')
-        && found && found.length > 0 && found[0] && postNLData.Shipments[0].Addresses) {
-        postNLData.Shipments[0].Addresses[0].HouseNr = found[0];
-        postNLData.Shipments[0].Addresses[0].Street =
-            shipHeroData.to_address.address_1.replace(found[0], '').trim();
-    }
+    // if ((shipHeroData.to_address.country == 'BE'
+    //     || shipHeroData.to_address.country == 'NL'
+    //     || shipHeroData.to_address.country == 'LU')
+    //     && found && found.length > 0 && found[0] && postNLData.Shipments[0].Addresses) {
+    //     postNLData.Shipments[0].Addresses[0].HouseNr = found[0];
+    //     postNLData.Shipments[0].Addresses[0].Street =
+    //         shipHeroData.to_address.address_1.replace(found[0], '').trim();
+    // }
     let orderNumCleaned = `${shipHeroData.order_number.replace(/[#A-Z-]+/gi, '')}`;
     postNLData.Shipments[0].CustomerOrderNumber = orderNumCleaned;
     postNLData.Shipments[0].Reference = orderNumCleaned;
