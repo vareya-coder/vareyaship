@@ -37,6 +37,14 @@ export function asendiaMapper(body : any ,authTokenInResp : any ){
     var shipmentToAddressObject = shipmentObject['ns2:Addresses'][0]['ns2:Address'][0];
     
     shipmentToAddressObject['ns2:Address1'][0] = body.to_address.address_1;
+    if (body.to_address.address_2) {
+      let found = body.to_address.address_2.match(/^[0-9]+/g);
+      if (found) {
+        shipmentToAddressObject['ns2:Address1'][0] = body.to_address.address_1 + ' ' + body.to_address.address_2
+      } else {
+        shipmentToAddressObject['ns2:Address2'][0] = body.to_address.address_2;
+      }
+    }
     shipmentToAddressObject['ns2:City'][0] = body.to_address.city;
     
     if (body.to_address.company_name && body.to_address.company_name != '' && body.to_address.company_name.trim() != '') {
@@ -262,6 +270,7 @@ const getShipmentXml = function () {
                   <ns2:Addresses> \
                     <ns2:Address> \
                       <ns2:Address1></ns2:Address1> \
+                      <ns2:Address2></ns2:Address2> \
                       <ns2:AddressType>Receiver</ns2:AddressType> \
                       <ns2:CellPhone></ns2:CellPhone> \
                       <ns2:City></ns2:City> \
