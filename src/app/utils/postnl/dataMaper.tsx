@@ -99,6 +99,10 @@ export async function mapShipHeroToPostNL(shipHeroData: ShipHeroWebhook, barCode
         }],
     };
 
+    if (!barCode) delete postNLData.Shipments[0].Barcode;
+
+    let orderNumCleaned = `${shipHeroData.order_number.replace(/[#A-Z-]+/gi, '')}`;
+
     //Check if the destination country is not in the EU
     if (!EU.includes(shipHeroData.to_address?.country)) {
         if (!postNLData.Shipments) {
@@ -110,7 +114,7 @@ export async function mapShipHeroToPostNL(shipHeroData: ShipHeroWebhook, barCode
             Currency: "EUR",
             HandleAsNonDeliverable: false,
             Invoice: true,
-            InvoiceNr: "22334455",
+            InvoiceNr: `INV-${orderNumCleaned}`,
             ShipmentType: "Commercial Goods",
 
         };
@@ -201,11 +205,8 @@ export async function mapShipHeroToPostNL(shipHeroData: ShipHeroWebhook, barCode
     //     postNLData.Shipments[0].Addresses[0].Street =
     //         shipHeroData.to_address.address_1.replace(found[0], '').trim();
     // }
-    let orderNumCleaned = `${shipHeroData.order_number.replace(/[#A-Z-]+/gi, '')}`;
     postNLData.Shipments[0].CustomerOrderNumber = orderNumCleaned;
     postNLData.Shipments[0].Reference = orderNumCleaned;
-
-
 
     // console.log(JSON.stringify(postNLData))
     return postNLData;

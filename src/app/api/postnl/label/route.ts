@@ -23,7 +23,10 @@ export async function POST(req: NextRequest) {
       const postNLCustomerCode: string = process.env.CUSTOMER_CODE as string;
       const postNLCustomerNumber: string = process.env.CUSTOMER_NUMBER as string;    
 
-      const barCode: string = await getBarcode(postNLCustomerCode, postNLCustomerNumber);
+      let barCode: string = '';
+      if (postNLProductCode === '6942' || postNLProductCode === '6550') {
+        barCode = await getBarcode(postNLCustomerCode, postNLCustomerNumber);
+      }
       logger.info(barCode);
 
       const postNLApiKey = process.env.POSTNL_API_KEY as string;
