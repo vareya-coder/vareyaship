@@ -228,5 +228,5 @@ export async function POST(req: NextRequest) {
 }
 
 function padLeftZero(n:number) {
-  ('0'+n).slice(-2)
+  return ('0'+n).slice(-2)
 }
