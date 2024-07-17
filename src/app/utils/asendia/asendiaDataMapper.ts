@@ -66,7 +66,6 @@ export function asendiaMapper(body : any ,authTokenInResp : any ){
     shipmentObject['ns2:ShipDate'][0] = currTime.toISOString();
     shipmentObject['ns2:ShipmentIdentifier'][0] = `${orderNumCleaned}P${currTime.getTime()}`;
     shipmentObject['ns2:OrderNumber'][0] =`${orderNumCleaned}P${currTime.getTime()}`;
-    shipmentObject['ns2:SenderCode'][0] = "NL21010001"
   
     var packages = body.packages;
     if (Array.isArray(packages)) {
@@ -113,7 +112,25 @@ export function asendiaMapper(body : any ,authTokenInResp : any ){
         { customer: 'PSBC Limited', accountId: '69949', crmId: 'NL21110007', senderTaxCode: 'GB289337944'},
         { customer: 'Dino Lifestyle', accountId: '73490', crmId: 'NL21110007', senderTaxCode: 'GB289337944'},
         { customer: 'Bryght Labs', accountId: '68917', crmId: 'NL21110007', senderTaxCode: 'GB289337944'},
-        { customer: 'Elevitae', accountId: '', crmId: 'NL21110007', senderTaxCode: 'GB289337944'}
+        { customer: 'Elevitae', accountId: '', crmId: 'NL21110007', senderTaxCode: 'GB289337944'},
+        
+        { customer: 'Milan Shah', accountId: '', crmId: 'NL21080009', senderTaxCode: 'GB289337944'},        
+        { customer: 'Meridian', accountId: '', crmId: 'NL21110007', senderTaxCode: 'GB289337944'},
+        { customer: 'Zitsticka', accountId: '', crmId: 'NL21110007', senderTaxCode: 'GB289337944'},
+        { customer: 'Caterpy', accountId: '', crmId: 'NL21110007', senderTaxCode: 'GB289337944'},
+        { customer: 'Lumin Skin', accountId: '', crmId: 'NL21110007', senderTaxCode: 'GB289337944'},
+        { customer: 'Mfoodproduct', accountId: '', crmId: 'NL21110007', senderTaxCode: 'GB289337944'},
+        { customer: 'Moneclat', accountId: '', crmId: 'NL21110007', senderTaxCode: 'GB289337944'},
+        { customer: 'Youth Earth', accountId: '', crmId: 'Youth Earth', senderTaxCode: 'GB289337944'},
+        { customer: 'Keith Teh', accountId: '', crmId: 'NL21110007', senderTaxCode: 'GB289337944'},
+        { customer: 'Arabeaute', accountId: '', crmId: 'NL21110007', senderTaxCode: 'GB289337944'},
+        { customer: 'Coolado', accountId: '', crmId: 'NL21110007', senderTaxCode: 'GB289337944'},
+        { customer: 'Saga Fitness', accountId: '', crmId: 'NL21110007', senderTaxCode: 'GB289337944'},
+        { customer: 'Glamnetic', accountId: '', crmId: 'NL21110007', senderTaxCode: 'GB289337944'},
+        { customer: 'Arena', accountId: '', crmId: 'NL21110007', senderTaxCode: 'GB289337944'},
+        { customer: 'Crosshkt', accountId: '', crmId: 'NL21110007', senderTaxCode: 'GB289337944'},
+        { customer: 'Sanalyslab', accountId: '', crmId: 'NL21110007', senderTaxCode: 'GB289337944'},
+        { customer: 'I Am Authentic BV', accountId: '', crmId: 'NL21110007', senderTaxCode: 'GB289337944'}
       ];
 
 // Vareya BV - Milan Shah NL21080009
@@ -148,6 +165,8 @@ export function asendiaMapper(body : any ,authTokenInResp : any ){
         shipmentAttributeObject[1]['ns2:Value'][0] = filteredIDs[0].crmId;
         shipmentAttributeObject[6]['ns2:Value'][0] = filteredIDs[0].senderTaxCode;
       }
+
+      shipmentObject['ns2:SenderCode'][0] = filteredIDs[0].crmId; // "NL21010001"
   
       var parcelObject = shipmentObject['ns2:Parcels'][0]['ns2:Parcel'][0];
       if (packages[0].height) {
