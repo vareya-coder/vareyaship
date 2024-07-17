@@ -43,9 +43,16 @@ export async function POST(req: NextRequest) {
         return new NextResponse('Package information is missing or invalid.', { status: 400 });
       }
 
-      if (!to_address.name || !to_address.address_1 || !to_address.city || !to_address.zip || !to_address.country) {
+      if (!to_address.name || !to_address.address_1 || !to_address.city || !to_address.country) {
         return new NextResponse('One or more destination address fields are missing.', { status: 400 });
       }
+
+      if (!(to_address.country == 'SA' || to_address.country == 'IL' || to_address.country == 'QA' || to_address.country == 'AE')) {
+        if (!to_address.zip) {
+          return new NextResponse('One or more destination address fields are missing.', { status: 400 });
+        }
+      }
+      
       let Carrier : string =''
       const postNL: string[] = [
         'postnl:row-intl-boxable-track-trace-contract-6942',
@@ -96,10 +103,10 @@ export async function POST(req: NextRequest) {
     logger.info(trackingUrl);
 
     var currentdate = new Date();
-    var datetime = currentdate.getFullYear() + "-" + currentdate.getMonth() + "-"
-      + currentdate.getDay() + "-"
-      + currentdate.getHours() +
-      + currentdate.getMinutes() + currentdate.getSeconds();
+    var datetime = currentdate.getFullYear() + "-" + padLeftZero(currentdate.getMonth() + 1) + "-"
+      + padLeftZero(currentdate.getDate()) + "-"
+      + padLeftZero(currentdate.getHours()) +
+      + padLeftZero(currentdate.getMinutes()) + padLeftZero(currentdate.getSeconds());
     const filename = `${shipmentData.order_id}-${shipmentData.shipping_method}-${datetime}`
     
     labelUrl = await uploadPdf(labelContent, filename)
@@ -218,4 +225,8 @@ export async function POST(req: NextRequest) {
       },
     });
   }
+}
+
+function padLeftZero(n:number) {
+  ('0'+n).slice(-2)
 }

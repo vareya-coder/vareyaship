@@ -102,6 +102,7 @@ export function asendiaMapper(body : any ,authTokenInResp : any ){
       //<option value="72262">712Brands</option>
       //<option value="70626">Bateel International</option>
   
+      
       const asendiaIDs = [
         { customer: 'Menskin', accountId: '59965', crmId: 'NL21010001', senderTaxCode: 'GB374774750'},
         { customer: 'Vacier', accountId: '73982', crmId: 'NL21080010', senderTaxCode: 'GB289337944'},
@@ -114,6 +115,28 @@ export function asendiaMapper(body : any ,authTokenInResp : any ){
         { customer: 'Bryght Labs', accountId: '68917', crmId: 'NL21110007', senderTaxCode: 'GB289337944'},
         { customer: 'Elevitae', accountId: '', crmId: 'NL21110007', senderTaxCode: 'GB289337944'}
       ];
+
+// Vareya BV - Milan Shah NL21080009
+// Vareya BV - Meridian  NL20070003
+// Vareya BV - Zitsticka  NL21090005
+// Vareya BV - Caterpy  NL20110003 
+// Vareya BV - Lumin Skin  NL21010001
+// Vareya BV - Mfoodproduct  NL20110006
+// Vareya BV - Moneclat  NL21080012
+// Vareya BV - Youth Earth (inactive)  NL21010003
+// Vareya BV - Keith Teh  NL21080011
+// Vareya BV - Arabeaute  NL20110005
+// Vareya BV - Coolado  NL20110007
+// Vareya BV - Saga Fitness  NL21010004
+// Vareya BV - Glamnetic  NL21090006
+// Vareya BV - Arena  NL21030017
+// Vareya BV - Crosshkt  NL20110004
+// Vareya BV - Sanalyslab  NL21110007
+// Vareya BV - Vacier  NL21080010
+// Vareya BV - Youth Earth  NL21080013
+// Vareya BV - I Am Authentic BV  NL20100008
+// Vareya BV  NL19090016
+
   
       let filteredIDs = asendiaIDs.filter((rec) => {
         return rec.accountId == body.account_id.toString()
