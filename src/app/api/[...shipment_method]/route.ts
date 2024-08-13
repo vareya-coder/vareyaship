@@ -93,7 +93,8 @@ export async function POST(req: NextRequest) {
     } else if (Carrier ==="Asendia") {
       const asendiaResponse = await axios.post(asendiaCallingapiProd, shipmentData)
       trackingNumber = asendiaResponse.data.sequenceNumber
-      trackingUrl = `https://tracking.asendia.com/tracking/${trackingNumber}`
+      trackingUrl = `https://a-track.asendia.com/customer-tracking/self?tracking_id=${trackingNumber}`
+      // trackingUrl = `https://tracking.asendia.com/tracking/${trackingNumber}`
       labelContent  = asendiaResponse.data.content
 
     } else {
