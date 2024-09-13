@@ -257,8 +257,8 @@ export function asendiaMapper(body : any ,authTokenInResp : any ){
               priceAsFloat = 1.0;
             }
   
-            // TODO temporary Norway check. Need to fix it properly later.
-            if (body.to_address.country == 'NO' || body.to_address.country == 'CH') {
+            // TODO temporary Norway, Switzerland, Turkey check. Need to fix it properly later.
+            if (body.to_address.country == 'NO' || body.to_address.country == 'CH' || body.to_address.country == 'TR') {
               priceAsFloat = 3.0;
             }
   

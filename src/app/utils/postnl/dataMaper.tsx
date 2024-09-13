@@ -154,7 +154,7 @@ export async function mapShipHeroToPostNL(shipHeroData: ShipHeroWebhook, barCode
                         }
 
                         // TODO temporary Norway check. Need to fix it properly later.
-                        if (shipHeroData.to_address.country == 'NO' || shipHeroData.to_address.country == 'CH') {
+                        if (shipHeroData.to_address.country == 'NO' || shipHeroData.to_address.country == 'CH' || shipHeroData.to_address.country == 'TR') {
                             priceAsFloat = 3.0;
                         }
 
