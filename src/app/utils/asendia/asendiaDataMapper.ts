@@ -103,7 +103,8 @@ export function asendiaMapper(body : any ,authTokenInResp : any ){
   
       
       const asendiaIDs = [
-        { customer: 'Menskin', accountId: '59965', crmId: 'NL21010001', senderTaxCode: 'GB374774750'},
+        // { customer: 'Menskin', accountId: '59965', crmId: 'NL21010001', senderTaxCode: 'GB374774750'},
+        { customer: 'Menskin', accountId: '59965', crmId: 'NL21010001', senderTaxCode: 'GB339713089000'},
         { customer: 'Vacier', accountId: '73982', crmId: 'NL21080010', senderTaxCode: 'GB289337944'},
         { customer: 'VUE', accountId: '74928', crmId: 'NL24010007', senderTaxCode: 'GB289337944'},
         { customer: 'SanaDIGEST', accountId: '63819', crmId: 'NL21110007', senderTaxCode: 'FR48884514688'},
@@ -115,10 +116,12 @@ export function asendiaMapper(body : any ,authTokenInResp : any ){
         { customer: 'Elevitae', accountId: '', crmId: 'NL21110007', senderTaxCode: 'GB289337944'},
         
         { customer: 'Milan Shah', accountId: '', crmId: 'NL21080009', senderTaxCode: 'GB289337944'},        
-        { customer: 'Meridian', accountId: '', crmId: 'NL21110007', senderTaxCode: 'GB289337944'},
+        // { customer: 'Meridian', accountId: '', crmId: 'NL21110007', senderTaxCode: 'GB289337944'},      
+        { customer: 'Meridian', accountId: '', crmId: 'NL21110007', senderTaxCode: 'GB339713089000'},
         { customer: 'Zitsticka', accountId: '', crmId: 'NL21110007', senderTaxCode: 'GB289337944'},
         { customer: 'Caterpy', accountId: '', crmId: 'NL21110007', senderTaxCode: 'GB289337944'},
-        { customer: 'Lumin Skin', accountId: '', crmId: 'NL21110007', senderTaxCode: 'GB289337944'},
+        // { customer: 'Lumin Skin', accountId: '', crmId: 'NL21110007', senderTaxCode: 'GB289337944'},
+        { customer: 'Lumin Skin', accountId: '', crmId: 'NL21110007', senderTaxCode: 'GB339713089000'},
         { customer: 'Mfoodproduct', accountId: '', crmId: 'NL21110007', senderTaxCode: 'GB289337944'},
         { customer: 'Moneclat', accountId: '', crmId: 'NL21110007', senderTaxCode: 'GB289337944'},
         { customer: 'Youth Earth', accountId: '', crmId: 'Youth Earth', senderTaxCode: 'GB289337944'},
