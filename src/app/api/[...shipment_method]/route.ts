@@ -18,6 +18,8 @@ export async function POST(req: NextRequest) {
   const asendiaCallingapilocal = "http://localhost:3000/api/asendia"
   const asendiaCallingapiProd = "https://vareyaship.vercel.app/api/asendia"
 
+  const EU: any = ['AT', 'BE', 'BG', 'CY', 'CZ', 'DE', 'DK', 'EE', 'ES', 'FI', 'FR', 'GR', 'HR', 'HU', 'IE', 'IT', 'LT', 'LU', 'LV', 'MT', 'NL', 'PL', 'PT', 'RO', 'SE', 'SI', 'SK'];
+
   try {
     const shipmentData: ShipHeroWebhook = await req.json();
 
@@ -86,16 +88,30 @@ export async function POST(req: NextRequest) {
   
       if (postNLApiResponse.data.ResponseShipments.length > 0 && postNLApiResponse.data.ResponseShipments[0].Labels.length > 0) {
         trackingNumber = postNLApiResponse.data.ResponseShipments[0].Barcode
-        trackingUrl = `https://jouw.postnl.nl/track-and-trace/${trackingNumber}-${shipmentData.to_address.country}-${shipmentData.to_address.zip.replace(/\s/g,'')}${shipmentData.to_address.country == 'NL' ? '?language=nl': ''}`
+        // trackingUrl = `https://jouw.postnl.nl/track-and-trace/${trackingNumber}-${shipmentData.to_address.country}-${shipmentData.to_address.zip.replace(/\s/g,'')}${shipmentData.to_address.country == 'NL' ? '?language=nl': ''}`
+          
+        //Check if the destination country is not in the EU
+        if (shipmentData.shop_name === 'vacierjewelry.myshopify.com' && !EU.includes(shipmentData.to_address.country)) {
+          trackingUrl = `https://parcelsapp.com/en/tracking/${trackingNumber}`;
+        } else {
+          trackingUrl = `https://jouw.postnl.nl/track-and-trace/${trackingNumber}-${shipmentData.to_address.country}-${shipmentData.to_address.zip.replace(/\s/g,'')}${shipmentData.to_address.country == 'NL' ? '?language=nl': ''}`;
+        }
         labelContent = postNLApiResponse.data.ResponseShipments[0].Labels[0].Content;
       }
 
     } else if (Carrier ==="Asendia") {
       const asendiaResponse = await axios.post(asendiaCallingapiProd, shipmentData)
       trackingNumber = asendiaResponse.data.sequenceNumber
-      trackingUrl = `https://track.asendia.com/track/${trackingNumber}`;
       // trackingUrl = `https://a-track.asendia.com/customer-tracking/self?tracking_id=${trackingNumber}`
       // trackingUrl = `https://tracking.asendia.com/tracking/${trackingNumber}`
+      // trackingUrl = `https://track.asendia.com/track/${trackingNumber}`;
+      
+      //Check if the destination country is not in the EU
+      if (shipmentData.shop_name === 'vacierjewelry.myshopify.com' && !EU.includes(shipmentData.to_address.country)) {
+        trackingUrl = `https://parcelsapp.com/en/tracking/${trackingNumber}`;
+      } else {
+        trackingUrl = `https://track.asendia.com/track/${trackingNumber}`;
+      }
       labelContent  = asendiaResponse.data.content
 
     } else {
