@@ -84,7 +84,7 @@ export async function POST(req: NextRequest) {
 
 
   const  labelResponse = await extractSequenceNumberAndContent(textResponse2)
-  logger.info(labelResponse)
+  logger.info('Sequence number and content extracted.')
 
   return new Response(JSON.stringify(labelResponse) , { status: 200, headers: { 'Content-Type': 'text/plain' } });
 

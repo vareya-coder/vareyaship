@@ -158,14 +158,10 @@ export function asendiaMapper(body : any ,authTokenInResp : any ){
 // Vareya BV - I Am Authentic BV  NL20100008
 // Vareya BV  NL19090016
 
-      logger.info(body.account_id.toString());//
-      
       let filteredIDs = asendiaIDs.filter((rec) => {
         return rec.accountId == body.account_id.toString()
       });
   
-      logger.info(body.account_id.toString());//
-      logger.info(filteredIDs);//
       logger.info(JSON.stringify(filteredIDs));
   
       if (filteredIDs && Array.isArray(filteredIDs) && filteredIDs.length > 0) {
