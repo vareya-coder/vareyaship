@@ -113,8 +113,9 @@ export function asendiaMapper(body : any ,authTokenInResp : any ){
         { customer: 'PSBC Limited', accountId: '69949', crmId: 'NL21110007', senderTaxCode: 'GB289337944'},
         { customer: 'Dino Lifestyle', accountId: '73490', crmId: 'NL21110007', senderTaxCode: 'GB289337944'},
         { customer: 'Bryght Labs', accountId: '68917', crmId: 'NL21110007', senderTaxCode: 'GB289337944'},
-        { customer: 'Elevitae', accountId: '', crmId: 'NL21110007', senderTaxCode: 'GB289337944'},
-        
+        { customer: 'Tipaw', accountId: '81021', crmId: 'NL24120003', senderTaxCode: ''},
+
+        { customer: 'Elevitae', accountId: '', crmId: 'NL21110007', senderTaxCode: 'GB289337944'},        
         { customer: 'Milan Shah', accountId: '', crmId: 'NL21080009', senderTaxCode: 'GB289337944'},        
         // { customer: 'Meridian', accountId: '', crmId: 'NL21110007', senderTaxCode: 'GB289337944'},      
         { customer: 'Meridian', accountId: '', crmId: 'NL21110007', senderTaxCode: 'GB339713089000'},
@@ -157,16 +158,24 @@ export function asendiaMapper(body : any ,authTokenInResp : any ){
 // Vareya BV - I Am Authentic BV  NL20100008
 // Vareya BV  NL19090016
 
-  
+      logger.info(body.account_id.toString());//
+      
       let filteredIDs = asendiaIDs.filter((rec) => {
         return rec.accountId == body.account_id.toString()
       });
   
-      logger.info(JSON.stringify(filteredIDs))
+      logger.info(body.account_id.toString());//
+      logger.info(filteredIDs);//
+      logger.info(JSON.stringify(filteredIDs));
   
       if (filteredIDs && Array.isArray(filteredIDs) && filteredIDs.length > 0) {
         shipmentAttributeObject[1]['ns2:Value'][0] = filteredIDs[0].crmId;
-        shipmentAttributeObject[6]['ns2:Value'][0] = filteredIDs[0].senderTaxCode;
+        logger.info('-' + filteredIDs[0].senderTaxCode + '-');
+        if (filteredIDs[0].senderTaxCode) {
+          logger.info(filteredIDs[0].senderTaxCode + ' added');
+          shipmentAttributeObject[6]['ns2:Value'][0] = filteredIDs[0].senderTaxCode;
+        }
+        
       }
 
       shipmentObject['ns2:SenderCode'][0] = filteredIDs[0].crmId; // "NL21010001"
