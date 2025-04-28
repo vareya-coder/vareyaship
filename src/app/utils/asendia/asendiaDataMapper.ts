@@ -114,6 +114,10 @@ export function asendiaMapper(body : any ,authTokenInResp : any ){
         { customer: 'Dino Lifestyle', accountId: '73490', crmId: 'NL21110007', senderTaxCode: 'GB289337944'},
         { customer: 'Bryght Labs', accountId: '68917', crmId: 'NL21110007', senderTaxCode: 'GB289337944'},
         { customer: 'Tipaw', accountId: '81021', crmId: 'NL24120003', senderTaxCode: ''},
+        // Vareya BV - OTC Group
+        { customer: 'Ship2me', accountId: '85552', crmId: 'NL25040001', senderTaxCode: 'GB289337944'},
+        // Vareya BV - Norwegian Lab
+        { customer: 'NorwegianLab', accountId: '85165', crmId: 'NL25040002', senderTaxCode: 'GB289337944'},
 
         { customer: 'Elevitae', accountId: '', crmId: 'NL21110007', senderTaxCode: 'GB289337944'},        
         { customer: 'Milan Shah', accountId: '', crmId: 'NL21080009', senderTaxCode: 'GB289337944'},        
