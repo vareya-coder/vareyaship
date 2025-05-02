@@ -269,11 +269,16 @@ export function asendiaMapper(body : any ,authTokenInResp : any ){
               priceAsFloat = 1.0;
             }
   
-            // TODO temporary Norway, Switzerland, Turkey check. Need to fix it properly later.
-            if (body.to_address.country == 'NO' || body.to_address.country == 'CH' || body.to_address.country == 'TR') {
+            // TODO temporary Norway, Switzerland. Need to fix it properly later.
+            if (body.to_address.country == 'NO' || body.to_address.country == 'CH') {
               priceAsFloat = 3.0;
             }
   
+            // TODO temporary Turkey check. Need to fix it properly later.
+            if (body.to_address.country == 'TR') {
+              priceAsFloat = [0.75, 0.8, 0.85, 0.9].at(Math.floor(Math.random() * 4)) as number;
+            }
+
             if (body.to_address.country == 'IL'
               && (('' + body.account_id) == '59965') || (('' + body.account_id) == '63984') || (('' + body.account_id) == '63932')) {
               priceAsFloat = 5.0;
