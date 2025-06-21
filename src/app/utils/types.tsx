@@ -59,3 +59,93 @@ type ShipHeroLineItem = {
   ignore_on_customs: boolean;
 };
 
+// Based on the Asendia Sync REST API OpenAPI spec
+
+// ---- Asendia Authentication ----
+
+export type AsendiaAuthRequest = {
+    username: string;
+    password: string;
+}
+
+export type AsendiaAuthResponse = {
+    id_token: string;
+}
+
+// ---- Parcel Creation ----
+
+export type AsendiaAddress = {
+    name: string;
+    company?: string;
+    address1: string;
+    address2?: string;
+    address3?: string;
+    postalCode: string;
+    city: string;
+    province?: string;
+    country: string; // ISO 2-letter code
+    email?: string;
+    mobile?: string;
+    phone?: string;
+}
+
+export type AsendiaCustomsItem = {
+    articleDescription: string;
+    articleUrl?: string;
+    articleNumber?: string;
+    articleComposition?: string;
+    unitValue: number;
+    currency: string;
+    harmonizationCode?: string;
+    originCountry: string; // ISO 2-letter code
+    unitWeight: number; // Weight in KG
+    quantity: number;
+}
+
+export type AsendiaParcelRequest = {
+    customerId: string;
+    labelType: "PDF" | "ZPL" | "EPL";
+    referencenumber: string;
+    sequencenumber?: string;
+    senderEORI?: string;
+    sellerEORI?: string;
+    senderTaxId?: string;
+    receiverTaxId?: string;
+    weight: number; // Total weight in KG
+    asendiaService: {
+        format: "N" | "B"; // P=Packet, B=Box
+        product: "EPAQSTD" | "EPAQPLUS" | "EPAQTRK" | "EPAQSEL" | string;
+        service: "CUP" | string;
+        options?: string[];
+        insurance?: string;
+        returnLabelOption?: {
+            enabled: boolean;
+            type: string;
+            payment: string;
+        };
+    };
+    addresses: {
+        sender: AsendiaAddress;
+        receiver: AsendiaAddress;
+        importer?: AsendiaAddress;
+    };
+    customsInfo?: {
+        currency: string;
+        items: AsendiaCustomsItem[];
+    };
+}
+
+export type AsendiaParcelResponse = {
+    id: string;
+    trackingNumber?: string;
+    returnTrackingNumber?: string;
+    errorMessages?: {
+        field: string;
+        message: string;
+    }[];
+    labelLocation?: string;
+    returnLabelLocation?: string;
+    customsDocumentLocation?: string;
+    manifestLocation?: string;
+    commercialInvoiceLocation?: string;
+}

@@ -4,6 +4,7 @@ import { ShipHeroWebhook } from '@/app/utils/types';
 import { CustomerDetailsType, ShipmentDetailsType, ShipmentItemsType, ShipmentStatusType } from '@/lib/db/schema';
 import { insertCustomerDetails, insertShipmentDetails, insertShipmentItems, insertShipmentStatus, } from '@/lib/db/dboperations';
 import { uploadPdf } from '@/app/utils/labelPdfUrlGenerator';
+import { uploadPdfBuffer } from '@/app/utils/labelPdfUploader';
 // import { withAxiom, AxiomRequest } from 'next-axiom';
 import { logger } from '@/utils/logger';
 
@@ -11,12 +12,15 @@ export async function POST(req: NextRequest) {
 
   let trackingNumber = '';
   let trackingUrl = ''
-  let labelUrl = undefined;
+  let labelUrl = '';
   const postnlCallingapilocal = "http://localhost:3000/api/postnl/label"
   const postnlCallingapiProd = "https://vareyaship.vercel.app/api/postnl/label"
   
   const asendiaCallingapilocal = "http://localhost:3000/api/asendia"
   const asendiaCallingapiProd = "https://vareyaship.vercel.app/api/asendia"
+  
+  const asendiaSyncCallingapilocal = "http://localhost:3000/api/asendiasync"
+  const asendiaSyncCallingapiProd = "https://vareyaship.vercel.app/api/asendiasync"
 
   const EU: any = ['AT', 'BE', 'BG', 'CY', 'CZ', 'DE', 'DK', 'EE', 'ES', 'FI', 'FR', 'GR', 'HR', 'HU', 'IE', 'IT', 'LT', 'LU', 'LV', 'MT', 'NL', 'PL', 'PT', 'RO', 'SE', 'SI', 'SK'];
 
@@ -83,6 +87,14 @@ export async function POST(req: NextRequest) {
 
     logger.info(Carrier);
     let labelContent = undefined;
+    var currentdate = new Date();
+
+    var datetime = currentdate.getFullYear() + "-" + padLeftZero(currentdate.getMonth() + 1) + "-"
+      + padLeftZero(currentdate.getDate()) + "-"
+      + padLeftZero(currentdate.getHours()) +
+      + padLeftZero(currentdate.getMinutes()) + padLeftZero(currentdate.getSeconds());
+    const filename = `${shipmentData.order_id}-${shipmentData.shipping_method}-${datetime}`
+
     if (Carrier ==="PostNL") {
       const postNLApiResponse = await axios.post(postnlCallingapiProd, shipmentData);
   
@@ -97,11 +109,61 @@ export async function POST(req: NextRequest) {
           trackingUrl = `https://jouw.postnl.nl/track-and-trace/${trackingNumber}-${shipmentData.to_address.country}-${shipmentData.to_address.zip.replace(/\s/g,'')}${shipmentData.to_address.country == 'NL' ? '?language=nl': ''}`;
         }
         labelContent = postNLApiResponse.data.ResponseShipments[0].Labels[0].Content;
+
+        labelUrl = await uploadPdf(labelContent, filename)
       }
 
     } else if (Carrier ==="Asendia") {
-      const asendiaResponse = await axios.post(asendiaCallingapiProd, shipmentData)
-      trackingNumber = asendiaResponse.data.sequenceNumber
+      let asendiaSyncEnabled = process.env.ASENDIA_SYNC_ENABLED 
+                                && (process.env.ASENDIA_SYNC_ENABLED as string) === 'y' ? true : false;
+      
+      let asendiaResponse = undefined;
+      if (asendiaSyncEnabled) {
+        // If Asendia sync is enabled, we will call the Asendia Sync API to get the label and tracking number
+        asendiaResponse = await axios.post(asendiaSyncCallingapiProd, shipmentData);
+        
+        console.log("Successfully received response from Local Asendia API Handler in main:", asendiaResponse.data);
+        
+        if (asendiaResponse && asendiaResponse.data) {
+          trackingNumber = asendiaResponse.data.trackingNumber
+        }
+        
+        // --- Step 3: Fetch the PDF label ---
+        if (asendiaResponse.data.labelLocation) {
+          logger.info(`Fetching label from: ${asendiaResponse.data.labelLocation}`);
+          console.log(`Fetching label from: ${asendiaResponse.data.labelLocation}`);
+          try {
+            // NOTE: We do not need the full baseURL for this call, as labelLocation is a full URL.
+            // We can call axios.get directly on the full URL.
+            const labelApiResponse = await axios.get(asendiaResponse.data.labelLocation, {
+                headers: { 'Authorization': `Bearer ${asendiaResponse.data.id_token}` },
+                responseType: 'arraybuffer' // This is crucial to get binary data
+            });
+
+            const pdfBuffer = Buffer.from(labelApiResponse.data);
+            logger.info(`Successfully fetched label PDF (${pdfBuffer.length} bytes).`);
+            console.log(`Successfully fetched label PDF (${pdfBuffer.length} bytes).`);
+
+            labelUrl = (await uploadPdfBuffer(pdfBuffer, filename)) as string;
+            console.log(`Label uploaded successfully. URL: ${labelUrl}`);
+
+          } catch (uploadError: any) {
+              logger.error("Failed to fetch or upload the Asendia label.", uploadError.message);
+              // We don't re-throw here, so the process can continue even if the label fails.
+              // The return object will simply be missing the `labelUrl`.
+          }
+        } else {
+            logger.warn('No labelLocation provided in Asendia response. Skipping label fetch.');
+            console.warn('No labelLocation provided in Asendia response. Skipping label fetch.');
+        }
+      } else {
+        asendiaResponse = await axios.post(asendiaCallingapiProd, shipmentData)
+        if (asendiaResponse && asendiaResponse.data) {
+          trackingNumber = asendiaResponse.data.sequenceNumber
+        }
+        labelContent  = asendiaResponse.data.content;
+        labelUrl = await uploadPdf(labelContent, filename);
+      }
       // trackingUrl = `https://a-track.asendia.com/customer-tracking/self?tracking_id=${trackingNumber}`
       // trackingUrl = `https://tracking.asendia.com/tracking/${trackingNumber}`
       // trackingUrl = `https://track.asendia.com/track/${trackingNumber}`;
@@ -112,26 +174,17 @@ export async function POST(req: NextRequest) {
       } else {
         trackingUrl = `https://track.asendia.com/track/${trackingNumber}`;
       }
-      labelContent  = asendiaResponse.data.content
-
     } else {
       return new NextResponse('carrier not supported.', { status: 404 });
     }
+
     logger.info(trackingNumber);
     logger.info(trackingUrl);
+    logger.info(`Final uploaded label URL: ${labelUrl}`);
 
-    var currentdate = new Date();
-    var datetime = currentdate.getFullYear() + "-" + padLeftZero(currentdate.getMonth() + 1) + "-"
-      + padLeftZero(currentdate.getDate()) + "-"
-      + padLeftZero(currentdate.getHours()) +
-      + padLeftZero(currentdate.getMinutes()) + padLeftZero(currentdate.getSeconds());
-    const filename = `${shipmentData.order_id}-${shipmentData.shipping_method}-${datetime}`
-    
-    labelUrl = await uploadPdf(labelContent, filename)
-    logger.info('label url:',labelUrl);
-
-
-
+    console.log(trackingNumber);
+    console.log(trackingUrl);
+    console.log(`Final uploaded label URL: ${labelUrl}`);
 
     const shipmentDetailsData: ShipmentDetailsType = {
       order_id: shipmentData.order_id,
@@ -178,17 +231,12 @@ export async function POST(req: NextRequest) {
       };
     }) || [];
     
-
-
-
     try {
       // Insert into addresses table
-
-      
-      
-      await insertShipmentItems(shipmentItemsData)
-      await insertCustomerDetails(customerDetailsData)
-      await insertShipmentStatus(shipmentStatusData)
+      // await insertShipmentItems(shipmentItemsData)
+      // await insertCustomerDetails(customerDetailsData)
+      // await insertShipmentStatus(shipmentStatusData)
+      console.log('No longer inserting data into database');
 
     } catch (error) {
       logger.error('Error occured while inserting data to database', { error: error });
@@ -207,6 +255,7 @@ export async function POST(req: NextRequest) {
     
     const responseBody = JSON.stringify(responseBodyJson);
     logger.info(responseBody);
+    console.log(responseBody);
 
     logger.end();
 
