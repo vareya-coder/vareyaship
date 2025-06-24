@@ -10,6 +10,8 @@ import { logger } from '@/utils/logger';
 
 export async function POST(req: NextRequest) {
 
+  console.log('Received a POST request to /api/[...shipment_method]');
+
   let trackingNumber = '';
   let trackingUrl = ''
   let labelUrl = '';
@@ -25,7 +27,10 @@ export async function POST(req: NextRequest) {
   const EU: any = ['AT', 'BE', 'BG', 'CY', 'CZ', 'DE', 'DK', 'EE', 'ES', 'FI', 'FR', 'GR', 'HR', 'HU', 'IE', 'IT', 'LT', 'LU', 'LV', 'MT', 'NL', 'PL', 'PT', 'RO', 'SE', 'SI', 'SK'];
 
   try {
+    console.log('Processing shipment update...');
     const shipmentData: ShipHeroWebhook = await req.json();
+
+    console.log('Received shipment data:', JSON.stringify(shipmentData, null, 2));
 
     const firstPackage = shipmentData.packages[0];
 
@@ -86,6 +91,7 @@ export async function POST(req: NextRequest) {
     }
 
     logger.info(Carrier);
+    console.log( `Carrier: ${Carrier}`);
     let labelContent = undefined;
     var currentdate = new Date();
 
@@ -142,10 +148,9 @@ export async function POST(req: NextRequest) {
 
             const pdfBuffer = Buffer.from(labelApiResponse.data);
             logger.info(`Successfully fetched label PDF (${pdfBuffer.length} bytes).`);
-            console.log(`Successfully fetched label PDF (${pdfBuffer.length} bytes).`);
-
+            
             labelUrl = (await uploadPdfBuffer(pdfBuffer, filename)) as string;
-            console.log(`Label uploaded successfully. URL: ${labelUrl}`);
+            logger.info(`Label uploaded successfully. URL: ${labelUrl}`);
 
           } catch (uploadError: any) {
               logger.error("Failed to fetch or upload the Asendia label.", uploadError.message);
@@ -182,9 +187,9 @@ export async function POST(req: NextRequest) {
     logger.info(trackingUrl);
     logger.info(`Final uploaded label URL: ${labelUrl}`);
 
-    console.log(trackingNumber);
-    console.log(trackingUrl);
-    console.log(`Final uploaded label URL: ${labelUrl}`);
+    // console.log(trackingNumber);
+    // console.log(trackingUrl);
+    // console.log(`Final uploaded label URL: ${labelUrl}`);
 
     const shipmentDetailsData: ShipmentDetailsType = {
       order_id: shipmentData.order_id,
@@ -267,6 +272,7 @@ export async function POST(req: NextRequest) {
     });
   } catch (error) {
     logger.error('Error processing the shipment update:', error);
+    console.log('Error processing the shipment update:', error);
 
     let errorMessage: any = 'Internal Server Error';
     let status = 500;

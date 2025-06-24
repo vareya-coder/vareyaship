@@ -36,7 +36,7 @@ export async function POST(req: NextRequest) {
       try {
         const postNLApiResponse = await callPostNLApi(postNLApiKey, JSON.stringify(postNLBody));
         
-        logger.info(JSON.stringify(postNLApiResponse))
+        logger.info(JSON.stringify("postNLApiResponse received: "));
         return new NextResponse(JSON.stringify(postNLApiResponse), {
           status: 200,
           headers: {

@@ -73,7 +73,7 @@ export async function POST(req: NextRequest) {
           },
         });
       } catch (error: any) {
-          console.error("Error creating Asendia parcel:", error.response?.data || error.message);
+          console.error("Error creating Asendia parcel:", JSON.stringify(error.response?.data || error.message));
           // Re-throw a more informative error
           const errorData = error.response?.data;
           if (errorData && errorData.errorMessages) {
