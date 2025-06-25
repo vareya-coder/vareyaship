@@ -126,7 +126,7 @@ export async function POST(req: NextRequest) {
       let asendiaResponse = undefined;
       if (asendiaSyncEnabled) {
         // If Asendia sync is enabled, we will call the Asendia Sync API to get the label and tracking number
-        asendiaResponse = await axios.post(asendiaSyncCallingapilocal, shipmentData);
+        asendiaResponse = await axios.post(asendiaSyncCallingapiProd, shipmentData);
         
         console.log("Successfully received response from Local Asendia API Handler in main:", asendiaResponse.data);
         
