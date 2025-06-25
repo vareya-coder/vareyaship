@@ -206,6 +206,7 @@ export function mapShipHeroToAsendia(shipHeroData: ShipHeroWebhook): AsendiaParc
         labelType: "PDF",
         referencenumber: referenceNumber,
         sequencenumber: sequenceNumber,
+        senderTaxId: shipmentCustomerSenderTaxCode,
         weight: getTotalWeightKg(),
         
         // This is a default service configuration. This might need to be dynamic
@@ -267,7 +268,7 @@ export function mapShipHeroToAsendia(shipHeroData: ShipHeroWebhook): AsendiaParc
     // Add customs information for international shipments.
     // NOTE: This logic assumes all non-NL shipments are international and require customs.
     // Adjust the condition if your sender is not in the EU or if you ship within the EU.
-    if (shipHeroData.from_address.country !== shipHeroData.to_address.country) {
+    // if (shipHeroData.from_address.country !== shipHeroData.to_address.country) {
 
       let orderCurrency = "EUR";
       
@@ -337,7 +338,7 @@ export function mapShipHeroToAsendia(shipHeroData: ShipHeroWebhook): AsendiaParc
             }
           });
         });
-    }
+    // }
 
     return asendiaRequestData;
 }
