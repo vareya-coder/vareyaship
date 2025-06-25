@@ -189,9 +189,11 @@ export function mapShipHeroToAsendia(shipHeroData: ShipHeroWebhook): AsendiaParc
   
     logger.info(JSON.stringify(filteredIDs));
   
+    let shipmentCustomer = '';
     let shipmentCustomerCrmId = '';
     let shipmentCustomerSenderTaxCode = ''
     if (filteredIDs && Array.isArray(filteredIDs) && filteredIDs.length > 0) {
+      shipmentCustomer = filteredIDs[0].customer;
       shipmentCustomerCrmId = filteredIDs[0].crmId;
       logger.info('-' + filteredIDs[0].senderTaxCode + '-');
       if (filteredIDs[0].senderTaxCode) {
@@ -226,8 +228,8 @@ export function mapShipHeroToAsendia(shipHeroData: ShipHeroWebhook): AsendiaParc
 
         addresses: {
             sender: {
-                name: "Menskin",
-                company: "Menskin",
+                name: shipmentCustomer,
+                company: shipmentCustomer,
                 address1: "Bagven Park 6",
                 address2: "",
                 address3: "",
