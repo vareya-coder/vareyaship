@@ -78,12 +78,14 @@ export async function POST(req: NextRequest) {
           // status: ${JSON.stringify(error.response?.data.status)}
           // errors: ${JSON.stringify(error.response?.data.errors)}
           // errorMessages: ${JSON.stringify(error.response?.data.errorMessages)}`);
+          console.error("Error creating Asendia parcel:", error.response?.data || error.message);
 
-          logger.error(`Error creating Asendia parcel:
-          id: ${JSON.stringify(error.response?.data.id)}
-          status: ${JSON.stringify(error.response?.data.status)}
-          errors: ${JSON.stringify(error.response?.data.errors)}
-          errorMessages: ${JSON.stringify(error.response?.data.errorMessages)}`);
+          logger.error(`Error creating Asendia parcel: ${error.response?.data || error.message}`);
+          // logger.error(`Error creating Asendia parcel:
+          // id: ${JSON.stringify(error.response?.data.id)}
+          // status: ${JSON.stringify(error.response?.data.status)}
+          // errors: ${JSON.stringify(error.response?.data.errors)}
+          // errorMessages: ${JSON.stringify(error.response?.data.errorMessages)}`);
           
           // Re-throw a more informative error
           const errorData = error.response?.data;

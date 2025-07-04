@@ -235,7 +235,8 @@ export function mapShipHeroToAsendia(shipHeroData: ShipHeroWebhook): AsendiaParc
                 address3: "",
                 postalCode: "4838EH",
                 city: "Breda",
-                province: "Noord-Brabant",
+                // province: "Noord-Brabant", // Full province name with longer name length restricted by Asendia API
+                province: "Brabant",
                 country: "NL",
                 email: "info@vareya.nl",
                 phone: "0763030540"
