@@ -68,7 +68,7 @@ export function mapShipHeroToAsendia(shipHeroData: ShipHeroWebhook): AsendiaParc
     let shipmentToAddress2 = '';
     if (shipHeroData.to_address.address_2) {
       let found = shipHeroData.to_address.address_2.match(/^[0-9]+/g);
-      if (found) {
+      if (found && !shipHeroData.to_address.address_1.match(/^[0-9]+/g)) {
         shipmentToAddress1 = shipHeroData.to_address.address_1 + ' ' + shipHeroData.to_address.address_2
       } else {
         shipmentToAddress2 = shipHeroData.to_address.address_2;
@@ -96,7 +96,7 @@ export function mapShipHeroToAsendia(shipHeroData: ShipHeroWebhook): AsendiaParc
     // get attribute codes and populate
     let shipmentAsendiaProduct = '';
     let shipmentAsendiaService = '';
-    let shipmentAsendiaAddlService = '';
+    let shipmentAsendiaAddlService: string[] = [];
     if (shipHeroData.shipping_method.includes('epaqpls')) {
       shipmentAsendiaProduct = ASENDIA_PRODUCT_EPAQPLS;
     } else if (shipHeroData.shipping_method.includes('epaqsct')) {
@@ -105,16 +105,17 @@ export function mapShipHeroToAsendia(shipHeroData: ShipHeroWebhook): AsendiaParc
 
     shipmentAsendiaService = ASENDIA_SERVICE;
 
+    // Determine additional services based on shipping method
+    // This logic assumes that the shipping_method string contains specific keywords.
+    // Adjust the conditions based on your actual shipping method naming conventions.
+
     if (shipHeroData.shipping_method.includes('personal-delivery')) {
-      shipmentAsendiaAddlService = ASENDIA_ADDL_SERVICE_PERSONAL_DELIVERY;
+      shipmentAsendiaAddlService = [ASENDIA_ADDL_SERVICE_PERSONAL_DELIVERY];
     } else if (shipHeroData.shipping_method.includes('mailbox-delivery')) {
-      shipmentAsendiaAddlService = ASENDIA_ADDL_SERVICE_MAIL_DELIVERY;
+      shipmentAsendiaAddlService = [ASENDIA_ADDL_SERVICE_MAIL_DELIVERY];
     } else if (shipHeroData.shipping_method.includes('signature')) {
-      shipmentAsendiaAddlService = ASENDIA_ADDL_SERVICE_SIG;
+      shipmentAsendiaAddlService = [ASENDIA_ADDL_SERVICE_SIG];
     }
-    //  else {
-    //   delete shipmentAttributeObject[4];
-    // }
     
     let shipmentAsendiaFormat:"N" | "B" = ASENDIA_FORMAT_NON_BOXABLE;
     if (shipHeroData.shipping_method.includes('boxable')) {
@@ -217,7 +218,7 @@ export function mapShipHeroToAsendia(shipHeroData: ShipHeroWebhook): AsendiaParc
             format: shipmentAsendiaFormat, // B=Box, P=Packet
             product: shipmentAsendiaProduct,
             service: shipmentAsendiaService,
-            options: [],
+            options: shipmentAsendiaAddlService,
             insurance: "",
             returnLabelOption: {
               enabled: false,

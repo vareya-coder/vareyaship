@@ -4,7 +4,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { utapi } from '@/utils/uploadthingClient';
 
 export async function GET(request: NextRequest) {
-  let files = await utapi.listFiles({limit: 500, offset:1450}); // Last deleted on June 25, 2025
+  let files = await utapi.listFiles({limit: 500, offset:1232}); // Last deleted on July 4, 2025
   // Find new zero and max offsets - listFiles() return files from new to old
   // Then delete from end offset (oldest first) in chunks of 500 until only 7 days files remain
   // To check date of last file, need to get file name, extract order and check in shiphero
