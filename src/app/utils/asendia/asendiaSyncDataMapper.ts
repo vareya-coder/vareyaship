@@ -1,6 +1,7 @@
 import { ShipHeroWebhook, AsendiaParcelRequest,  } from "../types"; // Assuming this path is correct
 import { config } from 'dotenv';
 import { logger } from '@/utils/logger'
+import { Decimal } from 'decimal.js'; 
 
 // Constants
 const ASENDIA_PRODUCT_EPAQPLS = 'EPAQPLS';
@@ -39,24 +40,28 @@ config(); // Load environment variables from .env file
 export function mapShipHeroToAsendia(shipHeroData: ShipHeroWebhook): AsendiaParcelRequest {
     
     // Helper to convert weight from Ounces (oz) to Kilograms (kg)
-    function convertOzToKg(weightInOz: number | string): number {
-        const weight = typeof weightInOz === 'string' ? parseFloat(weightInOz) : weightInOz;
-        if (isNaN(weight)) return 0;
-        const grams = weight * 28.3495;
-        return grams / 1000; // Asendia API requires weight in KG
+    function convertOzToKg(weightInOz: number): number {
+        const grams = new Decimal(weightInOz).times(new Decimal(28.3495)).dividedBy(1000).toDecimalPlaces(3).toNumber();
+        return grams; // Asendia API requires weight in KG
     }
 
     // Helper to calculate the total weight of all items in the shipment
     function getTotalWeightKg(): number {
-        let totalWeightOz = 0;
+        let totalWeightKg = new Decimal(0);
+        // let totalWeightO = 0;
         shipHeroData.packages.forEach(packageItem => {
             if (packageItem.line_items && Array.isArray(packageItem.line_items)) {
                 packageItem.line_items.forEach(lineItem => {
-                    totalWeightOz += lineItem.weight || 0;
+                  let itemWeightInTotalCalc = new Decimal(lineItem.weight || 0).toDecimalPlaces(3);
+                  // console.log(`Item weight in Total Calc oz: ${itemWeightInTotalCalc}`);
+                  let itemWeightInTotalCalcInKg = convertOzToKg(itemWeightInTotalCalc.toDecimalPlaces(3).toNumber());
+                  // console.log(`Item weight in Total Calc kg: ${itemWeightInTotalCalcInKg}`);
+                  totalWeightKg = totalWeightKg.plus(itemWeightInTotalCalcInKg);
                 });
             }
         });
-        return convertOzToKg(totalWeightOz);
+        // console.log(`Total weight in kg: ${totalWeightKg.toDecimalPlaces(3).toNumber()}`);
+        return totalWeightKg.toDecimalPlaces(4).toNumber();
     }
     
     // Normalize country code for Great Britain
@@ -330,13 +335,28 @@ export function mapShipHeroToAsendia(shipHeroData: ShipHeroWebhook): AsendiaParc
                 }
               }
 
+              let unitWeightKg = convertOzToKg(lineItem.weight);
+
+              // console.log('Adding item to customs:', {
+              //   articleDescription: lineItem.customs_description || lineItem.name});
+              // console.log('Adding item to customs:', {
+              //   harmonizationCode: lineItem.tariff_code.replace(/\./g, '')});
+              // console.log('Adding item to customs:', {
+              //   originCountry: lineItem.country_of_manufacture || "NL"}); // Default origin country
+              // console.log('Adding item to customs:', {
+              //   unitValue: priceAsFloat,
+              //   currency: orderCurrency,
+              //   unitWeight: unitWeightKg,
+              //   quantity: lineItem.quantity
+              // });
+
               asendiaRequestData.customsInfo!.items.push({
                 articleDescription: lineItem.customs_description || lineItem.name,
                 unitValue: priceAsFloat,
                 currency: orderCurrency,
                 harmonizationCode: lineItem.tariff_code.replace(/\./g, ''),
                 originCountry: lineItem.country_of_manufacture || "NL", // Default origin country
-                unitWeight: convertOzToKg(lineItem.weight),
+                unitWeight: unitWeightKg,
                 quantity: lineItem.quantity
               });
             }
