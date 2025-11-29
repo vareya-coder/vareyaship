@@ -126,18 +126,21 @@ export async function POST(req: NextRequest) {
       let asendiaResponse = undefined;
       if (asendiaSyncEnabled) {
         // If Asendia sync is enabled, we will call the Asendia Sync API to get the label and tracking number
-        asendiaResponse = await axios.post(asendiaSyncCallingapiProd, shipmentData);
+        asendiaResponse = await axios.post(asendiaSyncCallingapiProd, shipmentData, {
+          validateStatus: function (status) {
+            return status < 500; // Resolve only if the status code is less than 500
+          }
+        });
         
-        console.log("Successfully received response from Local Asendia API Handler in main:", asendiaResponse.data);
+        logger.info("Successfully received response from Local Asendia API Handler in main:");
+        // console.log("Successfully received response from Local Asendia API Handler in main:", asendiaResponse.data);
         
-        if (asendiaResponse && asendiaResponse.data) {
+        if (asendiaResponse && asendiaResponse.data && asendiaResponse.data.trackingNumber && asendiaResponse.data.labelLocation) {
           trackingNumber = asendiaResponse.data.trackingNumber
-        }
         
-        // --- Step 3: Fetch the PDF label ---
-        if (asendiaResponse.data.labelLocation) {
+          // --- Step 3: Fetch the PDF label ---
           logger.info(`Fetching label from: ${asendiaResponse.data.labelLocation}`);
-          console.log(`Fetching label from: ${asendiaResponse.data.labelLocation}`);
+          // console.log(`Fetching label from: ${asendiaResponse.data.labelLocation}`);
           try {
             // NOTE: We do not need the full baseURL for this call, as labelLocation is a full URL.
             // We can call axios.get directly on the full URL.
@@ -157,10 +160,19 @@ export async function POST(req: NextRequest) {
               // We don't re-throw here, so the process can continue even if the label fails.
               // The return object will simply be missing the `labelUrl`.
           }
-        } else {
-            logger.warn('No labelLocation provided in Asendia response. Skipping label fetch.');
-            console.warn('No labelLocation provided in Asendia response. Skipping label fetch.');
+        } else if (asendiaResponse && asendiaResponse.data && asendiaResponse.data.errorCode) {
+          console.error("Asendia Sync API reported input validation error:", asendiaResponse.data);
+          return new NextResponse(JSON.stringify(asendiaResponse.data), {
+            status: asendiaResponse.status,
+            headers: {
+              'Content-Type': 'application/json',
+            },
+          });
         }
+        // } else {
+        //   logger.warn('No trackingNumber and labelLocation provided in Asendia response. Skipping label fetch.');
+        //   console.warn('No trackingNumber and labelLocation provided in Asendia response. Skipping label fetch.');
+        // }
       } else {
         asendiaResponse = await axios.post(asendiaCallingapiProd, shipmentData)
         if (asendiaResponse && asendiaResponse.data) {
@@ -183,69 +195,69 @@ export async function POST(req: NextRequest) {
       return new NextResponse('carrier not supported.', { status: 404 });
     }
 
+    // console.log(`Tracking Number: ${trackingNumber}`);
+    // console.log(`Tracking URL: ${trackingUrl}`);
+    // console.log(`Label URL: ${labelUrl}`);
+
     logger.info(trackingNumber);
     logger.info(trackingUrl);
     logger.info(`Final uploaded label URL: ${labelUrl}`);
 
-    // console.log(trackingNumber);
-    // console.log(trackingUrl);
-    // console.log(`Final uploaded label URL: ${labelUrl}`);
+    // const shipmentDetailsData: ShipmentDetailsType = {
+    //   order_id: shipmentData.order_id,
+    //   barcode: trackingNumber,
+    //   name: shipmentData.shop_name,
+    //   cancel_deadline: new Date(),
+    //   shipping_method: shipmentData.shipping_method,
+    //   from_address: shipmentData.to_address.address_1 + "," + shipmentData.to_address.city + "," + shipmentData.to_address.country as string,
+    //   label_url: labelUrl as string,
+    //   request_body : JSON.stringify(shipmentData) 
+    // };
+    // let shipmentId : any = undefined
+    // let insertedShipmentId : any = undefined
+    // try{
+    //   shipmentId  = await insertShipmentDetails(shipmentDetailsData);
+    //   insertedShipmentId =shipmentId[0].insertedId
 
-    const shipmentDetailsData: ShipmentDetailsType = {
-      order_id: shipmentData.order_id,
-      barcode: trackingNumber,
-      name: shipmentData.shop_name,
-      cancel_deadline: new Date(),
-      shipping_method: shipmentData.shipping_method,
-      from_address: shipmentData.to_address.address_1 + "," + shipmentData.to_address.city + "," + shipmentData.to_address.country as string,
-      label_url: labelUrl as string,
-      request_body : JSON.stringify(shipmentData) 
-    };
-    let shipmentId : any = undefined
-    let insertedShipmentId : any = undefined
-    try{
-      shipmentId  = await insertShipmentDetails(shipmentDetailsData);
-      insertedShipmentId =shipmentId[0].insertedId
+    // } catch(error){
+    //   console.log(error)
+    //   logger.error('Error occured while inserting data to database', { error: error });
 
-    } catch(error){
-      console.log(error)
-      logger.error('Error occured while inserting data to database', { error: error });
+    // }
 
-    }
+    // const customerDetailsData: CustomerDetailsType = {
+    //   customer_name: shipmentData.to_address.name,
+    //   customer_email: shipmentData.to_address.email,
+    //   to_address: shipmentData.to_address.address_1 + "," + shipmentData.to_address.city + "," + shipmentData.to_address.country,
+    //   shipment_id: insertedShipmentId,
+    // };
 
-    const customerDetailsData: CustomerDetailsType = {
-      customer_name: shipmentData.to_address.name,
-      customer_email: shipmentData.to_address.email,
-      to_address: shipmentData.to_address.address_1 + "," + shipmentData.to_address.city + "," + shipmentData.to_address.country,
-      shipment_id: insertedShipmentId,
-    };
-
-    const shipmentStatusData: ShipmentStatusType = {
-      shipment_id:insertedShipmentId,
-      status_code: '1',
-      status_description: '	Shipment pre-alerted',
-      carrier_message: 'Carrier message goes here',
-    };
-    const shipmentItemsData: ShipmentItemsType[] = shipmentData.packages[0].line_items?.map((item: any) => {
-      return {
-          shipment_id: insertedShipmentId,
-          item_description: item.customs_description,
-          quantity: item.quantity,
-          unit_price: item.price,
-          shipment_weight: Weight
-      };
-    }) || [];
+    // const shipmentStatusData: ShipmentStatusType = {
+    //   shipment_id:insertedShipmentId,
+    //   status_code: '1',
+    //   status_description: '	Shipment pre-alerted',
+    //   carrier_message: 'Carrier message goes here',
+    // };
+    // const shipmentItemsData: ShipmentItemsType[] = shipmentData.packages[0].line_items?.map((item: any) => {
+    //   return {
+    //       shipment_id: insertedShipmentId,
+    //       item_description: item.customs_description,
+    //       quantity: item.quantity,
+    //       unit_price: item.price,
+    //       shipment_weight: Weight
+    //   };
+    // }) || [];
     
-    try {
-      // Insert into addresses table
-      // await insertShipmentItems(shipmentItemsData)
-      // await insertCustomerDetails(customerDetailsData)
-      // await insertShipmentStatus(shipmentStatusData)
-      console.log('No longer inserting data into database');
+    // try {
+    //   // Insert into addresses table
+    //   // await insertShipmentItems(shipmentItemsData)
+    //   // await insertCustomerDetails(customerDetailsData)
+    //   // await insertShipmentStatus(shipmentStatusData)
+    //   console.log('No longer inserting data into database');
 
-    } catch (error) {
-      logger.error('Error occured while inserting data to database', { error: error });
-    }
+    // } catch (error) {
+    //   logger.error('Error occured while inserting data to database', { error: error });
+    // }
 
     let responseBodyJson = {
       code: 200,

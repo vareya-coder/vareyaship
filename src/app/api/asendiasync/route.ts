@@ -71,28 +71,70 @@ export async function POST(req: NextRequest) {
           headers: {
             'Content-Type': 'application/json',
           },
-        });
+        }); 
       } catch (error: any) {
-          // console.error(`Error creating Asendia parcel:
-          // id: ${JSON.stringify(error.response?.data.id)}
-          // status: ${JSON.stringify(error.response?.data.status)}
-          // errors: ${JSON.stringify(error.response?.data.errors)}
-          // errorMessages: ${JSON.stringify(error.response?.data.errorMessages)}`);
-          console.error("Error creating Asendia parcel:", JSON.stringify(error.response?.data || error.message));
+        const upstreamStatus = error.response?.status;
+        const errorData = error.response?.data;
+        
+        // 1. Always log the full upstream error for debugging purposes
+        // console.error("Error creating Asendia parcel:", JSON.stringify(errorData || error.message));
+        logger.error(`Error creating Asendia parcel: ${JSON.stringify(errorData || error.message)}`);
+        
+        // Case A: External API returned 400 Bad Request (Validation Failure)
+        if (upstreamStatus === 400) {
+            
+            // **HIGHLIGHTED CHANGE: Use the expanded error parser**
+            let userFacingDetails = formatAsendiaErrors(errorData); 
+            logger.error("Parsed Asendia 400 error details:", userFacingDetails);
+            // console.log("Parsed Asendia 400 error details:", userFacingDetails);
+            
+            // Return 400 to the client, indicating bad input data
+            return new NextResponse(JSON.stringify({
+                message: "Client Request Data Validation Failed by Asendia Shipping Provider.",
+                details: userFacingDetails,
+                provider: "Asendia",
+                errorCode: "INPUT_VALIDATION_ERROR"
+            }), {
+                status: 400, // <-- CRUCIAL: Returning 400 (Bad Request)
+                headers: { 'Content-Type': 'application/json' }
+            });
+        }
 
-          logger.error(`Error creating Asendia parcel: ${JSON.stringify(error.response?.data || error.message)}`);
-          // logger.error(`Error creating Asendia parcel:
-          // id: ${JSON.stringify(error.response?.data.id)}
-          // status: ${JSON.stringify(error.response?.data.status)}
-          // errors: ${JSON.stringify(error.response?.data.errors)}
-          // errorMessages: ${JSON.stringify(error.response?.data.errorMessages)}`);
-          
-          // Re-throw a more informative error
-          const errorData = error.response?.data;
-          if (errorData && errorData.errorMessages) {
-            throw new Error(`Asendia API Error: ${JSON.stringify(errorData.errorMessages)}`);
-          }
-          throw new Error("Failed to create Asendia parcel.");
+        // Case B: External API returned 401/403 (Authentication/Authorization)
+        // This usually implies an expired/bad internal token setup, so treat it as a server issue.
+        if (upstreamStatus === 401 || upstreamStatus === 403) {
+            logger.error(`Asendia API Authorization failure. Check id_token setup.`);
+            // Treat this as a server side configuration issue (500)
+            return new NextResponse(JSON.stringify({
+                message: "Internal configuration error with Asendia shipping provider authorization.",
+            }), {
+                status: 500,
+                headers: { 'Content-Type': 'application/json' }
+            });
+        }
+
+        // Case C: External API returned 5xx (Server Failure on their end)
+        if (upstreamStatus >= 500) {
+          logger.error(`Asendia API server error with status ${upstreamStatus}.`);  
+          // Respond with 502 Bad Gateway, indicating the upstream service is failing
+          return new NextResponse(JSON.stringify({
+              message: "External shipping provider service error (Asendia).",
+              details: "The upstream service reported a server failure. Please try again later.",
+          }), {
+              status: 502, // Bad Gateway
+              headers: { 'Content-Type': 'application/json' }
+          });
+        }
+        
+        // Case D: Default Fallback (Unexpected/Unhandled Error)
+        // For network issues, timeouts, or unknown exceptions.
+        return new NextResponse(JSON.stringify({
+            message: "An unexpected error occurred during Asendia parcel creation.",
+            details: "Check internal logs for specific error details.",
+        }), {
+            status: 500, // Internal Server Error
+            headers: { 'Content-Type': 'application/json' }
+        });
       }
     } else {
       return new NextResponse('Method Not Allowed', { status: 405 });
@@ -102,3 +144,74 @@ export async function POST(req: NextRequest) {
     return new NextResponse('Internal Server Error', { status: 500 });
   }
 }
+
+/**
+ * Helper function to parse Asendia's varied error payloads (400 Bad Request)
+ * into a single readable string.
+ */
+const formatAsendiaErrors = (errorData: any): string => {
+  const messages: string[] = [];
+
+  // --- 1. Handle Structure 1: 'validationErrors' (Seen in Error 1 & 3) ---
+  if (errorData.validationErrors) {
+      const validationErrors = errorData.validationErrors;
+      
+      // A. Handle top-level 'fields' errors (like parcel weight or postalCode)
+      if (validationErrors.fields) {
+          for (const fieldName in validationErrors.fields) {
+              const fieldError = validationErrors.fields[fieldName];
+              if (fieldError.violations && fieldError.violations.length > 0) {
+                  const violation = fieldError.violations[0];
+                  // Extract required attribute (e.g., 'value' for weight, 'country' for postalCode)
+                  const attributes = violation.attributes ? Object.values(violation.attributes).join(', ') : 'N/A';
+                  
+                  // Replace placeholder in message if possible
+                  let message = violation.message;
+                  if (violation.attributes?.value) {
+                        message = message.replace('{{value}}', violation.attributes.value);
+                  }
+                  if (violation.attributes?.country) {
+                        message = message.replace('{{country}}', violation.attributes.country);
+                  }
+                  
+                  // Original format: messages.push(`${fieldName}: ${violation.message} (Required: ${attributes})`);
+                  messages.push(`Field '${fieldName}': ${message}`);
+              }
+          }
+      }
+
+      // B. Handle 'orderLines' specific errors (Seen in Error 3)
+      if (Array.isArray(validationErrors.orderLines)) {
+          validationErrors.orderLines.forEach((lineError: any, index: number) => {
+              for (const fieldName in lineError) {
+                  const fieldError = lineError[fieldName];
+                  if (fieldError.violations && fieldError.violations.length > 0) {
+                      const violation = fieldError.violations[0];
+                      const requiredValue = violation.attributes?.value || 'N/A';
+                        let message = violation.message.replace('{{value}}', requiredValue);
+                      messages.push(`Order Line ${index + 1} - Field '${fieldName}': ${message}`);
+                  }
+              }
+          });
+      }
+  }
+  
+  // ---------------------------------------------------------------------
+
+  // --- 2. Handle Structure 2: 'fieldErrors' (Seen in Error 2) ---
+  if (Array.isArray(errorData.fieldErrors)) {
+      errorData.fieldErrors.forEach((fieldError: any) => {
+          // Note: fieldError.field might be 'addresses.receiver.address1'
+          messages.push(`Field '${fieldError.field}': ${fieldError.message}`);
+      });
+  }
+  // ---------------------------------------------------------------------
+
+
+  if (messages.length === 0) {
+      // Fallback for an unknown 400 format
+      return errorData.message || "Input validation failed due to an unspecified constraint.";
+  }
+
+  return messages.join('; ');
+};
