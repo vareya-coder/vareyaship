@@ -102,7 +102,7 @@ export async function POST(req: NextRequest) {
     const filename = `${shipmentData.order_id}-${shipmentData.shipping_method}-${datetime}`
 
     if (Carrier ==="PostNL") {
-      const postNLApiResponse = await axios.post(postnlCallingapilocal, shipmentData);
+      const postNLApiResponse = await axios.post(postnlCallingapiProd, shipmentData);
   
       if (postNLApiResponse.data.ResponseShipments.length > 0 && postNLApiResponse.data.ResponseShipments[0].Labels.length > 0) {
         trackingNumber = postNLApiResponse.data.ResponseShipments[0].Barcode
@@ -130,7 +130,7 @@ export async function POST(req: NextRequest) {
       let asendiaResponse = undefined;
       if (asendiaSyncEnabled) {
         // If Asendia sync is enabled, we will call the Asendia Sync API to get the label and tracking number
-        asendiaResponse = await axios.post(asendiaSyncCallingapilocal, shipmentData, {
+        asendiaResponse = await axios.post(asendiaSyncCallingapiProd, shipmentData, {
           validateStatus: function (status) {
             return status < 500; // Resolve only if the status code is less than 500
           }
