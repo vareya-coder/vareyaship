@@ -1,10 +1,13 @@
 // import axios from 'axios';
 import { config } from 'dotenv';
 
-import { FormData, Blob } from 'formdata-node'
+import { UTFile } from 'uploadthing/server';
 
 import { logger } from '@/utils/logger';
-import { utapi } from '@/utils/uploadthingClient';
+import {
+    utapi,
+    withUploadThingWarningSuppressed,
+} from '@/utils/uploadthingClient';
 
 
 // import { error } from 'console';
@@ -39,7 +42,7 @@ export async function uploadPdf(labelBase64 : any , filename : any) {
         // const response = await axios.post('https://uploadthing.com/api/uploadFiles', body, {
         //     headers: {
         //         'Content-Type': 'application/json',
-        //         'X-Uploadthing-Api-Key': process.env.UPLOADTHING_SECRET,
+        //         'X-Uploadthing-Api-Key': process.env.UPLOADTHING_TOKEN,
         //         'X-Uploadthing-Version': '6.4.0'
         //     },
         // });
@@ -52,34 +55,32 @@ export async function uploadPdf(labelBase64 : any , filename : any) {
         //     throw new Error('Error occurred creating pre-signed url');
         // }
 
-        // Convert the base64 string to a binary Blob
+        // Convert the base64 string to a binary payload
         const pdfBuffer =  Buffer.from(labelBase64, 'base64');
-        const pdfBlob = new Blob([pdfBuffer]);
-
-        // Create FormData to append fields and file for S3 upload
-        // const FormData = require('form-data');
-        const formData = new FormData();
-        // Object.entries(fields).forEach(([key, value]) => {
-        //     formData.append(key, value);
-        // });
-        formData.append('files', pdfBlob, `label-${filename}.pdf`);
+        const pdfBytes = Uint8Array.from(pdfBuffer);
+        const utFile = new UTFile([pdfBytes], `label-${filename}.pdf`, {
+            type: 'application/pdf',
+        });
 
         // Upload the file to the presigned URL
         // let res = await axios.post(presignedUrl, formData, {
         //     headers: {
         //         // FormData will set the Content-Type to 'multipart/form-data' with the correct boundary
         //         // Do not manually set Content-Length here, let axios and FormData handle it
-        //         'X-Uploadthing-Api-Key': process.env.UPLOADTHING_SECRET,
+        //         'X-Uploadthing-Api-Key': process.env.UPLOADTHING_TOKEN,
         //         'X-Uploadthing-Version': '6.4.0'
         //     },
         // });
 
-        const response = await utapi.uploadFiles(formData.getAll('files'));
-        //    ^? UploadedFileResponse[]
+        const response = await withUploadThingWarningSuppressed(() =>
+            utapi.uploadFiles([utFile]),
+        );
+        const uploadedFile = Array.isArray(response) ? response[0] : response;
+        const uploadedUrl = uploadedFile?.data?.ufsUrl;
 
-        logger.info(response && Array.isArray(response) ? response[0].data?.url : response.data?.url)
+        logger.info(uploadedUrl);
 
-        return response && Array.isArray(response) ? response[0].data?.url : response.data?.url;
+        return uploadedUrl;
 
     } catch (error : any) {
         // console.error('Error uploading label file:', error.response ? error.response.data : error.message);

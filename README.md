@@ -5,18 +5,25 @@ This is a [Next.js](https://nextjs.org/) project bootstrapped with [`create-next
 First, add .env file with following environment variables:
 CUSTOMER_CODE=
 CUSTOMER_NUMBER=
-UPLOADTHING_SECRET=
+UPLOADTHING_TOKEN=
 UPLOADTHING_APP_ID=
 POSTNL_API_KEY=
 DATABASE_URL=
+CRON_SECRET=
+
+# Optional cleanup controls
+UT_KEEP_FILES_COUNT=1500
+UT_DELETE_MAX_BATCHES=10
+UPLOADTHING_PDF_PROXY_URL_ENABLED=false
+
+# Optional monitoring (Axiom)
+AXIOM_DATASET=
+AXIOM_TOKEN=
+AXIOM_ORGANIZATION=
 
 Then, pnpm install packages:
 
 ```bash
-npm install
-# or
-yarn install
-# or
 pnpm install
 ```
 
@@ -24,33 +31,50 @@ Then, run the migrations commands:
 
 ```bash
 pnpm run db:generate
-# or
-yarn db:generate
-# or
-pnpm db:generate
 ```
 
 and
 
 ```bash
 pnpm run db:migrate
-# or
-yarn db:migrate
-# or
-pnpm db:migrate
 ```
 
 Then, run the development server:
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
 pnpm dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+
+## UploadThing Cleanup Cron
+
+This project includes a cleanup route at:
+
+`GET /api/cron/ut-delete-old-files`
+
+The route requires:
+
+- `Authorization: Bearer <CRON_SECRET>`
+
+Vercel cron is configured in `vercel.json` to run daily at `03:00 UTC`.
+
+Manual trigger example:
+
+```bash
+curl -X GET "https://<your-domain>/api/cron/ut-delete-old-files" \
+  -H "Authorization: Bearer <CRON_SECRET>"
+```
+
+Label URLs can optionally be proxied as:
+
+- `https://<your-domain>/api/uploadthing/file/<file-key>.pdf`
+
+Enable this behavior with:
+
+- `UPLOADTHING_PDF_PROXY_URL_ENABLED=true`
+
+When disabled (default), shipment APIs return the direct UploadThing `ufsUrl` to avoid extra proxy traffic costs.
 
 This project uses [`next/font`](https://nextjs.org/docs/basic-features/font-optimization) to automatically optimize and load Inter, a custom Google Font.
 

@@ -1,7 +1,10 @@
 import { config } from 'dotenv';
-import { FormData, Blob } from 'formdata-node';
+import { UTFile } from 'uploadthing/server';
 import { logger } from '@/utils/logger'; // Assuming you have these utils
-import { utapi } from '@/utils/uploadthingClient';
+import {
+    utapi,
+    withUploadThingWarningSuppressed,
+} from '@/utils/uploadthingClient';
 
 config();
 
@@ -12,44 +15,33 @@ config();
  * @returns The public URL of the uploaded file.
  */
 export async function uploadPdfBuffer(pdfBuffer: Buffer, filename: string): Promise<string | undefined> {
-    // if (!process.env.UPLOADTHING_SECRET) {
-    //     logger.error('UPLOADTHING_SECRET is not defined in environment variables.');
+    // if (!process.env.UPLOADTHING_TOKEN) {
+    //     logger.error('UPLOADTHING_TOKEN is not defined in environment variables.');
     //     throw new Error('UploadThing API Key is not configured.');
     // }
     console.log('Starting PDF upload process...');
     
     try {
-        // The UploadThing SDK can often work with Blobs or Files.
-        // We convert the buffer to a Blob, which is a standard representation.
-        const pdfBlob = new Blob([pdfBuffer]);
-
-        // The utapi SDK expects a File object or an array of them.
-        // We can create a "file-like" object that the SDK understands.
         const fileToUpload = {
             name: `label-${filename}.pdf`,
             size: pdfBuffer.length,
             type: 'application/pdf',
-            // The SDK magic happens here, it needs the content as a Blob/File.
-            // When using FormData, we pass the blob directly. When using the SDK's abstraction,
-            // we pass the file object and the SDK handles the upload stream.
-            // For simplicity and compatibility with your previous code, we'll use FormData.
         };
-
-        const formData = new FormData();
-        // The third argument to append is the filename.
-        formData.append('files', pdfBlob, fileToUpload.name);
-        
-        // The utapi.uploadFiles method is designed to take an array of File objects or FormData.
-        // We get all file entries from our FormData object.
-        const filesFromFormData = formData.getAll('files');
+        const pdfBytes = Uint8Array.from(pdfBuffer);
+        const utFile = new UTFile([pdfBytes], fileToUpload.name, {
+            type: fileToUpload.type,
+        });
 
         logger.info(`Uploading file: ${fileToUpload.name} (${fileToUpload.size} bytes)`);
         console.log(`Uploading file: ${fileToUpload.name} (${fileToUpload.size} bytes)`);
 
-        const response = await utapi.uploadFiles(filesFromFormData);
+        const response = await withUploadThingWarningSuppressed(() =>
+            utapi.uploadFiles([utFile]),
+        );
+        const uploadedFile = Array.isArray(response) ? response[0] : response;
+        const url = uploadedFile?.data?.ufsUrl;
 
-        if (response && Array.isArray(response) && response[0]?.data?.url) {
-            const url = response[0].data.url;
+        if (url) {
             logger.info(`Upload successful. Label URL: ${url}`);
             console.log(`Upload successful. Label URL: ${url}`);
             return url;

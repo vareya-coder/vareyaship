@@ -102,7 +102,7 @@ export async function POST(req: NextRequest) {
     const filename = `${shipmentData.order_id}-${shipmentData.shipping_method}-${datetime}`
 
     if (Carrier ==="PostNL") {
-      const postNLApiResponse = await axios.post(postnlCallingapiProd, shipmentData);
+      const postNLApiResponse = await axios.post(postnlCallingapilocal, shipmentData);
   
       if (postNLApiResponse.data.ResponseShipments.length > 0 && postNLApiResponse.data.ResponseShipments[0].Labels.length > 0) {
         trackingNumber = postNLApiResponse.data.ResponseShipments[0].Barcode
@@ -116,7 +116,11 @@ export async function POST(req: NextRequest) {
         }
         labelContent = postNLApiResponse.data.ResponseShipments[0].Labels[0].Content;
 
-        labelUrl = await uploadPdf(labelContent, filename)
+        const uploadedLabelUrl = await uploadPdf(labelContent, filename);
+        if (!uploadedLabelUrl) {
+          throw new Error('PostNL label upload returned an empty URL.');
+        }
+        labelUrl = toWebhookFriendlyPdfUrl(uploadedLabelUrl, req);
       }
 
     } else if (Carrier ==="Asendia") {
@@ -126,7 +130,7 @@ export async function POST(req: NextRequest) {
       let asendiaResponse = undefined;
       if (asendiaSyncEnabled) {
         // If Asendia sync is enabled, we will call the Asendia Sync API to get the label and tracking number
-        asendiaResponse = await axios.post(asendiaSyncCallingapiProd, shipmentData, {
+        asendiaResponse = await axios.post(asendiaSyncCallingapilocal, shipmentData, {
           validateStatus: function (status) {
             return status < 500; // Resolve only if the status code is less than 500
           }
@@ -152,7 +156,11 @@ export async function POST(req: NextRequest) {
             const pdfBuffer = Buffer.from(labelApiResponse.data);
             logger.info(`Successfully fetched label PDF (${pdfBuffer.length} bytes).`);
             
-            labelUrl = (await uploadPdfBuffer(pdfBuffer, filename)) as string;
+            const uploadedLabelUrl = await uploadPdfBuffer(pdfBuffer, filename);
+            if (!uploadedLabelUrl) {
+              throw new Error('Asendia label upload returned an empty URL.');
+            }
+            labelUrl = toWebhookFriendlyPdfUrl(uploadedLabelUrl, req);
             logger.info(`Label uploaded successfully. URL: ${labelUrl}`);
 
           } catch (uploadError: any) {
@@ -179,7 +187,11 @@ export async function POST(req: NextRequest) {
           trackingNumber = asendiaResponse.data.sequenceNumber
         }
         labelContent  = asendiaResponse.data.content;
-        labelUrl = await uploadPdf(labelContent, filename);
+        const uploadedLabelUrl = await uploadPdf(labelContent, filename);
+        if (!uploadedLabelUrl) {
+          throw new Error('Asendia label upload returned an empty URL.');
+        }
+        labelUrl = toWebhookFriendlyPdfUrl(uploadedLabelUrl, req);
       }
       // trackingUrl = `https://a-track.asendia.com/customer-tracking/self?tracking_id=${trackingNumber}`
       // trackingUrl = `https://tracking.asendia.com/tracking/${trackingNumber}`
@@ -314,4 +326,35 @@ export async function POST(req: NextRequest) {
 
 function padLeftZero(n:number) {
   return ('0'+n).slice(-2)
+}
+
+function toWebhookFriendlyPdfUrl(uploadThingUrl: string, req: NextRequest): string {
+  if (!isUploadThingPdfProxyEnabled()) {
+    return uploadThingUrl;
+  }
+
+  const fileKey = extractUploadThingFileKey(uploadThingUrl);
+  if (!fileKey) {
+    return uploadThingUrl;
+  }
+
+  return `${req.nextUrl.origin}/api/uploadthing/file/${fileKey}.pdf`;
+}
+
+function isUploadThingPdfProxyEnabled(): boolean {
+  const rawValue = (process.env.UPLOADTHING_PDF_PROXY_URL_ENABLED ?? '')
+    .trim()
+    .toLowerCase();
+
+  return rawValue === '1' || rawValue === 'true' || rawValue === 'y' || rawValue === 'yes';
+}
+
+function extractUploadThingFileKey(uploadThingUrl: string): string | null {
+  try {
+    const parsedUrl = new URL(uploadThingUrl);
+    const pathMatch = parsedUrl.pathname.match(/^\/f\/([^/]+)$/);
+    return pathMatch?.[1] ?? null;
+  } catch {
+    return null;
+  }
 }
