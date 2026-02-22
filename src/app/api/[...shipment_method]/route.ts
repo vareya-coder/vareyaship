@@ -11,6 +11,7 @@ import { logger } from '@/utils/logger';
 const SHIPMENT_WEBHOOK_ROUTE = '/api/[...shipment_method]';
 const LABEL_URL_READINESS_TIMEOUT_MS = 2000;
 const LABEL_URL_READINESS_INTERVAL_MS = 250;
+const LABEL_URL_READINESS_FLAG = 'UPLOADTHING_LABEL_URL_READINESS_ENABLED';
 
 type LabelUrlMode = 'direct' | 'proxy';
 
@@ -344,11 +345,21 @@ function padLeftZero(n:number) {
 }
 
 function isUploadThingPdfProxyEnabled(): boolean {
-  const rawValue = (process.env.UPLOADTHING_PDF_PROXY_URL_ENABLED ?? '')
-    .trim()
-    .toLowerCase();
+  return isTruthyFlag(process.env.UPLOADTHING_PDF_PROXY_URL_ENABLED);
+}
 
-  return rawValue === '1' || rawValue === 'true' || rawValue === 'y' || rawValue === 'yes';
+function isLabelUrlReadinessCheckEnabled(): boolean {
+  const rawValue = process.env[LABEL_URL_READINESS_FLAG];
+  if (rawValue === undefined || rawValue.trim() === '') {
+    return true;
+  }
+
+  return isTruthyFlag(rawValue);
+}
+
+function isTruthyFlag(value: string | undefined): boolean {
+  const normalized = (value ?? '').trim().toLowerCase();
+  return normalized === '1' || normalized === 'true' || normalized === 'y' || normalized === 'yes';
 }
 
 function extractUploadThingFileKey(uploadThingUrl: string): string | null {
@@ -386,6 +397,7 @@ async function finalizeLabelUrlForWebhook(
   context: { carrier: string; orderId: string | number },
 ): Promise<string> {
   const { url: finalUrl, mode } = resolveWebhookLabelUrl(uploadThingUrl, req);
+  const readinessEnabled = isLabelUrlReadinessCheckEnabled();
 
   logger.log({
     level: 'info',
@@ -395,10 +407,26 @@ async function finalizeLabelUrlForWebhook(
     carrier: context.carrier,
     orderId: String(context.orderId),
     mode,
+    readinessEnabled,
     readinessTimeoutMs: LABEL_URL_READINESS_TIMEOUT_MS,
     readinessIntervalMs: LABEL_URL_READINESS_INTERVAL_MS,
   });
   // console.log(JSON.stringify({ event: 'label_url_mode_selected', route: SHIPMENT_WEBHOOK_ROUTE, carrier: context.carrier, orderId: String(context.orderId), mode }));
+
+  if (!readinessEnabled) {
+    logger.log({
+      level: 'info',
+      message: 'label_url_readiness_skipped',
+      event: 'label_url_readiness_skipped',
+      route: SHIPMENT_WEBHOOK_ROUTE,
+      carrier: context.carrier,
+      orderId: String(context.orderId),
+      mode,
+      reason: 'feature_flag_disabled',
+    });
+    // console.log(JSON.stringify({ event: 'label_url_readiness_skipped', route: SHIPMENT_WEBHOOK_ROUTE, carrier: context.carrier, orderId: String(context.orderId), mode, reason: 'feature_flag_disabled' }));
+    return finalUrl;
+  }
 
   try {
     const readiness = await waitForLabelUrlReadiness(finalUrl);

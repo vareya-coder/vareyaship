@@ -3,6 +3,19 @@ import { NextRequest, NextResponse } from 'next/server';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
+const PROXY_FLAG = 'UPLOADTHING_PDF_PROXY_URL_ENABLED';
+const STREAMING_FLAG = 'UPLOADTHING_PDF_PROXY_STREAMING_ENABLED';
+const FORWARDED_HEADERS = [
+  'content-type',
+  'content-length',
+  'content-disposition',
+  'cache-control',
+  'etag',
+  'last-modified',
+  'accept-ranges',
+  'content-range',
+];
+
 function normalizeFileKey(fileParam: string) {
   if (!fileParam) {
     return null;
@@ -38,7 +51,20 @@ function resolveUploadThingAppId(): string | null {
   }
 }
 
-function redirectToUploadThingFile(fileParam: string) {
+function isEnabled(value: string | undefined): boolean {
+  const normalized = (value ?? '').trim().toLowerCase();
+  return normalized === '1' || normalized === 'true' || normalized === 'y' || normalized === 'yes';
+}
+
+function isProxyEnabled(): boolean {
+  return isEnabled(process.env[PROXY_FLAG]);
+}
+
+function shouldStreamThroughProxy(): boolean {
+  return isProxyEnabled() && isEnabled(process.env[STREAMING_FLAG]);
+}
+
+function resolveUploadThingTargetUrl(fileParam: string): string | NextResponse {
   const fileKey = normalizeFileKey(fileParam);
   const appId = resolveUploadThingAppId();
 
@@ -56,20 +82,102 @@ function redirectToUploadThingFile(fileParam: string) {
     );
   }
 
-  const targetUrl = `https://${appId}.ufs.sh/f/${encodeURIComponent(fileKey)}`;
-  return NextResponse.redirect(targetUrl, 307);
+  return `https://${appId}.ufs.sh/f/${encodeURIComponent(fileKey)}`;
+}
+
+function buildForwardHeaders(upstream: Response): Headers {
+  const headers = new Headers();
+
+  for (const headerName of FORWARDED_HEADERS) {
+    const headerValue = upstream.headers.get(headerName);
+    if (headerValue) {
+      headers.set(headerName, headerValue);
+    }
+  }
+
+  return headers;
+}
+
+function redirectToUploadThingFile(fileParam: string) {
+  const targetUrl = resolveUploadThingTargetUrl(fileParam);
+  if (targetUrl instanceof NextResponse) {
+    return targetUrl;
+  }
+
+  const response = NextResponse.redirect(targetUrl, 307);
+  response.headers.set('x-uploadthing-proxy-mode', 'redirect');
+  return response;
+}
+
+async function streamUploadThingFile(
+  request: NextRequest,
+  fileParam: string,
+  method: 'GET' | 'HEAD',
+) {
+  const targetUrl = resolveUploadThingTargetUrl(fileParam);
+  if (targetUrl instanceof NextResponse) {
+    return targetUrl;
+  }
+
+  const upstreamHeaders = new Headers();
+  const rangeHeader = request.headers.get('range');
+  const acceptHeader = request.headers.get('accept');
+
+  if (rangeHeader) {
+    upstreamHeaders.set('range', rangeHeader);
+  }
+  if (acceptHeader) {
+    upstreamHeaders.set('accept', acceptHeader);
+  }
+
+  try {
+    const upstreamResponse = await fetch(targetUrl, {
+      method,
+      headers: upstreamHeaders,
+      redirect: 'follow',
+      cache: 'no-store',
+    });
+
+    const responseHeaders = buildForwardHeaders(upstreamResponse);
+    responseHeaders.set('x-uploadthing-proxy-mode', 'stream');
+
+    if (method === 'HEAD') {
+      return new NextResponse(null, {
+        status: upstreamResponse.status,
+        headers: responseHeaders,
+      });
+    }
+
+    return new NextResponse(upstreamResponse.body, {
+      status: upstreamResponse.status,
+      headers: responseHeaders,
+    });
+  } catch {
+    return NextResponse.json(
+      { message: 'Failed to fetch file from UploadThing.' },
+      { status: 502 },
+    );
+  }
 }
 
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   context: { params: { file: string } },
 ) {
+  if (shouldStreamThroughProxy()) {
+    return streamUploadThingFile(request, context.params.file, 'GET');
+  }
+
   return redirectToUploadThingFile(context.params.file);
 }
 
 export async function HEAD(
-  _request: NextRequest,
+  request: NextRequest,
   context: { params: { file: string } },
 ) {
+  if (shouldStreamThroughProxy()) {
+    return streamUploadThingFile(request, context.params.file, 'HEAD');
+  }
+
   return redirectToUploadThingFile(context.params.file);
 }

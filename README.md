@@ -17,6 +17,8 @@ UPLOADTHING_APP_ID=
 UT_KEEP_FILES_COUNT=1500
 UT_DELETE_MAX_BATCHES=10
 UPLOADTHING_PDF_PROXY_URL_ENABLED=false
+UPLOADTHING_PDF_PROXY_STREAMING_ENABLED=false
+UPLOADTHING_LABEL_URL_READINESS_ENABLED=true
 
 # Optional monitoring (Axiom)
 AXIOM_DATASET=
@@ -81,9 +83,21 @@ When disabled (default), shipment APIs return the direct UploadThing `ufsUrl` to
 For ShipHero compatibility, if extension-less UploadThing URLs are rejected, enable
 `UPLOADTHING_PDF_PROXY_URL_ENABLED=true` so webhook responses return a `.pdf` URL path.
 
+If your client does not follow redirects, you can enable proxy streaming mode by setting both:
+
+- `UPLOADTHING_PDF_PROXY_URL_ENABLED=true`
+- `UPLOADTHING_PDF_PROXY_STREAMING_ENABLED=true`
+
+When both are enabled, `/api/uploadthing/file/<file-key>.pdf` returns streamed file bytes directly
+instead of redirecting to UploadThing. This improves compatibility but increases proxy egress costs.
+
 Shipment label responses now include a bounded URL readiness check (up to 2 seconds, 250ms interval)
 before returning the label URL. If readiness does not complete in time, the API still returns the URL
 and logs a timeout event for monitoring.
+
+You can disable this readiness wait entirely by setting:
+
+- `UPLOADTHING_LABEL_URL_READINESS_ENABLED=false`
 
 This project uses [`next/font`](https://nextjs.org/docs/basic-features/font-optimization) to automatically optimize and load Inter, a custom Google Font.
 
