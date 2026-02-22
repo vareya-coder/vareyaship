@@ -13,13 +13,38 @@ function normalizeFileKey(fileParam: string) {
     : fileParam;
 }
 
+function resolveUploadThingAppId(): string | null {
+  const envAppId = process.env.UPLOADTHING_APP_ID?.trim();
+  if (envAppId) {
+    return envAppId;
+  }
+
+  const rawToken = process.env.UPLOADTHING_TOKEN?.trim();
+  if (!rawToken) {
+    return null;
+  }
+
+  // dotenv can preserve surrounding quotes when set manually; strip them defensively.
+  const normalizedToken = rawToken.replace(/^['"]|['"]$/g, '');
+
+  try {
+    const decodedToken = Buffer.from(normalizedToken, 'base64').toString('utf8');
+    const parsedToken = JSON.parse(decodedToken) as { appId?: unknown };
+    return typeof parsedToken.appId === 'string' && parsedToken.appId.trim()
+      ? parsedToken.appId.trim()
+      : null;
+  } catch {
+    return null;
+  }
+}
+
 function redirectToUploadThingFile(fileParam: string) {
   const fileKey = normalizeFileKey(fileParam);
-  const appId = process.env.UPLOADTHING_APP_ID;
+  const appId = resolveUploadThingAppId();
 
   if (!appId) {
     return NextResponse.json(
-      { message: 'UPLOADTHING_APP_ID is not configured.' },
+      { message: 'UploadThing appId is not configured. Set UPLOADTHING_TOKEN or UPLOADTHING_APP_ID.' },
       { status: 500 },
     );
   }

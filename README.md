@@ -6,10 +6,12 @@ First, add .env file with following environment variables:
 CUSTOMER_CODE=
 CUSTOMER_NUMBER=
 UPLOADTHING_TOKEN=
-UPLOADTHING_APP_ID=
 POSTNL_API_KEY=
 DATABASE_URL=
 CRON_SECRET=
+
+# Optional (only needed if you do not provide UPLOADTHING_TOKEN)
+UPLOADTHING_APP_ID=
 
 # Optional cleanup controls
 UT_KEEP_FILES_COUNT=1500
