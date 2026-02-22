@@ -8,6 +8,12 @@ import { uploadPdfBuffer } from '@/app/utils/labelPdfUploader';
 // import { withAxiom, AxiomRequest } from 'next-axiom';
 import { logger } from '@/utils/logger';
 
+const SHIPMENT_WEBHOOK_ROUTE = '/api/[...shipment_method]';
+const LABEL_URL_READINESS_TIMEOUT_MS = 2000;
+const LABEL_URL_READINESS_INTERVAL_MS = 250;
+
+type LabelUrlMode = 'direct' | 'proxy';
+
 export async function POST(req: NextRequest) {
 
   console.log('Received a POST request to /api/[...shipment_method]');
@@ -120,7 +126,10 @@ export async function POST(req: NextRequest) {
         if (!uploadedLabelUrl) {
           throw new Error('PostNL label upload returned an empty URL.');
         }
-        labelUrl = toWebhookFriendlyPdfUrl(uploadedLabelUrl, req);
+        labelUrl = await finalizeLabelUrlForWebhook(uploadedLabelUrl, req, {
+          carrier: Carrier,
+          orderId: shipmentData.order_id,
+        });
       }
 
     } else if (Carrier ==="Asendia") {
@@ -160,7 +169,10 @@ export async function POST(req: NextRequest) {
             if (!uploadedLabelUrl) {
               throw new Error('Asendia label upload returned an empty URL.');
             }
-            labelUrl = toWebhookFriendlyPdfUrl(uploadedLabelUrl, req);
+            labelUrl = await finalizeLabelUrlForWebhook(uploadedLabelUrl, req, {
+              carrier: Carrier,
+              orderId: shipmentData.order_id,
+            });
             logger.info(`Label uploaded successfully. URL: ${labelUrl}`);
 
           } catch (uploadError: any) {
@@ -191,7 +203,10 @@ export async function POST(req: NextRequest) {
         if (!uploadedLabelUrl) {
           throw new Error('Asendia label upload returned an empty URL.');
         }
-        labelUrl = toWebhookFriendlyPdfUrl(uploadedLabelUrl, req);
+        labelUrl = await finalizeLabelUrlForWebhook(uploadedLabelUrl, req, {
+          carrier: Carrier,
+          orderId: shipmentData.order_id,
+        });
       }
       // trackingUrl = `https://a-track.asendia.com/customer-tracking/self?tracking_id=${trackingNumber}`
       // trackingUrl = `https://tracking.asendia.com/tracking/${trackingNumber}`
@@ -328,19 +343,6 @@ function padLeftZero(n:number) {
   return ('0'+n).slice(-2)
 }
 
-function toWebhookFriendlyPdfUrl(uploadThingUrl: string, req: NextRequest): string {
-  if (!isUploadThingPdfProxyEnabled()) {
-    return uploadThingUrl;
-  }
-
-  const fileKey = extractUploadThingFileKey(uploadThingUrl);
-  if (!fileKey) {
-    return uploadThingUrl;
-  }
-
-  return `${req.nextUrl.origin}/api/uploadthing/file/${fileKey}.pdf`;
-}
-
 function isUploadThingPdfProxyEnabled(): boolean {
   const rawValue = (process.env.UPLOADTHING_PDF_PROXY_URL_ENABLED ?? '')
     .trim()
@@ -357,4 +359,196 @@ function extractUploadThingFileKey(uploadThingUrl: string): string | null {
   } catch {
     return null;
   }
+}
+
+function resolveWebhookLabelUrl(
+  uploadThingUrl: string,
+  req: NextRequest,
+): { url: string; mode: LabelUrlMode } {
+  if (!isUploadThingPdfProxyEnabled()) {
+    return { url: uploadThingUrl, mode: 'direct' };
+  }
+
+  const fileKey = extractUploadThingFileKey(uploadThingUrl);
+  if (!fileKey) {
+    return { url: uploadThingUrl, mode: 'direct' };
+  }
+
+  return {
+    url: `${req.nextUrl.origin}/api/uploadthing/file/${fileKey}.pdf`,
+    mode: 'proxy',
+  };
+}
+
+async function finalizeLabelUrlForWebhook(
+  uploadThingUrl: string,
+  req: NextRequest,
+  context: { carrier: string; orderId: string | number },
+): Promise<string> {
+  const { url: finalUrl, mode } = resolveWebhookLabelUrl(uploadThingUrl, req);
+
+  logger.log({
+    level: 'info',
+    message: 'label_url_mode_selected',
+    event: 'label_url_mode_selected',
+    route: SHIPMENT_WEBHOOK_ROUTE,
+    carrier: context.carrier,
+    orderId: String(context.orderId),
+    mode,
+    readinessTimeoutMs: LABEL_URL_READINESS_TIMEOUT_MS,
+    readinessIntervalMs: LABEL_URL_READINESS_INTERVAL_MS,
+  });
+  // console.log(JSON.stringify({ event: 'label_url_mode_selected', route: SHIPMENT_WEBHOOK_ROUTE, carrier: context.carrier, orderId: String(context.orderId), mode }));
+
+  try {
+    const readiness = await waitForLabelUrlReadiness(finalUrl);
+    if (readiness.ready) {
+      logger.log({
+        level: 'info',
+        message: 'label_url_readiness_ready',
+        event: 'label_url_readiness_ready',
+        route: SHIPMENT_WEBHOOK_ROUTE,
+        carrier: context.carrier,
+        orderId: String(context.orderId),
+        mode,
+        attempts: readiness.attempts,
+        elapsedMs: readiness.elapsedMs,
+        status: readiness.status,
+      });
+      // console.log(JSON.stringify({ event: 'label_url_readiness_ready', route: SHIPMENT_WEBHOOK_ROUTE, attempts: readiness.attempts, elapsedMs: readiness.elapsedMs, status: readiness.status, mode }));
+      return finalUrl;
+    }
+
+    logger.log({
+      level: 'warn',
+      message: 'label_url_readiness_timeout',
+      event: 'label_url_readiness_timeout',
+      route: SHIPMENT_WEBHOOK_ROUTE,
+      carrier: context.carrier,
+      orderId: String(context.orderId),
+      returnedUrlMode: mode,
+      attempts: readiness.attempts,
+      elapsedMs: readiness.elapsedMs,
+      lastStatus: readiness.status,
+    });
+    // console.warn(JSON.stringify({ event: 'label_url_readiness_timeout', route: SHIPMENT_WEBHOOK_ROUTE, attempts: readiness.attempts, elapsedMs: readiness.elapsedMs, lastStatus: readiness.status, returnedUrlMode: mode }));
+
+    return finalUrl;
+  } catch (error) {
+    const typedError = error as Error;
+    logger.log({
+      level: 'error',
+      message: 'label_url_readiness_error',
+      event: 'label_url_readiness_error',
+      route: SHIPMENT_WEBHOOK_ROUTE,
+      carrier: context.carrier,
+      orderId: String(context.orderId),
+      returnedUrlMode: mode,
+      errorName: typedError.name,
+      errorMessage: typedError.message,
+    });
+    // console.error(JSON.stringify({ event: 'label_url_readiness_error', route: SHIPMENT_WEBHOOK_ROUTE, returnedUrlMode: mode, errorName: typedError.name, errorMessage: typedError.message }));
+
+    return finalUrl;
+  }
+}
+
+async function waitForLabelUrlReadiness(url: string): Promise<{
+  ready: boolean;
+  attempts: number;
+  elapsedMs: number;
+  status: number | null;
+}> {
+  const startedAt = Date.now();
+  let attempts = 0;
+  let lastStatus: number | null = null;
+
+  while (Date.now() - startedAt <= LABEL_URL_READINESS_TIMEOUT_MS) {
+    attempts += 1;
+    const probeResult = await probeLabelUrl(url);
+    lastStatus = probeResult.status;
+
+    if (probeResult.ready) {
+      return {
+        ready: true,
+        attempts,
+        elapsedMs: Date.now() - startedAt,
+        status: probeResult.status,
+      };
+    }
+
+    const elapsedMs = Date.now() - startedAt;
+    if (elapsedMs >= LABEL_URL_READINESS_TIMEOUT_MS) {
+      break;
+    }
+
+    const sleepMs = Math.min(
+      LABEL_URL_READINESS_INTERVAL_MS,
+      LABEL_URL_READINESS_TIMEOUT_MS - elapsedMs,
+    );
+    await sleep(sleepMs);
+  }
+
+  return {
+    ready: false,
+    attempts,
+    elapsedMs: Date.now() - startedAt,
+    status: lastStatus,
+  };
+}
+
+async function probeLabelUrl(url: string): Promise<{ ready: boolean; status: number | null }> {
+  const headResult = await requestLabelUrl({
+    url,
+    method: 'HEAD',
+  });
+
+  if (isReadyStatus(headResult.status)) {
+    return { ready: true, status: headResult.status };
+  }
+
+  if (headResult.status === null || headResult.status >= 400) {
+    const getResult = await requestLabelUrl({
+      url,
+      method: 'GET',
+      headers: { Range: 'bytes=0-0' },
+    });
+
+    if (isReadyStatus(getResult.status)) {
+      return { ready: true, status: getResult.status };
+    }
+
+    return { ready: false, status: getResult.status ?? headResult.status };
+  }
+
+  return { ready: false, status: headResult.status };
+}
+
+function isReadyStatus(status: number | null): boolean {
+  return status !== null && status >= 200 && status < 400;
+}
+
+async function requestLabelUrl(input: {
+  url: string;
+  method: 'HEAD' | 'GET';
+  headers?: Record<string, string>;
+}): Promise<{ status: number | null }> {
+  try {
+    const response = await fetch(input.url, {
+      method: input.method,
+      headers: input.headers,
+      redirect: 'follow',
+      cache: 'no-store',
+    });
+
+    return { status: response.status };
+  } catch {
+    return { status: null };
+  }
+}
+
+function sleep(ms: number) {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
 }
