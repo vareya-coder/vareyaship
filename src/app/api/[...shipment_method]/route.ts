@@ -5,6 +5,7 @@ import { CustomerDetailsType, ShipmentDetailsType, ShipmentItemsType, ShipmentSt
 import { insertCustomerDetails, insertShipmentDetails, insertShipmentItems, insertShipmentStatus, } from '@/lib/db/dboperations';
 import { uploadPdf } from '@/app/utils/labelPdfUrlGenerator';
 import { uploadPdfBuffer } from '@/app/utils/labelPdfUploader';
+import { getRoyalMailTrackingUrl } from '@/app/utils/royalmail/royalmailDataMapper';
 // import { withAxiom, AxiomRequest } from 'next-axiom';
 import { logger } from '@/utils/logger';
 
@@ -30,6 +31,9 @@ export async function POST(req: NextRequest) {
   
   const asendiaSyncCallingapilocal = "http://localhost:3000/api/asendiasync"
   const asendiaSyncCallingapiProd = "https://vareyaship.vercel.app/api/asendiasync"
+
+  const royalMailCallingapilocal = "http://localhost:3000/api/royalmail/label"
+  const royalMailCallingapiProd = "https://vareyaship.vercel.app/api/royalmail/label"
 
   const EU: any = ['AT', 'BE', 'BG', 'CY', 'CZ', 'DE', 'DK', 'EE', 'ES', 'FI', 'FR', 'GR', 'HR', 'HU', 'IE', 'IT', 'LT', 'LU', 'LV', 'MT', 'NL', 'PL', 'PT', 'RO', 'SE', 'SI', 'SK'];
 
@@ -78,7 +82,9 @@ export async function POST(req: NextRequest) {
         'postnl:nl-mailbox-package-sorted-2929',
         'postnl:nl-mailbox-package-unsorted-2928',
         'postnl:nl-standard-3085',
-        'postnl:be-standard-4946'
+        'postnl:be-standard-4946',
+        'postnl:row-intl-boxable-track-trace-contract-6972',
+        'postnl:row-intl-packet-track-trace-contract-6350'
       ];
       const asendia: string[] = [
         'asendia:epaqpls',
@@ -90,11 +96,21 @@ export async function POST(req: NextRequest) {
         'asendia:epaqpls-personal-delivery-boxable',
         'asendia:epaqpls-mailbox-delivery-boxable'
       ];
+      const royalMail: string[] = [
+        'royal_mail_tracked_24_no_signature',
+        'royal_mail_tracked_48_no_signature',
+        'royal_mail_tracked_letter_boxable_48_no_signature',
+        'royalmail:royal_mail_tracked_24_no_signature',
+        'royalmail:royal_mail_tracked_48_no_signature',
+        'royalmail:royal_mail_tracked_letter_boxable_48_no_signature',
+      ];
 
     if(asendia.includes(shipmentData.shipping_method)){
       Carrier ="Asendia"
     } else if(postNL.includes(shipmentData.shipping_method)){
       Carrier="PostNL"
+    } else if(royalMail.includes(shipmentData.shipping_method)) {
+      Carrier="RoyalMail"
     }
 
     logger.info(Carrier);
@@ -218,6 +234,37 @@ export async function POST(req: NextRequest) {
         trackingUrl = `https://parcelsapp.com/en/tracking/${trackingNumber}`;
       } else {
         trackingUrl = `https://track.asendia.com/track/${trackingNumber}`;
+      }
+    } else if (Carrier === "RoyalMail") {
+      const royalMailResponse = await axios.post(royalMailCallingapiProd, shipmentData, {
+        validateStatus: function (status) {
+          return status < 500;
+        }
+      });
+
+      if (royalMailResponse && royalMailResponse.data && royalMailResponse.data.trackingNumber && royalMailResponse.data.labelBase64) {
+        trackingNumber = royalMailResponse.data.trackingNumber;
+        labelContent = royalMailResponse.data.labelBase64;
+
+        const uploadedLabelUrl = await uploadPdf(labelContent, filename);
+        if (!uploadedLabelUrl) {
+          throw new Error('Royal Mail label upload returned an empty URL.');
+        }
+        labelUrl = await finalizeLabelUrlForWebhook(uploadedLabelUrl, req, {
+          carrier: Carrier,
+          orderId: shipmentData.order_id,
+        });
+
+        trackingUrl = getRoyalMailTrackingUrl(trackingNumber);
+      } else if (royalMailResponse.status >= 400) {
+        return new NextResponse(JSON.stringify(royalMailResponse.data), {
+          status: royalMailResponse.status,
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        });
+      } else {
+        throw new Error('Royal Mail response did not contain tracking number and label data.');
       }
     } else {
       return new NextResponse('carrier not supported.', { status: 404 });
