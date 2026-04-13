@@ -52,11 +52,11 @@ export function mapShipHeroToAsendia(shipHeroData: ShipHeroWebhook): AsendiaParc
         shipHeroData.packages.forEach(packageItem => {
             if (packageItem.line_items && Array.isArray(packageItem.line_items)) {
                 packageItem.line_items.forEach(lineItem => {
-                  let itemWeightInTotalCalc = new Decimal(lineItem.weight || 0).toDecimalPlaces(3);
-                  // console.log(`Item weight in Total Calc oz: ${itemWeightInTotalCalc}`);
-                  let itemWeightInTotalCalcInKg = convertOzToKg(itemWeightInTotalCalc.toDecimalPlaces(3).toNumber());
-                  // console.log(`Item weight in Total Calc kg: ${itemWeightInTotalCalcInKg}`);
-                  totalWeightKg = totalWeightKg.plus(itemWeightInTotalCalcInKg);
+                  const quantity = new Decimal(lineItem.quantity ?? 1);
+                  // Multiply unit weight by quantity before converting to KG
+                  const totalItemWeightOz = new Decimal(lineItem.weight || 0).times(quantity).toDecimalPlaces(3);
+                  const totalItemWeightKg = convertOzToKg(totalItemWeightOz.toNumber());
+                  totalWeightKg = totalWeightKg.plus(totalItemWeightKg);
                 });
             }
         });

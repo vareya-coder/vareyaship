@@ -84,20 +84,23 @@ export async function POST(req: NextRequest) {
         
         // Case A: External API returned 400 Bad Request (Validation Failure)
         if (upstreamStatus === 400) {
-            
-            // **HIGHLIGHTED CHANGE: Use the expanded error parser**
-            let userFacingDetails = formatAsendiaErrors(errorData); 
-            logger.error("Parsed Asendia 400 error details:", userFacingDetails);
-            // console.log("Parsed Asendia 400 error details:", userFacingDetails);
-            
-            // Return 400 to the client, indicating bad input data
+            // Expanded error parsing for new Asendia formats
+            const parsed = parseAsendiaErrorComponents(errorData);
+            logger.error("Parsed Asendia 400 error details:", parsed.summary);
+            logger.error("Asendia 400 error components:", parsed);
+
+            // Return 400 to the client with meaningful details
             return new NextResponse(JSON.stringify({
                 message: "Client Request Data Validation Failed by Asendia Shipping Provider.",
-                details: userFacingDetails,
+                details: parsed.summary,
                 provider: "Asendia",
-                errorCode: "INPUT_VALIDATION_ERROR"
+                errorCode: "INPUT_VALIDATION_ERROR",
+                title: parsed.title,
+                id: parsed.id,
+                errors: parsed.errors?.length ? parsed.errors : undefined,
+                fieldErrors: parsed.fieldErrors?.length ? parsed.fieldErrors : undefined,
             }), {
-                status: 400, // <-- CRUCIAL: Returning 400 (Bad Request)
+                status: 400,
                 headers: { 'Content-Type': 'application/json' }
             });
         }
@@ -153,69 +156,120 @@ export async function POST(req: NextRequest) {
  * Helper function to parse Asendia's varied error payloads (400 Bad Request)
  * into a single readable string.
  */
-const formatAsendiaErrors = (errorData: any): string => {
-  const messages: string[] = [];
+const stripHtml = (s: string): string => (s || '').replace(/<[^>]*>/g, '');
 
-  // --- 1. Handle Structure 1: 'validationErrors' (Seen in Error 1 & 3) ---
-  if (errorData.validationErrors) {
-      const validationErrors = errorData.validationErrors;
-      
-      // A. Handle top-level 'fields' errors (like parcel weight or postalCode)
-      if (validationErrors.fields) {
-          for (const fieldName in validationErrors.fields) {
-              const fieldError = validationErrors.fields[fieldName];
-              if (fieldError.violations && fieldError.violations.length > 0) {
-                  const violation = fieldError.violations[0];
-                  // Extract required attribute (e.g., 'value' for weight, 'country' for postalCode)
-                  const attributes = violation.attributes ? Object.values(violation.attributes).join(', ') : 'N/A';
-                  
-                  // Replace placeholder in message if possible
-                  let message = violation.message;
-                  if (violation.attributes?.value) {
-                        message = message.replace('{{value}}', violation.attributes.value);
-                  }
-                  if (violation.attributes?.country) {
-                        message = message.replace('{{country}}', violation.attributes.country);
-                  }
-                  
-                  // Original format: messages.push(`${fieldName}: ${violation.message} (Required: ${attributes})`);
-                  messages.push(`Field '${fieldName}': ${message}`);
-              }
-          }
-      }
-
-      // B. Handle 'orderLines' specific errors (Seen in Error 3)
-      if (Array.isArray(validationErrors.orderLines)) {
-          validationErrors.orderLines.forEach((lineError: any, index: number) => {
-              for (const fieldName in lineError) {
-                  const fieldError = lineError[fieldName];
-                  if (fieldError.violations && fieldError.violations.length > 0) {
-                      const violation = fieldError.violations[0];
-                      const requiredValue = violation.attributes?.value || 'N/A';
-                        let message = violation.message.replace('{{value}}', requiredValue);
-                      messages.push(`Order Line ${index + 1} - Field '${fieldName}': ${message}`);
-                  }
-              }
-          });
-      }
-  }
-  
-  // ---------------------------------------------------------------------
-
-  // --- 2. Handle Structure 2: 'fieldErrors' (Seen in Error 2) ---
-  if (Array.isArray(errorData.fieldErrors)) {
-      errorData.fieldErrors.forEach((fieldError: any) => {
-          // Note: fieldError.field might be 'addresses.receiver.address1'
-          messages.push(`Field '${fieldError.field}': ${fieldError.message}`);
-      });
-  }
-  // ---------------------------------------------------------------------
-
-
-  if (messages.length === 0) {
-      // Fallback for an unknown 400 format
-      return errorData.message || "Input validation failed due to an unspecified constraint.";
-  }
-
-  return messages.join('; ');
+const extractTrailingJsonArray = (s: string): any[] | null => {
+  try {
+    if (!s) return null;
+    const start = s.indexOf('[');
+    const end = s.lastIndexOf(']');
+    if (start >= 0 && end > start) {
+      const slice = s.substring(start, end + 1);
+      return JSON.parse(slice);
+    }
+  } catch {}
+  return null;
 };
+
+const formatAsendiaErrors = (errorData: any): string => {
+  const parsed = parseAsendiaErrorComponents(errorData);
+  if (parsed.summary && parsed.summary.trim() !== '') return parsed.summary;
+  return errorData?.message || 'Input validation failed due to an unspecified constraint.';
+};
+
+function parseAsendiaErrorComponents(errorData: any): {
+  title?: string;
+  id?: string;
+  summary: string;
+  errors?: string[];
+  fieldErrors?: string[];
+} {
+  const messages: string[] = [];
+  const fieldMsgs: string[] = [];
+
+  const title = typeof errorData?.title === 'string' ? errorData.title : undefined;
+  const id = typeof errorData?.id === 'string' ? errorData.id : undefined;
+
+  // New format: errorMessages: [{ field, message }]
+  if (Array.isArray(errorData?.errorMessages)) {
+    for (const e of errorData.errorMessages) {
+      const field = e?.field ?? 'unknown';
+      const msg = stripHtml(String(e?.message ?? ''));
+      fieldMsgs.push(`Field '${field}': ${msg}`);
+      // Try JSON array inside message for harmonised codes
+      const jsonArr = extractTrailingJsonArray(String(e?.message ?? ''));
+      if (Array.isArray(jsonArr)) {
+        for (const item of jsonArr) {
+          const code = item?.HarmonisedErrorCode || item?.code;
+          const ui = item?.HarmonisedErrorUIMessage || item?.message;
+          if (code || ui) {
+            fieldMsgs.push(`Hint ${code ? `[${code}]` : ''} ${ui ? `- ${ui}` : ''}`.trim());
+          }
+        }
+      }
+    }
+  }
+
+  // New format: errors: [string]
+  if (Array.isArray(errorData?.errors)) {
+    for (const e of errorData.errors) {
+      const txt = stripHtml(String(e ?? ''));
+      messages.push(txt);
+      const jsonArr = extractTrailingJsonArray(String(e ?? ''));
+      if (Array.isArray(jsonArr)) {
+        for (const item of jsonArr) {
+          const code = item?.HarmonisedErrorCode || item?.code;
+          const ui = item?.HarmonisedErrorUIMessage || item?.message;
+          if (code || ui) {
+            messages.push(`Hint ${code ? `[${code}]` : ''} ${ui ? `- ${ui}` : ''}`.trim());
+          }
+        }
+      }
+    }
+  }
+
+  // Legacy: validationErrors.fields
+  if (errorData?.validationErrors?.fields) {
+    const fields = errorData.validationErrors.fields;
+    for (const fieldName in fields) {
+      const fieldError = fields[fieldName];
+      if (Array.isArray(fieldError?.violations) && fieldError.violations.length > 0) {
+        const violation = fieldError.violations[0];
+        let msg = String(violation?.message ?? 'Invalid value');
+        if (violation?.attributes?.value) msg = msg.replace('{{value}}', String(violation.attributes.value));
+        if (violation?.attributes?.country) msg = msg.replace('{{country}}', String(violation.attributes.country));
+        fieldMsgs.push(`Field '${fieldName}': ${msg}`);
+      }
+    }
+  }
+
+  // Legacy: validationErrors.orderLines
+  if (Array.isArray(errorData?.validationErrors?.orderLines)) {
+    errorData.validationErrors.orderLines.forEach((lineError: any, index: number) => {
+      for (const fieldName in lineError) {
+        const fieldError = lineError[fieldName];
+        if (Array.isArray(fieldError?.violations) && fieldError.violations.length > 0) {
+          const violation = fieldError.violations[0];
+          const requiredValue = violation?.attributes?.value || 'N/A';
+          const message = String(violation?.message ?? '').replace('{{value}}', String(requiredValue));
+          fieldMsgs.push(`Order Line ${index + 1} - Field '${fieldName}': ${message}`);
+        }
+      }
+    });
+  }
+
+  // Legacy: fieldErrors [{ field, message }]
+  if (Array.isArray(errorData?.fieldErrors)) {
+    errorData.fieldErrors.forEach((fe: any) => {
+      fieldMsgs.push(`Field '${fe?.field}': ${fe?.message}`);
+    });
+  }
+
+  const combined: string[] = [];
+  if (title) combined.push(title);
+  if (messages.length) combined.push(...messages);
+  if (fieldMsgs.length) combined.push(...fieldMsgs);
+  const summary = combined.length ? combined.join('; ') : (errorData?.message || 'Bad Request');
+
+  return { title, id, summary, errors: messages, fieldErrors: fieldMsgs };
+}
