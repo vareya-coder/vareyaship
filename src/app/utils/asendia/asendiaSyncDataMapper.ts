@@ -93,10 +93,10 @@ export function mapShipHeroToAsendia(shipHeroData: ShipHeroWebhook): AsendiaParc
     const orderNumCleaned = shipHeroData.order_number.replace(/[#A-Z-]+/gi, '');
     var currTime = new Date();
     const referenceNumber = `${orderNumCleaned}P${currTime.getTime()}`;
-    const sequenceNumber = `${currTime.getTime()}`;
+    // const sequenceNumber = `${currTime.getTime()}`;
     logger.info(orderNumCleaned);
     logger.info(referenceNumber);
-    logger.info(sequenceNumber);
+    // logger.info(sequenceNumber);
 
     // get attribute codes and populate
     let shipmentAsendiaProduct = '';
@@ -209,11 +209,14 @@ export function mapShipHeroToAsendia(shipHeroData: ShipHeroWebhook): AsendiaParc
     }
 
     // Construct the main request body for Asendia
+    //
+    // Removed: sequencenumber: sequenceNumber,
+    // because Asendia support said: 
+    // "This field is not mandatory and it should only be populated by senders with their own tracking number range."
     const asendiaRequestData: AsendiaParcelRequest = {
         customerId: shipmentCustomerCrmId,
         labelType: "PDF",
         referencenumber: referenceNumber,
-        sequencenumber: sequenceNumber,
         senderTaxId: shipmentCustomerSenderTaxCode,
         weight: getTotalWeightKg(),
         

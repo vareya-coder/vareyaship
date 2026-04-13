@@ -13,7 +13,7 @@ export async function POST(req: NextRequest) {
   try {
     if (req.method === 'POST') {
       const shipmentData: ShipHeroWebhook = await req.json();
-      logger.info(JSON.stringify(shipmentData));
+    //   logger.info(JSON.stringify(shipmentData));
 
   ///////
       const username = process.env.ASENDIA_SYNC_USERNAME;
@@ -51,6 +51,7 @@ export async function POST(req: NextRequest) {
   
       try {
         console.log("Creating Asendia parcel with request:", JSON.stringify(asendiaRequestBody, null, 2));
+        logger.log("Creating Asendia parcel with request:", JSON.stringify(asendiaRequestBody, null, 2));
         const parcelResponse = await asendiaApi.post<AsendiaParcelResponse>('/api/parcels', asendiaRequestBody, {
             headers: {
                 'Authorization': `Bearer ${id_token}`
@@ -58,6 +59,7 @@ export async function POST(req: NextRequest) {
         });
   
         console.log("Successfully received response from Asendia:", parcelResponse.data);
+        logger.log("Successfully received response from Asendia:", parcelResponse.data);
         // return parcelResponse.data;
 
         return new NextResponse(JSON.stringify(
@@ -77,7 +79,7 @@ export async function POST(req: NextRequest) {
         const errorData = error.response?.data;
         
         // 1. Always log the full upstream error for debugging purposes
-        // console.error("Error creating Asendia parcel:", JSON.stringify(errorData || error.message));
+        console.error("Error creating Asendia parcel:", JSON.stringify(errorData || error.message));
         logger.error(`Error creating Asendia parcel: ${JSON.stringify(errorData || error.message)}`);
         
         // Case A: External API returned 400 Bad Request (Validation Failure)
@@ -115,15 +117,16 @@ export async function POST(req: NextRequest) {
 
         // Case C: External API returned 5xx (Server Failure on their end)
         if (upstreamStatus >= 500) {
-          logger.error(`Asendia API server error with status ${upstreamStatus}.`);  
-          // Respond with 502 Bad Gateway, indicating the upstream service is failing
-          return new NextResponse(JSON.stringify({
-              message: "External shipping provider service error (Asendia).",
-              details: "The upstream service reported a server failure. Please try again later.",
-          }), {
-              status: 502, // Bad Gateway
-              headers: { 'Content-Type': 'application/json' }
-          });
+            console.error(`Asendia API server error with status ${upstreamStatus}.`);
+            logger.error(`Asendia API server error with status ${upstreamStatus}.`);  
+            // Respond with 502 Bad Gateway, indicating the upstream service is failing
+            return new NextResponse(JSON.stringify({
+                message: "External shipping provider service error (Asendia).",
+                details: "The upstream service reported a server failure. Please try again later.",
+            }), {
+                status: 502, // Bad Gateway
+                headers: { 'Content-Type': 'application/json' }
+            });
         }
         
         // Case D: Default Fallback (Unexpected/Unhandled Error)
@@ -140,6 +143,7 @@ export async function POST(req: NextRequest) {
       return new NextResponse('Method Not Allowed', { status: 405 });
     }
   } catch (error) {
+    console.error('Error processing the shipment update:', error);
     logger.error('Error processing the shipment update:', error);
     return new NextResponse('Internal Server Error', { status: 500 });
   }

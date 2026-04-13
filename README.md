@@ -63,6 +63,20 @@ pnpm dev
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
+## Asendia Manifest Automation (Headless)
+
+Endpoints:
+- `GET /api/cron/manifest-trigger` — evaluates/creates manifests (10-min schedule, `Authorization: Bearer ${CRON_SECRET}`)
+- `GET /api/cron/manifest-retention` — deletes old manifest PDFs (daily, `Authorization: Bearer ${CRON_SECRET}`)
+
+Feature flags (env):
+- `DRY_RUN_MANIFEST`, `CUTOFF_TIME`, `CUTOFF_TIMEZONE`, `BATCH_INTERVAL_HOURS`, `SHIPMENT_THRESHOLD`, `RETENTION_DAYS`
+
+Docs:
+- docs/operations/asendia-manifest-cron.md
+- docs/db/migrations-asendia.md
+- docs/testing/asendia-manifest-tests.md
+
 ## UploadThing Cleanup Cron
 
 This project includes a cleanup route at:

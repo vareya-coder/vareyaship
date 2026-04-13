@@ -3,6 +3,14 @@
     {
       "path": "/api/cron/ut-delete-old-files",
       "schedule": "0 3 * * *"
+    },
+    {
+      "path": "/api/cron/manifest-trigger",
+      "schedule": "*/10 * * * *"
+    },
+    {
+      "path": "/api/cron/manifest-retention",
+      "schedule": "30 2 * * *"
     }
   ]
 }

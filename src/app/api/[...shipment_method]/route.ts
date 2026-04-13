@@ -8,6 +8,7 @@ import { uploadPdfBuffer } from '@/app/utils/labelPdfUploader';
 import { getRoyalMailTrackingUrl } from '@/app/utils/royalmail/royalmailDataMapper';
 // import { withAxiom, AxiomRequest } from 'next-axiom';
 import { logger } from '@/utils/logger';
+import { ingestAsendiaShipment } from '@/modules/shipments/shipment.service';
 
 const SHIPMENT_WEBHOOK_ROUTE = '/api/[...shipment_method]';
 const LABEL_URL_READINESS_TIMEOUT_MS = 2000;
@@ -163,7 +164,7 @@ export async function POST(req: NextRequest) {
         });
         
         logger.info("Successfully received response from Local Asendia API Handler in main:");
-        // console.log("Successfully received response from Local Asendia API Handler in main:", asendiaResponse.data);
+        console.log("Successfully received response from Local Asendia API Handler in main:", asendiaResponse.data);
         
         if (asendiaResponse && asendiaResponse.data && asendiaResponse.data.trackingNumber && asendiaResponse.data.labelLocation) {
           trackingNumber = asendiaResponse.data.trackingNumber
@@ -191,6 +192,23 @@ export async function POST(req: NextRequest) {
               orderId: shipmentData.order_id,
             });
             logger.info(`Label uploaded successfully. URL: ${labelUrl}`);
+
+            // Persist shipment + assign to batch (idempotent on parcel id)
+            if (asendiaResponse.data.parcelId) {
+              try {
+                await ingestAsendiaShipment({
+                  external_shipment_id: String(asendiaResponse.data.parcelId),
+                  order_id: shipmentData.order_id,
+                  account_id: shipmentData.account_id,
+                  shipping_method: shipmentData.shipping_method,
+                  parcel_id: String(asendiaResponse.data.parcelId),
+                  tracking_number: trackingNumber,
+                  label_url: labelUrl,
+                });
+              } catch (e) {
+                logger.error('Failed to persist Asendia shipment', { error: (e as any)?.message });
+              }
+            }
 
           } catch (uploadError: any) {
               logger.error("Failed to fetch or upload the Asendia label.", uploadError.message);
@@ -224,6 +242,8 @@ export async function POST(req: NextRequest) {
           carrier: Carrier,
           orderId: shipmentData.order_id,
         });
+
+        // SOAP flow: we don't receive parcelId. Skip ingestion in this legacy path.
       }
       // trackingUrl = `https://a-track.asendia.com/customer-tracking/self?tracking_id=${trackingNumber}`
       // trackingUrl = `https://tracking.asendia.com/tracking/${trackingNumber}`
