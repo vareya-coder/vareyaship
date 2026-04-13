@@ -13,7 +13,7 @@ export async function POST(req: NextRequest) {
   try {
     if (req.method === 'POST') {
       const shipmentData: ShipHeroWebhook = await req.json();
-    //   logger.info(JSON.stringify(shipmentData));
+      logger.info(JSON.stringify(shipmentData));
 
   ///////
       const username = process.env.ASENDIA_SYNC_USERNAME;
