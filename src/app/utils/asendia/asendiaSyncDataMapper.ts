@@ -41,26 +41,29 @@ export function mapShipHeroToAsendia(shipHeroData: ShipHeroWebhook): AsendiaParc
     
     // Helper to convert weight from Ounces (oz) to Kilograms (kg)
     function convertOzToKg(weightInOz: number): number {
-        const grams = new Decimal(weightInOz).times(new Decimal(28.3495)).dividedBy(1000).toDecimalPlaces(3).toNumber();
+        const grams = new Decimal(weightInOz)
+          .times(OZ_TO_KG_MULTIPLIER)
+          .toDecimalPlaces(3)
+          .toNumber();
         return grams; // Asendia API requires weight in KG
+    }
+
+    function getLineItemUnitWeightKg(weightInOz: number): Decimal {
+        return new Decimal(convertOzToKg(weightInOz || 0));
     }
 
     // Helper to calculate the total weight of all items in the shipment
     function getTotalWeightKg(): number {
         let totalWeightKg = new Decimal(0);
-        // let totalWeightO = 0;
         shipHeroData.packages.forEach(packageItem => {
             if (packageItem.line_items && Array.isArray(packageItem.line_items)) {
                 packageItem.line_items.forEach(lineItem => {
                   const quantity = new Decimal(lineItem.quantity ?? 1);
-                  // Multiply unit weight by quantity before converting to KG
-                  const totalItemWeightOz = new Decimal(lineItem.weight || 0).times(quantity).toDecimalPlaces(3);
-                  const totalItemWeightKg = convertOzToKg(totalItemWeightOz.toNumber());
-                  totalWeightKg = totalWeightKg.plus(totalItemWeightKg);
+                  const unitWeightKg = getLineItemUnitWeightKg(lineItem.weight);
+                  totalWeightKg = totalWeightKg.plus(unitWeightKg.times(quantity));
                 });
             }
         });
-        // console.log(`Total weight in kg: ${totalWeightKg.toDecimalPlaces(3).toNumber()}`);
         return totalWeightKg.toDecimalPlaces(4).toNumber();
     }
     
@@ -338,7 +341,7 @@ export function mapShipHeroToAsendia(shipHeroData: ShipHeroWebhook): AsendiaParc
                 }
               }
 
-              let unitWeightKg = convertOzToKg(lineItem.weight);
+              let unitWeightKg = getLineItemUnitWeightKg(lineItem.weight).toNumber();
 
               // console.log('Adding item to customs:', {
               //   articleDescription: lineItem.customs_description || lineItem.name});
