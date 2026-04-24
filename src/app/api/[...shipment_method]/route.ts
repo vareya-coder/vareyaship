@@ -81,8 +81,8 @@ export async function POST(req: NextRequest) {
         'postnl:nl-mailbox-package-unsorted-2928',
         'postnl:nl-standard-3085',
         'postnl:be-standard-4946',
-        'postnl:row-intl-boxable-track-trace-contract-6972',
-        'postnl:row-intl-packet-track-trace-contract-6350'
+        // 'postnl:row-intl-boxable-track-trace-contract-6972',
+        // 'postnl:row-intl-packet-track-trace-contract-6350'
       ];
       const asendia: string[] = [
         'asendia:epaqpls',

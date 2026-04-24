@@ -109,9 +109,9 @@ async function callPostNLApi(apiKey: string, requestPayload: any ) {
 function getProductCode(shippingMethod: string): string | undefined {
   switch (shippingMethod) {
     case 'postnl:row-intl-boxable-track-trace-contract-6942':
-      return "6972";
+      return "6942";
     case 'postnl:row-intl-packet-track-trace-contract-6550':
-      return "6350";
+      return "6550";
     case 'postnl:nl-mailbox-package-sorted-2929':
       return "2929";
     case 'postnl:nl-mailbox-package-unsorted-2928':
@@ -120,10 +120,10 @@ function getProductCode(shippingMethod: string): string | undefined {
       return "3085";
     case 'postnl:be-standard-4946':
       return "4946";
-    case 'postnl:row-intl-boxable-track-trace-contract-6972':
-      return "6972";
-    case 'postnl:row-intl-packet-track-trace-contract-6350':
-      return "6350";
+    // case 'postnl:row-intl-boxable-track-trace-contract-6972':
+    //   return "6972";
+    // case 'postnl:row-intl-packet-track-trace-contract-6350':
+    //   return "6350";
     default:
       return undefined;
   }
