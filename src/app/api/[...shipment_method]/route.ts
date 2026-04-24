@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import axios, { AxiosError, AxiosResponse } from 'axios';
 import { ShipHeroWebhook } from '@/app/utils/types';
-import { CustomerDetailsType, ShipmentDetailsType, ShipmentItemsType, ShipmentStatusType } from '@/lib/db/schema';
-import { insertCustomerDetails, insertShipmentDetails, insertShipmentItems, insertShipmentStatus, } from '@/lib/db/dboperations';
 import { uploadPdf } from '@/app/utils/labelPdfUrlGenerator';
 import { uploadPdfBuffer } from '@/app/utils/labelPdfUploader';
 import { getRoyalMailTrackingUrl } from '@/app/utils/royalmail/royalmailDataMapper';
@@ -46,7 +44,6 @@ export async function POST(req: NextRequest) {
 
     const firstPackage = shipmentData.packages[0];
 
-    const Weight = firstPackage.weight_in_oz * 28.3495;
     const { shipping_method, order_id, order_number, to_address, packages } = shipmentData;
 
     if (!shipping_method || !order_id || !order_number || !to_address || !packages) {
@@ -194,6 +191,7 @@ export async function POST(req: NextRequest) {
             logger.info(`Label uploaded successfully. URL: ${labelUrl}`);
 
             // Persist shipment + assign to batch (idempotent on parcel id)
+            console.log(asendiaResponse)
             if (asendiaResponse.data.parcelId) {
               try {
                 await ingestAsendiaShipment({
@@ -206,6 +204,7 @@ export async function POST(req: NextRequest) {
                   label_url: labelUrl,
                 });
               } catch (e) {
+                console.error('Failed to persist Asendia shipment', { error: (e as any)?.message });
                 logger.error('Failed to persist Asendia shipment', { error: (e as any)?.message });
               }
             }
@@ -297,62 +296,6 @@ export async function POST(req: NextRequest) {
     logger.info(trackingNumber);
     logger.info(trackingUrl);
     logger.info(`Final uploaded label URL: ${labelUrl}`);
-
-    // const shipmentDetailsData: ShipmentDetailsType = {
-    //   order_id: shipmentData.order_id,
-    //   barcode: trackingNumber,
-    //   name: shipmentData.shop_name,
-    //   cancel_deadline: new Date(),
-    //   shipping_method: shipmentData.shipping_method,
-    //   from_address: shipmentData.to_address.address_1 + "," + shipmentData.to_address.city + "," + shipmentData.to_address.country as string,
-    //   label_url: labelUrl as string,
-    //   request_body : JSON.stringify(shipmentData) 
-    // };
-    // let shipmentId : any = undefined
-    // let insertedShipmentId : any = undefined
-    // try{
-    //   shipmentId  = await insertShipmentDetails(shipmentDetailsData);
-    //   insertedShipmentId =shipmentId[0].insertedId
-
-    // } catch(error){
-    //   console.log(error)
-    //   logger.error('Error occured while inserting data to database', { error: error });
-
-    // }
-
-    // const customerDetailsData: CustomerDetailsType = {
-    //   customer_name: shipmentData.to_address.name,
-    //   customer_email: shipmentData.to_address.email,
-    //   to_address: shipmentData.to_address.address_1 + "," + shipmentData.to_address.city + "," + shipmentData.to_address.country,
-    //   shipment_id: insertedShipmentId,
-    // };
-
-    // const shipmentStatusData: ShipmentStatusType = {
-    //   shipment_id:insertedShipmentId,
-    //   status_code: '1',
-    //   status_description: '	Shipment pre-alerted',
-    //   carrier_message: 'Carrier message goes here',
-    // };
-    // const shipmentItemsData: ShipmentItemsType[] = shipmentData.packages[0].line_items?.map((item: any) => {
-    //   return {
-    //       shipment_id: insertedShipmentId,
-    //       item_description: item.customs_description,
-    //       quantity: item.quantity,
-    //       unit_price: item.price,
-    //       shipment_weight: Weight
-    //   };
-    // }) || [];
-    
-    // try {
-    //   // Insert into addresses table
-    //   // await insertShipmentItems(shipmentItemsData)
-    //   // await insertCustomerDetails(customerDetailsData)
-    //   // await insertShipmentStatus(shipmentStatusData)
-    //   console.log('No longer inserting data into database');
-
-    // } catch (error) {
-    //   logger.error('Error occured while inserting data to database', { error: error });
-    // }
 
     let responseBodyJson = {
       code: 200,

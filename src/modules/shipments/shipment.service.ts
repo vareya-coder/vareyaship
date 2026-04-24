@@ -2,7 +2,7 @@ import { logger } from '@/utils/logger';
 import { getFlags } from '@/modules/featureFlags/featureFlag.service';
 import { getOperationalDateISO } from '@/modules/time/time';
 import { getOrCreateOpenBatch, assignShipmentToBatch } from '@/modules/batching/batch.service';
-import { findShipmentByExternalId, insertShipment, setShipmentBatch } from './shipment.repository';
+import { findShipmentByExternalId, insertShipment, listRecentShipments, setShipmentBatch } from './shipment.repository';
 import type { IngestAsendiaShipmentInput } from './shipment.types';
 
 export async function ingestAsendiaShipment(input: IngestAsendiaShipmentInput) {
@@ -34,3 +34,6 @@ export async function ingestAsendiaShipment(input: IngestAsendiaShipmentInput) {
   return { id: (created as any).id, batch_id: batch.batch_id, operational_date };
 }
 
+export async function listRecentAsendiaShipments(limit = 100) {
+  return listRecentShipments(limit);
+}

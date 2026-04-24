@@ -3,7 +3,7 @@ import { migrate } from 'drizzle-orm/postgres-js/migrator';
 import postgres from 'postgres';
 import { drizzle } from 'drizzle-orm/postgres-js';
 config({ path: '.env' });
-const databaseUrl = drizzle(postgres(`${process.env.DATABASE_URL}`, 
+const databaseUrl = drizzle(postgres(`${process.env.VAREYASHIP_DATABASE_DATABASE_URL}`, 
 { ssl: 'require', max: 1 }));
 const main = async () => {
   try {

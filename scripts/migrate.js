@@ -41,7 +41,7 @@ var migrator_1 = require("drizzle-orm/postgres-js/migrator");
 var postgres_1 = require("postgres");
 var postgres_js_1 = require("drizzle-orm/postgres-js");
 (0, dotenv_1.config)({ path: '.env' });
-var databaseUrl = (0, postgres_js_1.drizzle)((0, postgres_1.default)("".concat(process.env.DATABASE_URL), { ssl: 'require', max: 1 }));
+var databaseUrl = (0, postgres_js_1.drizzle)((0, postgres_1.default)("".concat(process.env.VAREYASHIP_DATABASE_DATABASE_URL), { ssl: 'require', max: 1 }));
 var main = function () { return __awaiter(void 0, void 0, void 0, function () {
     var error_1;
     return __generator(this, function (_a) {

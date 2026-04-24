@@ -1,6 +1,6 @@
 import { db } from '@/lib/db';
 import { shipments } from '@/lib/db/schema';
-import { eq, inArray } from 'drizzle-orm';
+import { desc, eq, inArray } from 'drizzle-orm';
 
 export async function findShipmentByExternalId(externalId: string) {
   const rows = await db.select().from(shipments).where(eq(shipments.external_shipment_id, externalId));
@@ -24,4 +24,12 @@ export async function markShipmentsManifestedByParcelIds(parcelIds: string[]) {
 export async function listUnmanifestedParcelIdsForBatch(batchId: number): Promise<string[]> {
   const rows = await db.select({ pid: shipments.parcel_id }).from(shipments).where(eq(shipments.batch_id, batchId));
   return rows.map((r) => r.pid as unknown as string);
+}
+
+export async function listRecentShipments(limit = 100) {
+  return db
+    .select()
+    .from(shipments)
+    .orderBy(desc(shipments.created_at), desc(shipments.id))
+    .limit(limit);
 }

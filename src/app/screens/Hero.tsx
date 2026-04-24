@@ -1,36 +1,24 @@
 "use client"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
-import { DropdownMenuTrigger, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuItem, DropdownMenuContent, DropdownMenu } from "@/components/ui/dropdown-menu"
 import { TabsTrigger, TabsList, TabsContent, Tabs } from "@/components/ui/tabs"
 import { TableHead, TableRow, TableHeader, TableCell, TableBody, Table } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
-import { ShipmentDetailsType } from "@/lib/db/schema"
-import { getAllShipmentDetails } from "@/lib/db/dboperations"
 import { CardTitle, CardHeader, CardContent, Card } from "@/components/ui/card"
 import { Tag } from "lucide-react"
-import { useEffect, useState } from "react"
-import { useRouter } from "next/navigation"
 
+type LabelRow = {
+  id: number;
+  orderId: number | null;
+  shippingMethod: string | null;
+  trackingNumber: string | null;
+  parcelId: string;
+  labelUrl: string | null;
+  createdAt: string | null;
+  isManifested: boolean;
+};
 
-
-
-export default  function Hero() {
-   const [labelData, setLabelData] = useState<ShipmentDetailsType[]>([]);
-  // const labelData =  await getAllShipmentDetails()
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const result = await getAllShipmentDetails();
-        setLabelData(result.reverse());
-      } catch (error) {
-        console.error('Error fetching shipment details:', error);
-      }
-    };
-
-    fetchData();
-  }, []);
-  
+export default function Hero({ labelData }: { labelData: LabelRow[] }) {
   return (
     <div key="1" className="bg-white p-8">
       <Tabs  defaultValue="labels">
@@ -61,11 +49,11 @@ export default  function Hero() {
                 <TableHeader>
               <TableRow>
                 <TableHead>Label</TableHead>
-                {/* <TableHead>Status</TableHead> */}
                 <TableHead>Order Id</TableHead>
-                <TableHead>Name</TableHead>
                 <TableHead>Shipping Method</TableHead>
                 <TableHead>Tracking Number</TableHead>
+                <TableHead>Parcel Id</TableHead>
+                <TableHead>Manifested</TableHead>
                 <TableHead>Date</TableHead>
               </TableRow>
             </TableHeader>
@@ -73,18 +61,23 @@ export default  function Hero() {
               {
                 labelData.map((item : any)=>(
 
-              <TableRow key={item.order_id}>
-                
-              <Link href={item.label_url} rel="noopener noreferrer" target="_blank"> 
-              <TableCell className="text-green-600 flex flex-row " >   <Tag /><h1 className="pl-2 text-black font-bold">Print</h1> </TableCell>
-               </Link>
-
-                {/* <TableCell>At sorting centre</TableCell> */}
-                <TableCell>{item.order_id}</TableCell>
-                <TableCell>{item.name}</TableCell>
-                <TableCell>{item.shipping_method}</TableCell>
-                <TableCell>{item.barcode}</TableCell>
-                <TableCell>{item.label_announced_at.toLocaleString()}</TableCell>
+              <TableRow key={item.id}>
+                <TableCell className="text-green-600">
+                  {item.labelUrl ? (
+                    <Link href={item.labelUrl} rel="noopener noreferrer" target="_blank" className="flex flex-row">
+                      <Tag />
+                      <span className="pl-2 text-black font-bold">Print</span>
+                    </Link>
+                  ) : (
+                    <span className="text-gray-400">Missing</span>
+                  )}
+                </TableCell>
+                <TableCell>{item.orderId ?? "-"}</TableCell>
+                <TableCell>{item.shippingMethod ?? "-"}</TableCell>
+                <TableCell>{item.trackingNumber ?? "-"}</TableCell>
+                <TableCell>{item.parcelId}</TableCell>
+                <TableCell>{item.isManifested ? "Yes" : "No"}</TableCell>
+                <TableCell>{item.createdAt ? new Date(item.createdAt).toLocaleString() : "-"}</TableCell>
               </TableRow>
                 ))
               }
