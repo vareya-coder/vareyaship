@@ -6,6 +6,8 @@
     "dev": "next dev",
     "db:migrate": "tsx scripts/migrate.ts",
     "db:generate": "drizzle-kit generate:pg",
+    "manifest:manual-process": "tsx scripts/manual-process-manifest.ts",
+    "manifest:recreate": "tsx scripts/recreate-manifest.ts",
     "build": "next build",
     "start": "next start",
     "lint": "next lint"

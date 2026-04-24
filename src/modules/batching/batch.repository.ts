@@ -3,6 +3,11 @@ import { batches, shipments } from '@/lib/db/schema';
 import { and, eq, sql, desc, isNull } from 'drizzle-orm';
 import type { BatchStatus } from './batch.types';
 
+export async function findBatchById(batchId: number) {
+  const rows = await db.select().from(batches).where(eq(batches.batch_id, batchId));
+  return rows[0] ?? null;
+}
+
 export async function findOpenBatch(groupingKey: string | null, operationalDateISO: string) {
   const rows = await db
     .select()
@@ -42,6 +47,10 @@ export async function setBatchStatusGuarded(batchId: number, fromStatus: BatchSt
 export async function listOpenBatches() {
   const rows = await db.select().from(batches).where(eq(batches.status, 'OPEN'));
   return rows;
+}
+
+export async function listBatchShipments(batchId: number) {
+  return db.select().from(shipments).where(eq(shipments.batch_id, batchId));
 }
 
 export async function getBatchShipments(batchId: number) {

@@ -39,8 +39,9 @@ Asendia REST:
 Notifications (Resend):
 - `RESEND_API_KEY`
 - `RESEND_API_ENDPOINT` (optional, defaults to https://api.resend.com/emails)
-- `NOTIFY_EMAIL_TO`
-- `NOTIFY_EMAIL_FROM`
+- `MANIFEST_NOTIFICATION_EMAIL_TO`
+- `MANIFEST_NOTIFICATION_EMAIL_FROM`
+- `MANIFEST_NOTIFICATION_TIMEZONE` (optional, defaults to Europe/Amsterdam)
 
 ## Dry Run
 
@@ -48,6 +49,31 @@ Notifications (Resend):
 - `manifest-trigger` will:
   - Log which batches would be closed and how many parcels would be manifested
   - Not update batches or call Asendia
+
+## Manual Recovery
+
+- Recreate an existing Asendia manifest on demand:
+
+```bash
+pnpm manifest:recreate --manifest-id <manifest-id>
+```
+
+- The command calls `PUT /api/manifests/{manifestId}` against Asendia Sync using the existing REST auth env vars.
+- Use this only as a manual recovery path when you intentionally want Asendia to rebuild a manifest for an existing manifest ID.
+
+- Run the full manual batch recovery flow:
+
+```bash
+pnpm manifest:manual-process --batch-id <batch-id> [--manifest-id <manifest-id>]
+```
+
+- This command:
+  - loads the batch from DB
+  - creates a manifest if none exists yet
+  - recreates the existing manifest if one already exists
+  - verifies parcels, fetches the manifest document, uploads it to UploadThing, and reconciles local DB state
+  - leaves the batch in a stable final state so a later cron run does not try to reprocess the same batch
+  - stays quiet on email notifications; it only logs to console/Axiom
 
 ## Logs (Axiom events)
 

@@ -77,6 +77,18 @@ Docs:
 - docs/db/migrations-asendia.md
 - docs/testing/asendia-manifest-tests.md
 
+Manual recovery command:
+
+```bash
+pnpm manifest:recreate --manifest-id <manifest-id>
+```
+
+Manual batch recovery command:
+
+```bash
+pnpm manifest:manual-process --batch-id <batch-id> [--manifest-id <manifest-id>]
+```
+
 ## UploadThing Cleanup Cron
 
 This project includes a cleanup route at:

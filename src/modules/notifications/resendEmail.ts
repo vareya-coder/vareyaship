@@ -21,8 +21,8 @@ export async function sendResendEmail(input: {
 
   const to = Array.isArray(input.to)
     ? input.to
-    : (input.to ? [input.to] : [process.env.NOTIFY_EMAIL_TO || 'operations@vareya.nl']);
-  const from = input.from || process.env.NOTIFY_EMAIL_FROM || 'Vareya Operations <operations@vareya.nl>';
+    : (input.to ? [input.to] : ['operations@vareya.nl']);
+  const from = input.from || 'Vareya Operations <operations@vareya.nl>';
 
   const response = await fetch(endpoint, {
     method: 'POST',
@@ -41,4 +41,3 @@ export async function sendResendEmail(input: {
 
   return payload.data?.id ?? payload.id;
 }
-
