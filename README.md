@@ -70,7 +70,7 @@ Endpoints:
 - `GET /api/cron/manifest-retention` — deletes old manifest PDFs (daily, `Authorization: Bearer ${CRON_SECRET}`)
 
 Feature flags (env):
-- `DRY_RUN_MANIFEST`, `CUTOFF_TIME`, `CUTOFF_TIMEZONE`, `BATCH_INTERVAL_HOURS`, `SHIPMENT_THRESHOLD`, `RETENTION_DAYS`
+- `DRY_RUN_MANIFEST`, `CUTOFF_TIME`, `CUTOFF_TIMEZONE`, `MANIFEST_TRIGGER_TIME`, `MANIFEST_TRIGGER_TIMEZONE`, `BATCH_INTERVAL_HOURS`, `SHIPMENT_THRESHOLD`, `RETENTION_DAYS`
 
 Docs:
 - docs/operations/asendia-manifest-cron.md

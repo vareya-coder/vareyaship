@@ -1,7 +1,7 @@
 
 
 import { sql } from "drizzle-orm";
-import { pgTable, serial, timestamp, integer, varchar, boolean, date } from "drizzle-orm/pg-core";
+import { pgTable, serial, timestamp, integer, varchar, boolean, date, text, uniqueIndex } from "drizzle-orm/pg-core";
 
 // =============================
 // Manifest Automation - New Tables
@@ -42,6 +42,19 @@ export const manifests = pgTable('manifests', {
     created_at: timestamp('created_at').default(sql`CURRENT_TIMESTAMP`),
 });
 
+export const cronRuns = pgTable('cron_runs', {
+    id: serial('id').primaryKey(),
+    job_name: varchar('job_name').notNull(),
+    operational_date: date('operational_date').notNull(),
+    status: varchar('status').notNull(), // started | completed | failed
+    started_at: timestamp('started_at').default(sql`CURRENT_TIMESTAMP`).notNull(),
+    completed_at: timestamp('completed_at'),
+    error_message: text('error_message'),
+}, (table) => ({
+    jobDateUnique: uniqueIndex('cron_runs_job_name_operational_date_idx').on(table.job_name, table.operational_date),
+}));
+
 export type BatchRow = typeof batches.$inferInsert;
 export type ShipmentRow = typeof shipments.$inferInsert;
 export type ManifestRow = typeof manifests.$inferInsert;
+export type CronRunRow = typeof cronRuns.$inferInsert;

@@ -12,8 +12,38 @@ export function getOperationalDateISO(
   return fmt.format(d);
 }
 
+function parseTimeOfDay(value: string): { hour: number; minute: number } {
+  const normalized = value.trim().toLowerCase();
+
+  const hhmmMatch = normalized.match(/^(\d{1,2}):(\d{2})$/);
+  if (hhmmMatch) {
+    const hour = Number.parseInt(hhmmMatch[1], 10);
+    const minute = Number.parseInt(hhmmMatch[2], 10);
+    if (hour >= 0 && hour <= 23 && minute >= 0 && minute <= 59) {
+      return { hour, minute };
+    }
+  }
+
+  const ampmMatch = normalized.match(/^(\d{1,2})(?::(\d{2}))?\s*(am|pm)$/);
+  if (ampmMatch) {
+    const rawHour = Number.parseInt(ampmMatch[1], 10);
+    const minute = Number.parseInt(ampmMatch[2] ?? '0', 10);
+    if (rawHour >= 1 && rawHour <= 12 && minute >= 0 && minute <= 59) {
+      const meridiem = ampmMatch[3];
+      const hour = meridiem === 'pm' && rawHour !== 12
+        ? rawHour + 12
+        : meridiem === 'am' && rawHour === 12
+          ? 0
+          : rawHour;
+      return { hour, minute };
+    }
+  }
+
+  throw new Error(`Invalid time format: "${value}". Use HH:mm or values like 7pm.`);
+}
+
 export function hasReachedCutoff(now: Date, cutoffHHmm: string, timeZone: string): boolean {
-  const [hh, mm] = cutoffHHmm.split(':').map((s) => Number.parseInt(s, 10));
+  const { hour, minute } = parseTimeOfDay(cutoffHHmm);
 
   // Build a Date object that represents today at cutoff in the target TZ by parsing parts
   const parts = new Intl.DateTimeFormat('en-GB', {
@@ -36,8 +66,7 @@ export function hasReachedCutoff(now: Date, cutoffHHmm: string, timeZone: string
   const currentMinute = Number(parts.find((p) => p.type === 'minute')?.value);
 
   const currentTotalMin = currentHour * 60 + currentMinute;
-  const cutoffTotalMin = hh * 60 + mm;
+  const cutoffTotalMin = hour * 60 + minute;
 
   return currentTotalMin >= cutoffTotalMin;
 }
-

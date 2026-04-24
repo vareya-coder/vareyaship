@@ -8,6 +8,13 @@
       "when": 1777001513361,
       "tag": "0000_broad_korath",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "5",
+      "when": 1777004371079,
+      "tag": "0001_condemned_puppet_master",
+      "breakpoints": true
     }
   ]
 }

@@ -6,6 +6,8 @@
   - Secured with `Authorization: Bearer ${CRON_SECRET}`
   - Runs every 10 minutes (see `vercel.json`)
   - Behavior:
+    - Waits until the daily trigger window opens (`MANIFEST_TRIGGER_TIME` in `MANIFEST_TRIGGER_TIMEZONE`)
+    - Executes only once per operational day, tracked in DB
     - Evaluates OPEN batches
     - If now >= cutoff (env `CUTOFF_TIME` in `CUTOFF_TIMEZONE`), closes all today’s OPEN batches
     - Else closes batches by age (`BATCH_INTERVAL_HOURS`) or `SHIPMENT_THRESHOLD`
@@ -23,6 +25,8 @@
 - `DRY_RUN_MANIFEST` (y/true to simulate)
 - `CUTOFF_TIME` (default 17:00)
 - `CUTOFF_TIMEZONE` (default Europe/Amsterdam)
+- `MANIFEST_TRIGGER_TIME` (defaults to `CUTOFF_TIME`; accepts `HH:mm` or values like `7pm`)
+- `MANIFEST_TRIGGER_TIMEZONE` (defaults to `CUTOFF_TIMEZONE`)
 - `BATCH_INTERVAL_HOURS` (default 24)
 - `SHIPMENT_THRESHOLD` (default 1000)
 - `RETENTION_DAYS` (default 30)

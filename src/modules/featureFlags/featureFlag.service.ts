@@ -5,6 +5,8 @@ type LateShipmentMode = 'assign_to_last' | 'create_new_batch';
 type Flags = {
   cutoff_time: string; // HH:mm
   cutoff_timezone: string; // IANA TZ
+  manifest_trigger_time: string; // HH:mm or values like 7pm
+  manifest_trigger_timezone: string; // IANA TZ
   batch_interval_hours: number;
   shipment_threshold: number;
   enable_service_separation: boolean;
@@ -43,11 +45,22 @@ export function getFlags(): Flags {
     return cache.value;
   }
 
+  const cutoffTime = strFromEnv(process.env.CUTOFF_TIME ?? process.env.cutoff_time, '17:00');
+  const cutoffTimezone = strFromEnv(
+    process.env.CUTOFF_TIMEZONE ?? process.env.cutoff_timezone,
+    'Europe/Amsterdam',
+  );
+
   const flags: Flags = {
-    cutoff_time: strFromEnv(process.env.CUTOFF_TIME ?? process.env.cutoff_time, '17:00'),
-    cutoff_timezone: strFromEnv(
-      process.env.CUTOFF_TIMEZONE ?? process.env.cutoff_timezone,
-      'Europe/Amsterdam',
+    cutoff_time: cutoffTime,
+    cutoff_timezone: cutoffTimezone,
+    manifest_trigger_time: strFromEnv(
+      process.env.MANIFEST_TRIGGER_TIME ?? process.env.manifest_trigger_time,
+      cutoffTime,
+    ),
+    manifest_trigger_timezone: strFromEnv(
+      process.env.MANIFEST_TRIGGER_TIMEZONE ?? process.env.manifest_trigger_timezone,
+      cutoffTimezone,
     ),
     batch_interval_hours: intFromEnv(
       process.env.BATCH_INTERVAL_HOURS ?? process.env.batch_interval_hours,
@@ -82,4 +95,3 @@ export function getFlags(): Flags {
 }
 
 export type { Flags, LateShipmentMode };
-
