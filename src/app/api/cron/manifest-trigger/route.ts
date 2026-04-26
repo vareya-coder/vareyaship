@@ -1,11 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { evaluateBatchesForClosing, closeBatchGuarded } from '@/modules/batching/batch.service';
 import { getFlags } from '@/modules/featureFlags/featureFlag.service';
-import { getBatchShipments } from '@/modules/batching/batch.repository';
+import { getBatchShipments, listBatchesForOperationalDate, listBatchShipments } from '@/modules/batching/batch.repository';
 import { manifestBatch } from '@/modules/manifesting/manifest.service';
 import { logEvent } from '@/modules/logging/events';
 import { getOperationalDateISO, hasReachedCutoff } from '@/modules/time/time';
 import { acquireDailyCronRun, completeCronRun, failCronRun } from '@/modules/cron/cronRun.repository';
+import { logger } from '@/utils/logger';
+import { notifyManifestDryRunSummary } from '@/modules/notifications/notify';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -16,14 +18,107 @@ function authorized(req: NextRequest): boolean {
   return token === `Bearer ${process.env.CRON_SECRET}`;
 }
 
+async function buildDryRunSummary(operationalDate: string, now: Date) {
+  const evalRes = await evaluateBatchesForClosing(now);
+  const batchesForDay = await listBatchesForOperationalDate(operationalDate);
+  const eligibleSet = new Set(evalRes.toCloseIds);
+
+  const batchSummaries = await Promise.all(
+    (batchesForDay as any[]).map(async (batch) => {
+      const shipments = await listBatchShipments(batch.batch_id);
+      const totalShipmentCount = shipments.length;
+      const manifestedShipmentCount = shipments.filter((shipment) => shipment.is_manifested === true).length;
+      const pendingShipmentCount = shipments.filter((shipment) => shipment.is_manifested !== true).length;
+
+      return {
+        batchId: batch.batch_id,
+        status: batch.status ?? null,
+        crmId: batch.crm_id ?? null,
+        groupingKey: batch.grouping_key ?? null,
+        shipmentCountStored: batch.shipment_count ?? 0,
+        shipmentCountActual: totalShipmentCount,
+        manifestedShipmentCount,
+        pendingShipmentCount,
+        eligibleToCloseNow: eligibleSet.has(batch.batch_id),
+      };
+    }),
+  );
+
+  const totals = batchSummaries.reduce((acc, batch) => {
+    acc.batchCount += 1;
+    acc.shipmentCount += batch.shipmentCountActual;
+    acc.manifestedShipmentCount += batch.manifestedShipmentCount;
+    acc.pendingShipmentCount += batch.pendingShipmentCount;
+    if (batch.status === 'OPEN') acc.openBatchCount += 1;
+    if (batch.status === 'CLOSING') acc.closingBatchCount += 1;
+    if (batch.status === 'MANIFESTED') acc.manifestedBatchCount += 1;
+    if (batch.eligibleToCloseNow) acc.eligibleBatchCount += 1;
+    return acc;
+  }, {
+    batchCount: 0,
+    shipmentCount: 0,
+    manifestedShipmentCount: 0,
+    pendingShipmentCount: 0,
+    openBatchCount: 0,
+    closingBatchCount: 0,
+    manifestedBatchCount: 0,
+    eligibleBatchCount: 0,
+  });
+
+  logEvent({
+    event: 'manifest_triggered',
+    status: 'dry_run_summary',
+    operationalDate,
+    batchCount: totals.batchCount,
+    shipmentCount: totals.shipmentCount,
+    manifestedShipmentCount: totals.manifestedShipmentCount,
+    pendingShipmentCount: totals.pendingShipmentCount,
+    eligibleBatchCount: totals.eligibleBatchCount,
+    reason: evalRes.reason,
+  });
+
+  logger.info('manifest_trigger_dry_run_summary', {
+    operationalDate,
+    reason: evalRes.reason,
+    totals,
+    batches: batchSummaries,
+  } as any);
+
+  return {
+    message: 'Dry run summary generated from database state',
+    operationalDate,
+    reason: evalRes.reason,
+    dryRun: true,
+    triggerTime: getFlags().manifest_trigger_time,
+    triggerTimezone: getFlags().manifest_trigger_timezone,
+    totals,
+    batches: batchSummaries,
+  };
+}
+
 export async function GET(req: NextRequest) {
   if (!authorized(req)) {
     return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
   }
 
   const flags = getFlags();
+  const dryRun = !!flags.dry_run_manifest;
   const now = new Date();
   const operationalDate = getOperationalDateISO(now, flags.manifest_trigger_timezone);
+
+  if (dryRun) {
+    const summary = await buildDryRunSummary(operationalDate, now);
+    if (flags.dry_run_manifest_send_email) {
+      await notifyManifestDryRunSummary({
+        operationalDate,
+        occurredAt: now,
+        reason: summary.reason,
+        totals: summary.totals,
+        batches: summary.batches,
+      });
+    }
+    return NextResponse.json(summary);
+  }
 
   if (!hasReachedCutoff(now, flags.manifest_trigger_time, flags.manifest_trigger_timezone)) {
     return NextResponse.json({
@@ -55,7 +150,6 @@ export async function GET(req: NextRequest) {
 
   try {
     const evalRes = await evaluateBatchesForClosing(now);
-    const dryRun = !!flags.dry_run_manifest;
 
     if (evalRes.toCloseIds.length === 0) {
       await completeCronRun(runState.runId);

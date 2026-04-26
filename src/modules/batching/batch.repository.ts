@@ -52,6 +52,14 @@ export async function listOpenBatches() {
   return rows;
 }
 
+export async function listBatchesForOperationalDate(operationalDateISO: string) {
+  return db
+    .select()
+    .from(batches)
+    .where(eq(batches.operational_date, operationalDateISO as any))
+    .orderBy(desc(batches.created_at), desc(batches.batch_id));
+}
+
 export async function listBatchShipments(batchId: number) {
   return db.select().from(shipments).where(eq(shipments.batch_id, batchId));
 }

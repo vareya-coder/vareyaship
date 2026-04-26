@@ -14,6 +14,7 @@ type Flags = {
   late_shipment_mode: LateShipmentMode;
   retention_days: number;
   dry_run_manifest: boolean;
+  dry_run_manifest_send_email: boolean;
 };
 
 let cache: { value: Flags; expiresAt: number } | null = null;
@@ -87,6 +88,7 @@ export function getFlags(): Flags {
       30,
     ),
     dry_run_manifest: boolFromEnv(process.env.DRY_RUN_MANIFEST, false),
+    dry_run_manifest_send_email: boolFromEnv(process.env.DRY_RUN_MANIFEST_SEND_EMAIL, false),
   };
 
   cache = { value: flags, expiresAt: now + TTL_MS };

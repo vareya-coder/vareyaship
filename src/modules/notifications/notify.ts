@@ -10,6 +10,33 @@ type ManifestNotificationInput = {
   documentUrl?: string;
 };
 
+type ManifestDryRunSummaryInput = {
+  operationalDate: string;
+  occurredAt?: Date;
+  reason: string;
+  totals: {
+    batchCount: number;
+    shipmentCount: number;
+    manifestedShipmentCount: number;
+    pendingShipmentCount: number;
+    openBatchCount: number;
+    closingBatchCount: number;
+    manifestedBatchCount: number;
+    eligibleBatchCount: number;
+  };
+  batches: Array<{
+    batchId: number;
+    status: string | null;
+    crmId: string | null;
+    groupingKey: string | null;
+    shipmentCountStored: number;
+    shipmentCountActual: number;
+    manifestedShipmentCount: number;
+    pendingShipmentCount: number;
+    eligibleToCloseNow: boolean;
+  }>;
+};
+
 function getManifestNotificationConfig() {
   return {
     to: process.env.MANIFEST_NOTIFICATION_EMAIL_TO ?? process.env.NOTIFY_EMAIL_TO,
@@ -81,8 +108,69 @@ export async function notifyManifestIssue(input: ManifestNotificationInput) {
 
   try {
     const id = await sendResendEmail({ subject, html, to: to || undefined, from: from || undefined });
+    console.info('Manifest issue notification sent', {
+      kind: input.kind,
+      batchId: input.batchId,
+      manifestId: input.manifestId,
+      to: to || 'default',
+      from: from || 'default',
+      id: id ?? null,
+    });
     logEvent({ event: 'notification_enqueued', subject, to: to || 'default', from: from || 'default', status: 'sent', id });
   } catch (e: any) {
+    console.error('Manifest issue notification failed', {
+      kind: input.kind,
+      batchId: input.batchId,
+      manifestId: input.manifestId,
+      to: to || 'default',
+      from: from || 'default',
+      error: e?.message ?? 'unknown',
+    });
+    logEvent({ event: 'notification_enqueued', subject, to: to || 'default', from: from || 'default', status: 'error', errorMessage: e?.message });
+  }
+}
+
+export async function notifyManifestDryRunSummary(input: ManifestDryRunSummaryInput) {
+  const { to, from, timeZone } = getManifestNotificationConfig();
+  const occurredAt = input.occurredAt ?? new Date();
+  const formattedTimestamp = formatManifestTimestamp(occurredAt, timeZone);
+  const subject = `Manifest dry run summary | ${formattedTimestamp} | ${input.operationalDate}`;
+  const rows = input.batches.map((batch) => [
+    `<tr>`,
+    `<td>${batch.batchId}</td>`,
+    `<td>${escapeHtml(batch.status ?? '')}</td>`,
+    `<td>${escapeHtml(batch.crmId ?? '')}</td>`,
+    `<td>${escapeHtml(batch.groupingKey ?? '')}</td>`,
+    `<td>${batch.shipmentCountStored}</td>`,
+    `<td>${batch.shipmentCountActual}</td>`,
+    `<td>${batch.manifestedShipmentCount}</td>`,
+    `<td>${batch.pendingShipmentCount}</td>`,
+    `<td>${batch.eligibleToCloseNow ? 'yes' : 'no'}</td>`,
+    `</tr>`,
+  ].join('')).join('');
+
+  const html = [
+    `<p>Manifest trigger dry run summary generated from database state.</p>`,
+    `<p><strong>Date/time:</strong> ${escapeHtml(formattedTimestamp)}</p>`,
+    `<p><strong>Operational date:</strong> ${escapeHtml(input.operationalDate)}</p>`,
+    `<p><strong>Reason:</strong> ${escapeHtml(input.reason)}</p>`,
+    `<p><strong>Totals:</strong> batches=${input.totals.batchCount}, shipments=${input.totals.shipmentCount}, manifested shipments=${input.totals.manifestedShipmentCount}, pending shipments=${input.totals.pendingShipmentCount}, eligible batches=${input.totals.eligibleBatchCount}</p>`,
+    `<table border="1" cellpadding="6" cellspacing="0">`,
+    `<thead><tr><th>Batch</th><th>Status</th><th>CRM</th><th>Grouping</th><th>Stored</th><th>Actual</th><th>Manifested</th><th>Pending</th><th>Eligible now</th></tr></thead>`,
+    `<tbody>${rows || '<tr><td colspan="9">No batches found</td></tr>'}</tbody>`,
+    `</table>`,
+  ].join('');
+
+  try {
+    const id = await sendResendEmail({ subject, html, to: to || undefined, from: from || undefined });
+    logEvent({ event: 'notification_enqueued', subject, to: to || 'default', from: from || 'default', status: 'sent', id });
+  } catch (e: any) {
+    console.error('Manifest dry run summary notification failed', {
+      operationalDate: input.operationalDate,
+      to: to || 'default',
+      from: from || 'default',
+      error: e?.message ?? 'unknown',
+    });
     logEvent({ event: 'notification_enqueued', subject, to: to || 'default', from: from || 'default', status: 'error', errorMessage: e?.message });
   }
 }
