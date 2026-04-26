@@ -16,9 +16,24 @@ export async function setShipmentBatch(shipmentId: number, batchId: number) {
   await db.update(shipments).set({ batch_id: batchId }).where(eq(shipments.id, shipmentId));
 }
 
-export async function markShipmentsManifestedByParcelIds(parcelIds: string[]) {
+export async function markShipmentsManifestedByParcelIds(parcelIds: string[], manifestId?: string | null) {
   if (parcelIds.length === 0) return;
-  await db.update(shipments).set({ is_manifested: true }).where(inArray(shipments.parcel_id, parcelIds));
+  await db.update(shipments).set({
+    is_manifested: true,
+    manifest_id: manifestId ?? null,
+  }).where(inArray(shipments.parcel_id, parcelIds));
+}
+
+export async function setManifestInfoForParcelIds(params: {
+  parcelIds: string[];
+  manifestId: string;
+  isManifested?: boolean;
+}) {
+  if (params.parcelIds.length === 0) return;
+  await db.update(shipments).set({
+    manifest_id: params.manifestId,
+    is_manifested: params.isManifested ?? true,
+  }).where(inArray(shipments.parcel_id, params.parcelIds));
 }
 
 export async function listUnmanifestedParcelIdsForBatch(batchId: number): Promise<string[]> {

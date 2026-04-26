@@ -12,10 +12,16 @@ export async function ingestAsendiaShipment(input: IngestAsendiaShipmentInput) {
     return existing;
   }
 
+  if (!input.crm_id) {
+    throw new Error(`Missing crm_id for Asendia shipment ${input.external_shipment_id}.`);
+  }
+
   const created = await insertShipment({
     external_shipment_id: input.external_shipment_id,
     order_id: input.order_id,
     account_id: input.account_id,
+    crm_id: input.crm_id,
+    sender_tax_code: input.sender_tax_code ?? null,
     shipping_method: input.shipping_method,
     parcel_id: input.parcel_id,
     tracking_number: input.tracking_number ?? null,
@@ -27,7 +33,11 @@ export async function ingestAsendiaShipment(input: IngestAsendiaShipmentInput) {
 
   const { cutoff_timezone } = getFlags();
   const operational_date = getOperationalDateISO(new Date(), cutoff_timezone);
-  const batch = await getOrCreateOpenBatch({ shipping_method: input.shipping_method, account_id: input.account_id });
+  const batch = await getOrCreateOpenBatch({
+    shipping_method: input.shipping_method,
+    account_id: input.account_id,
+    crm_id: input.crm_id,
+  });
   await setShipmentBatch((created as any).id, batch.batch_id);
   await assignShipmentToBatch(batch.batch_id);
 

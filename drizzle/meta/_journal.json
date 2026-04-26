@@ -15,6 +15,27 @@
       "when": 1777004371079,
       "tag": "0001_condemned_puppet_master",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "5",
+      "when": 1777043892027,
+      "tag": "0002_wet_madame_hydra",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "5",
+      "when": 1777043892028,
+      "tag": "0003_split_asendia_batches",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "5",
+      "when": 1777051887374,
+      "tag": "0004_redundant_junta",
+      "breakpoints": true
     }
   ]
 }

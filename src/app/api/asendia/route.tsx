@@ -3,6 +3,7 @@ import { config } from "dotenv";
 import xml2js from 'xml2js';
 
 import { asendiaMapper , getAuthXml} from "@/app/utils/asendia/asendiaDataMapper"; 
+import { getRequiredAsendiaCustomerMapping } from '@/modules/asendia/customers/customer.service';
 
 import { logger } from '@/utils/logger'
 
@@ -15,6 +16,26 @@ export async function POST(req: NextRequest) {
 
   const body = await req.json();
   logger.info(JSON.stringify(body));
+  let customerMapping;
+
+  try {
+    customerMapping = await getRequiredAsendiaCustomerMapping(body.account_id);
+  } catch (error: any) {
+    logger.error('Missing Asendia customer mapping', {
+      account_id: body.account_id,
+      error: error?.message,
+    });
+
+    return new NextResponse(JSON.stringify({
+      message: error?.message ?? 'Missing Asendia customer mapping.',
+      provider: 'Asendia',
+      errorCode: 'CUSTOMER_MAPPING_MISSING',
+      accountId: body.account_id,
+    }), {
+      status: 400,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
   const WSDL_ASENDIA_AUTH_OPS_URL = 'https://uat.centiro.com/Universe.Services/TMSBasic/Wcf/c1/i1/TMSBasic/Authenticate.svc?wsdl';
   const WSDL_ASENDIA_SHIPMENT_OPS_URL = 'https://uat.centiro.com/Universe.Services/TMSBasic/Wcf/c1/i1/TMSBasic/TMSBasic.svc?wsdl';
 
@@ -66,7 +87,7 @@ export async function POST(req: NextRequest) {
 
 
   logger.info('Authentication Ticket:', authTokenInResp);
-  let shipmentXmlWithValues = asendiaMapper(body ,authTokenInResp)
+  let shipmentXmlWithValues = asendiaMapper(body ,authTokenInResp, customerMapping)
   logger.info(shipmentXmlWithValues)
 
   let url2 = ASENDIA_SHIPMENT_URL_PROD;

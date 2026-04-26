@@ -192,14 +192,16 @@ export async function POST(req: NextRequest) {
 
             // Persist shipment + assign to batch (idempotent on parcel id)
             console.log(asendiaResponse)
-            if (asendiaResponse.data.parcelId) {
+            if (asendiaResponse.data.parcelId && asendiaResponse.data.crmId) {
               try {
                 await ingestAsendiaShipment({
                   external_shipment_id: String(asendiaResponse.data.parcelId),
                   order_id: shipmentData.order_id,
                   account_id: shipmentData.account_id,
+                  crm_id: String(asendiaResponse.data.crmId),
                   shipping_method: shipmentData.shipping_method,
                   parcel_id: String(asendiaResponse.data.parcelId),
+                  sender_tax_code: asendiaResponse.data.senderTaxCode ?? null,
                   tracking_number: trackingNumber,
                   label_url: labelUrl,
                 });
@@ -207,6 +209,11 @@ export async function POST(req: NextRequest) {
                 console.error('Failed to persist Asendia shipment', { error: (e as any)?.message });
                 logger.error('Failed to persist Asendia shipment', { error: (e as any)?.message });
               }
+            } else if (asendiaResponse.data.parcelId) {
+              logger.error('Asendia parcel created without crmId in internal response', {
+                parcelId: asendiaResponse.data.parcelId,
+                accountId: shipmentData.account_id,
+              });
             }
 
           } catch (uploadError: any) {

@@ -3,6 +3,7 @@ import { config } from 'dotenv';
 import axios, { AxiosResponse, AxiosError } from 'axios';
 import { mapShipHeroToAsendia } from '@/app/utils/asendia/asendiaSyncDataMapper';
 import { ShipHeroWebhook, AsendiaAuthRequest, AsendiaAuthResponse, AsendiaParcelRequest, AsendiaParcelResponse } from '@/app/utils/types';
+import { getRequiredAsendiaCustomerMapping } from '@/modules/asendia/customers/customer.service';
 
 import { Data } from '@/app/utils/postnl/postnltypes';
 import { logger } from '@/utils/logger';
@@ -14,6 +15,26 @@ export async function POST(req: NextRequest) {
     if (req.method === 'POST') {
       const shipmentData: ShipHeroWebhook = await req.json();
       logger.info(JSON.stringify(shipmentData));
+      let customerMapping;
+
+      try {
+        customerMapping = await getRequiredAsendiaCustomerMapping(shipmentData.account_id);
+      } catch (error: any) {
+        logger.error('Missing Asendia customer mapping', {
+          account_id: shipmentData.account_id,
+          error: error?.message,
+        });
+
+        return new NextResponse(JSON.stringify({
+          message: error?.message ?? 'Missing Asendia customer mapping.',
+          provider: 'Asendia',
+          errorCode: 'CUSTOMER_MAPPING_MISSING',
+          accountId: shipmentData.account_id,
+        }), {
+          status: 400,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
 
   ///////
       const username = process.env.ASENDIA_SYNC_USERNAME;
@@ -47,7 +68,7 @@ export async function POST(req: NextRequest) {
       }
   
       // --- Step 2: Map data and create the parcel ---
-      const asendiaRequestBody:AsendiaParcelRequest = mapShipHeroToAsendia(shipmentData);
+      const asendiaRequestBody:AsendiaParcelRequest = mapShipHeroToAsendia(shipmentData, customerMapping);
   
       try {
         console.log("Creating Asendia parcel with request:", JSON.stringify(asendiaRequestBody, null, 2));
@@ -67,7 +88,9 @@ export async function POST(req: NextRequest) {
             parcelId: parcelResponse.data.id,
             trackingNumber: parcelResponse.data.trackingNumber,
             labelLocation: parcelResponse.data.labelLocation,
-            id_token: id_token
+            id_token: id_token,
+            crmId: customerMapping.crmId,
+            senderTaxCode: customerMapping.senderTaxCode,
           }), {
           status: 200,
           headers: {

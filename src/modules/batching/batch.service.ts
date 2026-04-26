@@ -4,9 +4,12 @@ import { getOperationalDateISO, hasReachedCutoff } from '@/modules/time/time';
 import { createBatch, findOpenBatch, incrementBatchShipmentCount, listOpenBatches, setBatchStatusGuarded, findLatestOpenBatchAnyDate } from './batch.repository';
 import type { GroupingKey } from './batch.types';
 
-export function buildGroupingKey(input: { shipping_method?: string | null; account_id?: number | null }): GroupingKey | null {
+export function buildGroupingKey(input: { shipping_method?: string | null; account_id?: number | null; crm_id?: string | null }): GroupingKey | null {
   const flags = getFlags();
   const parts: string[] = [];
+  if (input.crm_id) {
+    parts.push(`crm:${input.crm_id}`);
+  }
   if (flags.enable_service_separation && input.shipping_method) {
     parts.push(`sm:${input.shipping_method}`);
   }
@@ -16,27 +19,42 @@ export function buildGroupingKey(input: { shipping_method?: string | null; accou
   return parts.length > 0 ? parts.join('|') : null;
 }
 
-export async function getOrCreateOpenBatch(params: { shipping_method?: string | null; account_id?: number | null; now?: Date }): Promise<{ batch_id: number; operational_date: string }> {
+export async function getOrCreateOpenBatch(params: { shipping_method?: string | null; account_id?: number | null; crm_id?: string | null; now?: Date }): Promise<{ batch_id: number; operational_date: string }> {
   const now = params.now ?? new Date();
   const { cutoff_timezone } = getFlags();
   const operationalDateISO = getOperationalDateISO(now, cutoff_timezone);
-  const groupingKey = buildGroupingKey({ shipping_method: params.shipping_method ?? null, account_id: params.account_id ?? null });
+  const groupingKey = buildGroupingKey({
+    shipping_method: params.shipping_method ?? null,
+    account_id: params.account_id ?? null,
+    crm_id: params.crm_id ?? null,
+  });
 
-  const existing = await findOpenBatch(groupingKey, operationalDateISO);
+  const existing = await findOpenBatch(groupingKey, operationalDateISO, params.crm_id ?? null);
   if (existing) {
     return { batch_id: (existing as any).batch_id, operational_date: operationalDateISO };
   }
 
   // Late shipment handling
   if (getFlags().late_shipment_mode === 'assign_to_last') {
-    const latest = await findLatestOpenBatchAnyDate(groupingKey);
+    const latest = await findLatestOpenBatchAnyDate(groupingKey, params.crm_id ?? null);
     if (latest) {
       return { batch_id: (latest as any).batch_id, operational_date: (latest as any).operational_date };
     }
   }
 
-  const created = await createBatch({ groupingKey, operationalDateISO });
-  logger.info('batch_created', { batch_id: created.batch_id, grouping_key: groupingKey, operational_date: operationalDateISO, timestamp: new Date().toISOString(), status: 'OPEN' } as any);
+  const created = await createBatch({
+    groupingKey,
+    operationalDateISO,
+    crmId: params.crm_id ?? null,
+  });
+  logger.info('batch_created', {
+    batch_id: created.batch_id,
+    grouping_key: groupingKey,
+    crm_id: params.crm_id ?? null,
+    operational_date: operationalDateISO,
+    timestamp: new Date().toISOString(),
+    status: 'OPEN',
+  } as any);
   return { batch_id: created.batch_id, operational_date: operationalDateISO };
 }
 

@@ -2,6 +2,7 @@ import { ShipHeroWebhook, AsendiaParcelRequest,  } from "../types"; // Assuming 
 import { config } from 'dotenv';
 import { logger } from '@/utils/logger'
 import { Decimal } from 'decimal.js'; 
+import type { ResolvedAsendiaCustomerMapping } from '@/modules/asendia/customers/customer.service';
 
 // Constants
 const ASENDIA_PRODUCT_EPAQPLS = 'EPAQPLS';
@@ -37,7 +38,10 @@ config(); // Load environment variables from .env file
  * @param customerId - The Asendia Customer ID.
  * @returns The request body object for the Asendia /api/parcels endpoint.
  */
-export function mapShipHeroToAsendia(shipHeroData: ShipHeroWebhook): AsendiaParcelRequest {
+export function mapShipHeroToAsendia(
+  shipHeroData: ShipHeroWebhook,
+  customerMapping: ResolvedAsendiaCustomerMapping,
+): AsendiaParcelRequest {
     
     // Helper to convert weight from Ounces (oz) to Kilograms (kg)
     function convertOzToKg(weightInOz: number): number {
@@ -132,84 +136,16 @@ export function mapShipHeroToAsendia(shipHeroData: ShipHeroWebhook): AsendiaParc
       shipmentAsendiaFormat = ASENDIA_FORMAT_NON_BOXABLE;
     }
 
-    const asendiaIDs = [
-      // { customer: 'Menskin', accountId: '59965', crmId: 'NL21010001', senderTaxCode: 'GB374774750'},
-      { customer: 'Menskin', accountId: '59965', crmId: 'NL21010001', senderTaxCode: 'GB339713089000'},
-      { customer: 'Vacier', accountId: '73982', crmId: 'NL21080010', senderTaxCode: 'GB289337944'},
-      { customer: 'VUE', accountId: '74928', crmId: 'NL24010007', senderTaxCode: 'GB289337944'},
-      { customer: 'SanaDIGEST', accountId: '63819', crmId: 'NL21110007', senderTaxCode: 'FR48884514688'},
-      { customer: 'PRIMAL FX', accountId: '71893', crmId: 'NL21110007', senderTaxCode: 'GB289337944'},
-      { customer: 'Fan Of Fan', accountId: '70098', crmId: 'NL21110007', senderTaxCode: 'GB289337944'},
-      { customer: 'PSBC Limited', accountId: '69949', crmId: 'NL21110007', senderTaxCode: 'GB289337944'},
-      { customer: 'Dino Lifestyle', accountId: '73490', crmId: 'NL21110007', senderTaxCode: 'GB289337944'},
-      { customer: 'Bryght Labs', accountId: '68917', crmId: 'NL21110007', senderTaxCode: 'GB289337944'},
-      { customer: 'Tipaw', accountId: '81021', crmId: 'NL24120003', senderTaxCode: ''},
-      // Vareya BV - OTC Group
-      { customer: 'Ship2me', accountId: '85552', crmId: 'NL25040001', senderTaxCode: 'GB289337944'},
-      // Vareya BV - Norwegian Lab
-      { customer: 'NorwegianLab', accountId: '85165', crmId: 'NL25040002', senderTaxCode: 'GB289337944'},
+    logger.info(JSON.stringify({
+      accountId: customerMapping.accountId,
+      customerName: customerMapping.customerName,
+      crmId: customerMapping.crmId,
+      senderTaxCode: customerMapping.senderTaxCode,
+    }));
 
-      { customer: 'Elevitae', accountId: '', crmId: 'NL21110007', senderTaxCode: 'GB289337944'},        
-      { customer: 'Milan Shah', accountId: '', crmId: 'NL21080009', senderTaxCode: 'GB289337944'},        
-      // { customer: 'Meridian', accountId: '', crmId: 'NL21110007', senderTaxCode: 'GB289337944'},      
-      { customer: 'Meridian', accountId: '', crmId: 'NL21110007', senderTaxCode: 'GB339713089000'},
-      { customer: 'Zitsticka', accountId: '', crmId: 'NL21110007', senderTaxCode: 'GB289337944'},
-      { customer: 'Caterpy', accountId: '', crmId: 'NL21110007', senderTaxCode: 'GB289337944'},
-      // { customer: 'Lumin Skin', accountId: '', crmId: 'NL21110007', senderTaxCode: 'GB289337944'},
-      { customer: 'Lumin Skin', accountId: '', crmId: 'NL21110007', senderTaxCode: 'GB339713089000'},
-      { customer: 'Mfoodproduct', accountId: '', crmId: 'NL21110007', senderTaxCode: 'GB289337944'},
-      { customer: 'Moneclat', accountId: '', crmId: 'NL21110007', senderTaxCode: 'GB289337944'},
-      { customer: 'Youth Earth', accountId: '', crmId: 'Youth Earth', senderTaxCode: 'GB289337944'},
-      { customer: 'Keith Teh', accountId: '', crmId: 'NL21110007', senderTaxCode: 'GB289337944'},
-      { customer: 'Arabeaute', accountId: '', crmId: 'NL21110007', senderTaxCode: 'GB289337944'},
-      { customer: 'Coolado', accountId: '', crmId: 'NL21110007', senderTaxCode: 'GB289337944'},
-      { customer: 'Saga Fitness', accountId: '', crmId: 'NL21110007', senderTaxCode: 'GB289337944'},
-      { customer: 'Glamnetic', accountId: '', crmId: 'NL21110007', senderTaxCode: 'GB289337944'},
-      { customer: 'Arena', accountId: '', crmId: 'NL21110007', senderTaxCode: 'GB289337944'},
-      { customer: 'Crosshkt', accountId: '', crmId: 'NL21110007', senderTaxCode: 'GB289337944'},
-      { customer: 'Sanalyslab', accountId: '', crmId: 'NL21110007', senderTaxCode: 'GB289337944'},
-      { customer: 'I Am Authentic BV', accountId: '', crmId: 'NL21110007', senderTaxCode: 'GB289337944'}
-    ];
-
-// Vareya BV - Milan Shah NL21080009
-// Vareya BV - Meridian  NL20070003
-// Vareya BV - Zitsticka  NL21090005
-// Vareya BV - Caterpy  NL20110003 
-// Vareya BV - Lumin Skin  NL21010001
-// Vareya BV - Mfoodproduct  NL20110006
-// Vareya BV - Moneclat  NL21080012
-// Vareya BV - Youth Earth (inactive)  NL21010003
-// Vareya BV - Keith Teh  NL21080011
-// Vareya BV - Arabeaute  NL20110005
-// Vareya BV - Coolado  NL20110007
-// Vareya BV - Saga Fitness  NL21010004
-// Vareya BV - Glamnetic  NL21090006
-// Vareya BV - Arena  NL21030017
-// Vareya BV - Crosshkt  NL20110004
-// Vareya BV - Sanalyslab  NL21110007
-// Vareya BV - Vacier  NL21080010
-// Vareya BV - Youth Earth  NL21080013
-// Vareya BV - I Am Authentic BV  NL20100008
-// Vareya BV  NL19090016
-
-    let filteredIDs = asendiaIDs.filter((rec) => {
-      return rec.accountId == shipHeroData.account_id.toString()
-    });
-  
-    logger.info(JSON.stringify(filteredIDs));
-  
-    let shipmentCustomer = '';
-    let shipmentCustomerCrmId = '';
-    let shipmentCustomerSenderTaxCode = ''
-    if (filteredIDs && Array.isArray(filteredIDs) && filteredIDs.length > 0) {
-      shipmentCustomer = filteredIDs[0].customer;
-      shipmentCustomerCrmId = filteredIDs[0].crmId;
-      logger.info('-' + filteredIDs[0].senderTaxCode + '-');
-      if (filteredIDs[0].senderTaxCode) {
-        logger.info(filteredIDs[0].senderTaxCode + ' added');
-        shipmentCustomerSenderTaxCode = filteredIDs[0].senderTaxCode;
-      }
-    }
+    const shipmentCustomer = customerMapping.customerName;
+    const shipmentCustomerCrmId = customerMapping.crmId;
+    const shipmentCustomerSenderTaxCode = customerMapping.senderTaxCode ?? '';
 
     // Construct the main request body for Asendia
     //

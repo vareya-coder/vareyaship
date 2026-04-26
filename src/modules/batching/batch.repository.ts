@@ -8,14 +8,15 @@ export async function findBatchById(batchId: number) {
   return rows[0] ?? null;
 }
 
-export async function findOpenBatch(groupingKey: string | null, operationalDateISO: string) {
+export async function findOpenBatch(groupingKey: string | null, operationalDateISO: string, crmId?: string | null) {
   const rows = await db
     .select()
     .from(batches)
     .where(and(
       eq(batches.status, 'OPEN'),
       eq(batches.operational_date, operationalDateISO as any),
-      groupingKey ? eq(batches.grouping_key, groupingKey) : sql`1=1`
+      groupingKey ? eq(batches.grouping_key, groupingKey) : isNull(batches.grouping_key),
+      crmId ? eq(batches.crm_id, crmId) : isNull(batches.crm_id),
     ))
     .orderBy(desc(batches.created_at));
   return rows[0] ?? null;
@@ -24,11 +25,13 @@ export async function findOpenBatch(groupingKey: string | null, operationalDateI
 export async function createBatch(params: {
   groupingKey: string | null;
   operationalDateISO: string;
+  crmId?: string | null;
 }): Promise<any> {
   const res = await db.insert(batches).values({
     grouping_key: params.groupingKey ?? null,
     operational_date: params.operationalDateISO as any,
     status: 'OPEN',
+    crm_id: params.crmId ?? null,
     shipment_count: 0,
   }).returning({ batch_id: batches.batch_id });
   return res[0];
@@ -58,13 +61,14 @@ export async function getBatchShipments(batchId: number) {
   return rows;
 }
 
-export async function findLatestOpenBatchAnyDate(groupingKey: string | null) {
+export async function findLatestOpenBatchAnyDate(groupingKey: string | null, crmId?: string | null) {
   const rows = await db
     .select()
     .from(batches)
     .where(and(
       eq(batches.status, 'OPEN'),
-      groupingKey ? eq(batches.grouping_key, groupingKey) : sql`1=1`
+      groupingKey ? eq(batches.grouping_key, groupingKey) : isNull(batches.grouping_key),
+      crmId ? eq(batches.crm_id, crmId) : isNull(batches.crm_id),
     ))
     .orderBy(desc(batches.created_at));
   return rows[0] ?? null;
