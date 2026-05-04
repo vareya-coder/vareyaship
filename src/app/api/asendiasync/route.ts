@@ -6,7 +6,7 @@ import { ShipHeroWebhook, AsendiaAuthRequest, AsendiaAuthResponse, AsendiaParcel
 import { getRequiredAsendiaCustomerMapping } from '@/modules/asendia/customers/customer.service';
 
 import { Data } from '@/app/utils/postnl/postnltypes';
-import { logger } from '@/utils/logger';
+import { logError, logInfo, logger } from '@/utils/logger';
 
 config();
 
@@ -57,13 +57,13 @@ export async function POST(req: NextRequest) {
       let id_token: string;
       try {
 
-        console.log("Authenticating with Asendia...");
+        logInfo('Authenticating with Asendia...');
         const authRequest: AsendiaAuthRequest = { username, password };
         const authResponse = await asendiaApi.post<AsendiaAuthResponse>('/api/authenticate', authRequest);
         id_token = authResponse.data.id_token;
-        console.log("Authentication successful.");
+        logInfo('Authentication successful.');
       } catch (error: any) {
-        console.error("Error during Asendia authentication:", error.response?.data || error.message);
+        logError('Error during Asendia authentication.', { error: error.response?.data || error.message });
         throw new Error("Asendia authentication failed.");
       }
   
@@ -71,16 +71,18 @@ export async function POST(req: NextRequest) {
       const asendiaRequestBody:AsendiaParcelRequest = mapShipHeroToAsendia(shipmentData, customerMapping);
   
       try {
-        console.log("Creating Asendia parcel with request:", JSON.stringify(asendiaRequestBody, null, 2));
-        logger.log("Creating Asendia parcel with request:", JSON.stringify(asendiaRequestBody, null, 2));
+        logInfo('Creating Asendia parcel with request.', {
+          request: JSON.stringify(asendiaRequestBody, null, 2),
+        });
         const parcelResponse = await asendiaApi.post<AsendiaParcelResponse>('/api/parcels', asendiaRequestBody, {
             headers: {
                 'Authorization': `Bearer ${id_token}`
             }
         });
   
-        console.log("Successfully received response from Asendia:", parcelResponse.data);
-        logger.log("Successfully received response from Asendia:", parcelResponse.data);
+        logInfo('Successfully received response from Asendia.', {
+          response: parcelResponse.data,
+        });
         // return parcelResponse.data;
 
         return new NextResponse(JSON.stringify(
@@ -102,8 +104,9 @@ export async function POST(req: NextRequest) {
         const errorData = error.response?.data;
         
         // 1. Always log the full upstream error for debugging purposes
-        console.error("Error creating Asendia parcel:", JSON.stringify(errorData || error.message));
-        logger.error(`Error creating Asendia parcel: ${JSON.stringify(errorData || error.message)}`);
+        logError('Error creating Asendia parcel.', {
+          error: JSON.stringify(errorData || error.message),
+        });
         
         // Case A: External API returned 400 Bad Request (Validation Failure)
         if (upstreamStatus === 400) {
@@ -143,8 +146,7 @@ export async function POST(req: NextRequest) {
 
         // Case C: External API returned 5xx (Server Failure on their end)
         if (upstreamStatus >= 500) {
-            console.error(`Asendia API server error with status ${upstreamStatus}.`);
-            logger.error(`Asendia API server error with status ${upstreamStatus}.`);  
+            logError(`Asendia API server error with status ${upstreamStatus}.`, { upstreamStatus });
             // Respond with 502 Bad Gateway, indicating the upstream service is failing
             return new NextResponse(JSON.stringify({
                 message: "External shipping provider service error (Asendia).",
@@ -169,8 +171,7 @@ export async function POST(req: NextRequest) {
       return new NextResponse('Method Not Allowed', { status: 405 });
     }
   } catch (error) {
-    console.error('Error processing the shipment update:', error);
-    logger.error('Error processing the shipment update:', error);
+    logError('Error processing the shipment update.', { error });
     return new NextResponse('Internal Server Error', { status: 500 });
   }
 }

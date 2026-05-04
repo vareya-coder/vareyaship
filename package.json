@@ -8,6 +8,7 @@
     "db:generate": "drizzle-kit generate:pg",
     "manifest:manual-process": "tsx scripts/manual-process-manifest.ts",
     "manifest:recreate": "tsx scripts/recreate-manifest.ts",
+    "postnl:pickup:test": "tsx scripts/test-postnl-pickup.ts",
     "build": "next build",
     "start": "next start",
     "lint": "next lint"

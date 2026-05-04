@@ -1,11 +1,14 @@
-import { logger } from '@/utils/logger';
 import { getParcel } from '@/modules/asendia/parcels/getParcel';
 import { listCustomerManifests } from '@/modules/asendia/manifests/listCustomerManifests';
 import { getManifest } from '@/modules/asendia/manifests/getManifest';
 import { getManifestParcels } from '@/modules/asendia/manifests/getManifestParcels';
+import { createAsendiaManifestApi, type AsendiaManifestApi } from '@/modules/asendia/manifests/client';
 import { fetchAndStoreManifestDocument } from './document.service';
+import { getPositiveIntFromEnv } from '@/utils/timeout';
 
 const MANIFEST_SCAN_PAGE_SIZE = 100;
+const DEFAULT_MAX_MANIFEST_SCAN_PAGES = 50;
+const DEFAULT_MANIFEST_SCAN_CONCURRENCY = 10;
 
 export type RecoverableShipment = {
   id: number;
@@ -30,31 +33,88 @@ function extractManifestIdFromLocation(location?: string | null): string | null 
   return match?.[1] ?? null;
 }
 
-async function findManifestIdsByCustomerManifestScan(customerId: string, targetParcelIds: string[]): Promise<Map<string, string>> {
+function getManifestScanConcurrency(): number {
+  return getPositiveIntFromEnv(process.env.ASENDIA_MANIFEST_SCAN_CONCURRENCY, DEFAULT_MANIFEST_SCAN_CONCURRENCY);
+}
+
+async function findManifestIdsByCustomerManifestScan(
+  customerId: string,
+  targetParcelIds: string[],
+  api: AsendiaManifestApi,
+): Promise<Map<string, string>> {
   const remainingParcelIds = new Set(targetParcelIds);
   const resolvedManifestIds = new Map<string, string>();
   const manifestParcelCache = new Map<string, string[]>();
+  const maxPages = getPositiveIntFromEnv(process.env.ASENDIA_MANIFEST_SCAN_MAX_PAGES, DEFAULT_MAX_MANIFEST_SCAN_PAGES);
+  const concurrency = getManifestScanConcurrency();
 
-  for (let page = 0; ; page += 1) {
-    const manifests = await listCustomerManifests(customerId, page, MANIFEST_SCAN_PAGE_SIZE);
+  console.log('manifest_recovery_customer_scan_started', {
+    crm_id: customerId,
+    targetParcelCount: targetParcelIds.length,
+    maxPages,
+    concurrency,
+    pageSize: MANIFEST_SCAN_PAGE_SIZE,
+    timestamp: new Date().toISOString(),
+  });
+
+  for (let page = 0; page < maxPages; page += 1) {
+    let manifests;
+    try {
+      manifests = await listCustomerManifests(customerId, page, MANIFEST_SCAN_PAGE_SIZE, api);
+    } catch (error: any) {
+      console.error('manifest_recovery_customer_scan_failed', {
+        crm_id: customerId,
+        page,
+        remainingParcelCount: remainingParcelIds.size,
+        error: error?.message ?? 'unknown',
+        timestamp: new Date().toISOString(),
+      });
+      throw error;
+    }
+
+    console.log('manifest_recovery_customer_scan_page', {
+      crm_id: customerId,
+      page,
+      manifestCount: manifests.length,
+      remainingParcelCount: remainingParcelIds.size,
+      timestamp: new Date().toISOString(),
+    });
+
     if (manifests.length === 0) {
       break;
     }
 
-    for (const manifest of manifests) {
-      const manifestId = manifest.id ?? extractManifestIdFromLocation(manifest.manifestLocation);
-      if (!manifestId) continue;
+    const manifestIds = manifests
+      .map((manifest) => manifest.id ?? extractManifestIdFromLocation(manifest.manifestLocation))
+      .filter((manifestId): manifestId is string => !!manifestId);
 
-      let parcelIds = manifestParcelCache.get(manifestId);
-      if (!parcelIds) {
-        parcelIds = await getManifestParcels(manifestId);
-        manifestParcelCache.set(manifestId, parcelIds);
+    for (let index = 0; index < manifestIds.length; index += concurrency) {
+      const chunk = manifestIds.slice(index, index + concurrency);
+      const results = await Promise.all(chunk.map(async (manifestId) => {
+        let parcelIds = manifestParcelCache.get(manifestId);
+        if (!parcelIds) {
+          parcelIds = await getManifestParcels(manifestId, api);
+          manifestParcelCache.set(manifestId, parcelIds);
+        }
+        return { manifestId, parcelIds };
+      }));
+
+      for (const result of results) {
+        for (const parcelId of result.parcelIds) {
+          if (!remainingParcelIds.has(parcelId)) continue;
+          resolvedManifestIds.set(parcelId, result.manifestId);
+          remainingParcelIds.delete(parcelId);
+        }
       }
-      for (const parcelId of parcelIds) {
-        if (!remainingParcelIds.has(parcelId)) continue;
-        resolvedManifestIds.set(parcelId, manifestId);
-        remainingParcelIds.delete(parcelId);
-      }
+
+      console.log('manifest_recovery_customer_scan_chunk', {
+        crm_id: customerId,
+        page,
+        chunkStart: index,
+        chunkSize: chunk.length,
+        remainingParcelCount: remainingParcelIds.size,
+        timestamp: new Date().toISOString(),
+      });
 
       if (remainingParcelIds.size === 0) {
         return resolvedManifestIds;
@@ -66,11 +126,27 @@ async function findManifestIdsByCustomerManifestScan(customerId: string, targetP
     }
   }
 
+  if (remainingParcelIds.size > 0) {
+    console.warn('manifest_recovery_customer_scan_incomplete', {
+      crm_id: customerId,
+      unresolvedParcelCount: remainingParcelIds.size,
+      unresolvedParcelIds: Array.from(remainingParcelIds),
+      maxPages,
+      timestamp: new Date().toISOString(),
+    });
+  } else {
+    console.log('manifest_recovery_customer_scan_completed', {
+      crm_id: customerId,
+      resolvedParcelCount: resolvedManifestIds.size,
+      timestamp: new Date().toISOString(),
+    });
+  }
+
   return resolvedManifestIds;
 }
 
-async function resolveManifestIdForParcel(parcelId: string, customerId: string): Promise<string | null> {
-  const parcel = await getParcel(parcelId);
+async function resolveManifestIdForParcel(parcelId: string, customerId: string, api: AsendiaManifestApi): Promise<string | null> {
+  const parcel = await getParcel(parcelId, api);
   const manifestIdFromLocation = extractManifestIdFromLocation(parcel.manifestLocation);
   if (manifestIdFromLocation) {
     return manifestIdFromLocation;
@@ -86,6 +162,8 @@ export async function recoverManifestGroupsForShipments(shipments: RecoverableSh
   const manifestIdToParcelIds = new Map<string, string[]>();
   const unrecoveredParcelIds: string[] = [];
   const shipmentsByCustomer = new Map<string, RecoverableShipment[]>();
+  const startedAt = Date.now();
+  const api = await createAsendiaManifestApi();
 
   for (const shipment of shipments) {
     if (!shipment.parcel_id || !shipment.crm_id) {
@@ -98,11 +176,17 @@ export async function recoverManifestGroupsForShipments(shipments: RecoverableSh
     shipmentsByCustomer.set(shipment.crm_id, existing);
   }
 
+  console.log('manifest_recovery_started', {
+    shipmentCount: shipments.length,
+    customerCount: shipmentsByCustomer.size,
+    timestamp: new Date().toISOString(),
+  });
+
   for (const [customerId, customerShipments] of shipmentsByCustomer.entries()) {
     const targetParcelIds = customerShipments
       .map((shipment) => shipment.parcel_id)
       .filter((parcelId): parcelId is string => !!parcelId);
-    const recoveredFromCustomerManifests = await findManifestIdsByCustomerManifestScan(customerId, targetParcelIds);
+    const recoveredFromCustomerManifests = await findManifestIdsByCustomerManifestScan(customerId, targetParcelIds, api);
 
     for (const shipment of customerShipments) {
       if (!shipment.parcel_id) {
@@ -119,7 +203,7 @@ export async function recoverManifestGroupsForShipments(shipments: RecoverableSh
       }
 
       try {
-        const manifestId = await resolveManifestIdForParcel(shipment.parcel_id, customerId);
+        const manifestId = await resolveManifestIdForParcel(shipment.parcel_id, customerId, api);
         if (!manifestId) {
           unrecoveredParcelIds.push(shipment.parcel_id);
           continue;
@@ -129,7 +213,7 @@ export async function recoverManifestGroupsForShipments(shipments: RecoverableSh
         existing.push(shipment.parcel_id);
         manifestIdToParcelIds.set(manifestId, existing);
       } catch (error: any) {
-        logger.error('manifest_recovery_parcel_lookup_failed', {
+        console.error('manifest_recovery_parcel_lookup_failed', {
           shipment_id: shipment.id,
           parcel_id: shipment.parcel_id,
           crm_id: shipment.crm_id,
@@ -144,8 +228,8 @@ export async function recoverManifestGroupsForShipments(shipments: RecoverableSh
 
   for (const [manifestId, parcelIds] of manifestIdToParcelIds.entries()) {
     const [manifest, actualParcelIds, documentUrl] = await Promise.all([
-      getManifest(manifestId),
-      getManifestParcels(manifestId),
+      getManifest(manifestId, api),
+      getManifestParcels(manifestId, api),
       fetchAndStoreManifestDocument(manifestId).catch(() => undefined),
     ]);
     const actualSet = new Set(actualParcelIds);
@@ -161,6 +245,14 @@ export async function recoverManifestGroupsForShipments(shipments: RecoverableSh
       createdAt: manifest.createdAt ?? null,
     });
   }
+
+  console.log('manifest_recovery_completed', {
+    shipmentCount: shipments.length,
+    recoveredGroupCount: recoveredGroups.length,
+    unrecoveredParcelCount: unrecoveredParcelIds.length,
+    elapsedMs: Date.now() - startedAt,
+    timestamp: new Date().toISOString(),
+  });
 
   return {
     recoveredGroups,

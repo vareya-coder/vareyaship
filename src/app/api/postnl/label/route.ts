@@ -5,6 +5,7 @@ import { mapShipHeroToPostNL } from '@/app/utils/postnl/dataMaper';
 import { ShipHeroWebhook } from '@/app/utils/types';
 
 import { Data } from '@/app/utils/postnl/postnltypes';
+import { decidePostNLPickupHandling } from '@/modules/postnl/pickup/pickup.service';
 import { logger } from '@/utils/logger';
 
 config();
@@ -30,8 +31,10 @@ export async function POST(req: NextRequest) {
       logger.info(barCode);
 
       const postNLApiKey = process.env.POSTNL_API_KEY as string;
+      const pickupDecision = await decidePostNLPickupHandling(shipmentData, postNLApiKey);
       const postNLBody : Data = await mapShipHeroToPostNL(shipmentData, barCode, postNLProductCode, 
-                                                          postNLCustomerCode, postNLCustomerNumber);
+                                                          postNLCustomerCode, postNLCustomerNumber,
+                                                          pickupDecision);
       logger.info(JSON.stringify(postNLBody))
       try {
         const postNLApiResponse = await callPostNLApi(postNLApiKey, JSON.stringify(postNLBody));

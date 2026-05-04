@@ -20,7 +20,11 @@ type AddressType = {
     Floor?: string;
     HouseNr?: string;
     HouseNrExt?: string;
+    DownPartnerID?: string;
+    DownPartnerLocation?: string;
+    LocationCode?: string;
     Name?: string;
+    RetailNetworkID?: string;
     Region?: string;
     Street?: string;
     StreetHouseNrExt?: string;
@@ -146,6 +150,7 @@ type AddressType = {
     ReturnReference?: string;
     TimeslotID?: string;
     ProductCodeDelivery?: string;
+    ProductOptions?: ProductOptionType[];
     Dimension?: DimensionType;
     // ... add other fields as needed
   };

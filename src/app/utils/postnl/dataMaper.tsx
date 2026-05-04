@@ -2,12 +2,14 @@ import { ShipHeroWebhook } from "../types";
 import { Data } from "./postnltypes";
 import { config } from 'dotenv';
 import axios from "axios";
+import { PostNLPickupDecision } from "@/modules/postnl/pickup/pickup.service";
 
 config();
 
 export async function mapShipHeroToPostNL(shipHeroData: ShipHeroWebhook, barCode: string, 
                                             postNLProductCode: string, postNLCustomerCode: string, 
-                                            postNLCustomerNumber: string) {
+                                            postNLCustomerNumber: string,
+                                            pickupDecision?: PostNLPickupDecision | null) {
     const EU: any = ['AT', 'BE', 'BG', 'CY', 'CZ', 'DE', 'DK', 'EE', 'ES', 'FI', 'FR', 'GR', 'HR', 'HU', 'IE', 'IT', 'LT', 'LU', 'LV', 'MT', 'NL', 'PL', 'PT', 'RO', 'SE', 'SI', 'SK'];
 
     // const barcode: string = await getBarcode(customer_code, customer_number);
@@ -207,7 +209,50 @@ export async function mapShipHeroToPostNL(shipHeroData: ShipHeroWebhook, barCode
     // }
     postNLData.Shipments[0].CustomerOrderNumber = orderNumCleaned;
     postNLData.Shipments[0].Reference = orderNumCleaned;
+    applyPostNLPickupDecision(postNLData, pickupDecision);
 
     // console.log(JSON.stringify(postNLData))
     return postNLData;
+}
+
+function applyPostNLPickupDecision(postNLData: Data, pickupDecision?: PostNLPickupDecision | null) {
+    const shipment = postNLData.Shipments[0];
+    const receiverAddress = shipment.Addresses?.find((address) => address.AddressType === "01");
+
+    if (!shipment.Addresses || !receiverAddress || !pickupDecision) {
+        return;
+    }
+
+    if (pickupDecision.applyAddressFallback) {
+        receiverAddress.StreetHouseNrExt = `${receiverAddress.StreetHouseNrExt ?? ''} ${pickupDecision.companyValue}`.trim();
+        return;
+    }
+
+    if (!pickupDecision.applyPickup || !pickupDecision.location) {
+        return;
+    }
+
+    const location = pickupDecision.location;
+    const existingPickupAddressIndex = shipment.Addresses.findIndex((address) => address.AddressType === "09");
+    const pickupAddress = {
+        AddressType: "09",
+        City: location.city,
+        CompanyName: location.name,
+        Countrycode: location.countryCode || "NL",
+        DownPartnerID: location.retailNetworkId,
+        DownPartnerLocation: location.locationCode,
+        HouseNr: location.houseNr,
+        HouseNrExt: location.houseNrExt,
+        LocationCode: location.locationCode,
+        Name: location.name,
+        RetailNetworkID: location.retailNetworkId,
+        Street: location.street,
+        Zipcode: location.zipcode,
+    };
+
+    if (existingPickupAddressIndex >= 0) {
+        shipment.Addresses[existingPickupAddressIndex] = pickupAddress;
+    } else {
+        shipment.Addresses.push(pickupAddress);
+    }
 }

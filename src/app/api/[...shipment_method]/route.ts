@@ -5,7 +5,7 @@ import { uploadPdf } from '@/app/utils/labelPdfUrlGenerator';
 import { uploadPdfBuffer } from '@/app/utils/labelPdfUploader';
 import { getRoyalMailTrackingUrl } from '@/app/utils/royalmail/royalmailDataMapper';
 // import { withAxiom, AxiomRequest } from 'next-axiom';
-import { logger } from '@/utils/logger';
+import { logError, logInfo, logger } from '@/utils/logger';
 import { ingestAsendiaShipment } from '@/modules/shipments/shipment.service';
 
 const SHIPMENT_WEBHOOK_ROUTE = '/api/[...shipment_method]';
@@ -17,7 +17,7 @@ type LabelUrlMode = 'direct' | 'proxy';
 
 export async function POST(req: NextRequest) {
 
-  console.log('Received a POST request to /api/[...shipment_method]');
+  logInfo('Received a POST request to /api/[...shipment_method]');
 
   let trackingNumber = '';
   let trackingUrl = ''
@@ -37,10 +37,10 @@ export async function POST(req: NextRequest) {
   const EU: any = ['AT', 'BE', 'BG', 'CY', 'CZ', 'DE', 'DK', 'EE', 'ES', 'FI', 'FR', 'GR', 'HR', 'HU', 'IE', 'IT', 'LT', 'LU', 'LV', 'MT', 'NL', 'PL', 'PT', 'RO', 'SE', 'SI', 'SK'];
 
   try {
-    console.log('Processing shipment update...');
+    logInfo('Processing shipment update...');
     const shipmentData: ShipHeroWebhook = await req.json();
 
-    console.log('Received shipment data:', JSON.stringify(shipmentData, null, 2));
+    logInfo('Received shipment data.', { shipmentData: JSON.stringify(shipmentData, null, 2) });
 
     const firstPackage = shipmentData.packages[0];
 
@@ -111,8 +111,7 @@ export async function POST(req: NextRequest) {
       Carrier="RoyalMail"
     }
 
-    logger.info(Carrier);
-    console.log( `Carrier: ${Carrier}`);
+    logInfo('Carrier selected.', { carrier: Carrier });
     let labelContent = undefined;
     var currentdate = new Date();
 
@@ -160,8 +159,9 @@ export async function POST(req: NextRequest) {
           }
         });
         
-        logger.info("Successfully received response from Local Asendia API Handler in main:");
-        console.log("Successfully received response from Local Asendia API Handler in main:", asendiaResponse.data);
+        logInfo('Successfully received response from Local Asendia API Handler in main.', {
+          response: asendiaResponse.data,
+        });
         
         if (asendiaResponse && asendiaResponse.data && asendiaResponse.data.trackingNumber && asendiaResponse.data.labelLocation) {
           trackingNumber = asendiaResponse.data.trackingNumber
@@ -191,7 +191,7 @@ export async function POST(req: NextRequest) {
             logger.info(`Label uploaded successfully. URL: ${labelUrl}`);
 
             // Persist shipment + assign to batch (idempotent on parcel id)
-            console.log(asendiaResponse)
+            logInfo('Asendia sync response before shipment persistence.', { response: asendiaResponse.data });
             if (asendiaResponse.data.parcelId && asendiaResponse.data.crmId) {
               try {
                 await ingestAsendiaShipment({
@@ -206,8 +206,7 @@ export async function POST(req: NextRequest) {
                   label_url: labelUrl,
                 });
               } catch (e) {
-                console.error('Failed to persist Asendia shipment', { error: (e as any)?.message });
-                logger.error('Failed to persist Asendia shipment', { error: (e as any)?.message });
+                logError('Failed to persist Asendia shipment', { error: (e as any)?.message });
               }
             } else if (asendiaResponse.data.parcelId) {
               logger.error('Asendia parcel created without crmId in internal response', {
@@ -222,7 +221,7 @@ export async function POST(req: NextRequest) {
               // The return object will simply be missing the `labelUrl`.
           }
         } else if (asendiaResponse && asendiaResponse.data && asendiaResponse.data.errorCode) {
-          console.error("Asendia Sync API reported input validation error:", asendiaResponse.data);
+          logError('Asendia Sync API reported input validation error.', { response: asendiaResponse.data });
           return new NextResponse(JSON.stringify(asendiaResponse.data), {
             status: asendiaResponse.status,
             headers: {
@@ -316,8 +315,7 @@ export async function POST(req: NextRequest) {
     };
     
     const responseBody = JSON.stringify(responseBodyJson);
-    logger.info(responseBody);
-    console.log(responseBody);
+    logInfo('Shipment webhook response body.', { responseBody });
 
     logger.end();
 
@@ -328,8 +326,7 @@ export async function POST(req: NextRequest) {
       },
     });
   } catch (error) {
-    logger.error('Error processing the shipment update:', error);
-    console.log('Error processing the shipment update:', error);
+    logError('Error processing the shipment update.', { error });
 
     let errorMessage: any = 'Internal Server Error';
     let status = 500;

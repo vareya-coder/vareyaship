@@ -1,11 +1,22 @@
 import { and, eq } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { cronRuns } from '@/lib/db/schema';
+import { getPositiveIntFromEnv } from '@/utils/timeout';
 
 type AcquireCronRunResult =
   | { state: 'acquired'; runId: number }
   | { state: 'completed'; runId: number }
   | { state: 'in_progress'; runId: number };
+
+function getCronRunStaleMinutes(): number {
+  return getPositiveIntFromEnv(process.env.CRON_RUN_STALE_MINUTES, 30);
+}
+
+function isStartedRunStale(startedAt: Date | null): boolean {
+  if (!startedAt) return false;
+  const staleMs = getCronRunStaleMinutes() * 60_000;
+  return Date.now() - startedAt.getTime() >= staleMs;
+}
 
 export async function acquireDailyCronRun(jobName: string, operationalDateISO: string): Promise<AcquireCronRunResult> {
   const startedAt = new Date();
@@ -37,6 +48,18 @@ export async function acquireDailyCronRun(jobName: string, operationalDateISO: s
   const existing = rows[0];
   if (!existing) {
     throw new Error(`Cron run record missing for ${jobName} on ${operationalDateISO}`);
+  }
+
+  if (existing.status === 'started' && isStartedRunStale(existing.started_at ?? null)) {
+    await db
+      .update(cronRuns)
+      .set({
+        status: 'failed',
+        completed_at: startedAt,
+        error_message: `Marked stale after exceeding ${getCronRunStaleMinutes()} minutes without completion`,
+      })
+      .where(and(eq(cronRuns.id, existing.id), eq(cronRuns.status, 'started')));
+    existing.status = 'failed';
   }
 
   if (existing.status === 'failed') {

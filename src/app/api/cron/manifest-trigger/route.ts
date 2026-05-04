@@ -6,11 +6,12 @@ import { manifestBatch } from '@/modules/manifesting/manifest.service';
 import { logEvent } from '@/modules/logging/events';
 import { getOperationalDateISO, hasReachedCutoff } from '@/modules/time/time';
 import { acquireDailyCronRun, completeCronRun, failCronRun } from '@/modules/cron/cronRun.repository';
-import { logger } from '@/utils/logger';
-import { notifyManifestDryRunSummary } from '@/modules/notifications/notify';
+import { logError, logInfo, logger } from '@/utils/logger';
+import { notifyManifestDryRunSummary, notifyManifestTriggerFailure } from '@/modules/notifications/notify';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
+export const maxDuration = 300;
 const MANIFEST_TRIGGER_JOB = 'manifest-trigger';
 
 function authorized(req: NextRequest): boolean {
@@ -148,6 +149,8 @@ export async function GET(req: NextRequest) {
     });
   }
 
+  let currentBatchId: number | null = null;
+
   try {
     const evalRes = await evaluateBatchesForClosing(now);
 
@@ -164,6 +167,13 @@ export async function GET(req: NextRequest) {
     const results: any[] = [];
 
     for (const batchId of evalRes.toCloseIds) {
+      currentBatchId = batchId;
+      logInfo('manifest_trigger_batch_started', {
+        batch_id: batchId,
+        operational_date: operationalDate,
+        timestamp: new Date().toISOString(),
+      });
+
       if (!dryRun) {
         await closeBatchGuarded(batchId);
       }
@@ -176,7 +186,24 @@ export async function GET(req: NextRequest) {
         continue;
       }
 
-      const manifestRes = await manifestBatch(batchId, parcelIds);
+      let manifestRes;
+      try {
+        manifestRes = await manifestBatch(batchId, parcelIds);
+      } catch (error: any) {
+        logError('manifest_trigger_batch_failed', {
+          batch_id: batchId,
+          operational_date: operationalDate,
+          error: error?.message ?? 'unknown',
+          timestamp: new Date().toISOString(),
+        });
+        throw error;
+      }
+      logInfo('manifest_trigger_batch_completed', {
+        batch_id: batchId,
+        operational_date: operationalDate,
+        manifestRes,
+        timestamp: new Date().toISOString(),
+      });
       results.push({ batchId, manifestRes });
     }
 
@@ -191,7 +218,13 @@ export async function GET(req: NextRequest) {
   } catch (error) {
     const errorMessage = String((error as Error)?.message ?? 'unknown');
     await failCronRun(runState.runId, errorMessage);
-    logEvent({ event: 'manifest_failed', status: 'error', errorMessage });
+    logEvent({ event: 'manifest_failed', batch_id: currentBatchId, status: 'error', errorMessage });
+    await notifyManifestTriggerFailure({
+      operationalDate,
+      batchId: currentBatchId,
+      errorMessage,
+      occurredAt: new Date(),
+    });
     return NextResponse.json({ message: 'Manifest trigger failed', error: errorMessage }, { status: 500 });
   }
 }

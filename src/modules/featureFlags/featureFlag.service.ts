@@ -15,6 +15,13 @@ type Flags = {
   retention_days: number;
   dry_run_manifest: boolean;
   dry_run_manifest_send_email: boolean;
+  enable_postnl_pickup_inference: boolean;
+  postnl_pickup_account_ids: number[];
+  postnl_pickup_confidence_threshold: number;
+  enable_postnl_pickup_address_fallback: boolean;
+  postnl_pickup_strict_address_match_required: boolean;
+  postnl_pickup_max_distance_meters: number;
+  postnl_pickup_log_only: boolean;
 };
 
 let cache: { value: Flags; expiresAt: number } | null = null;
@@ -30,6 +37,14 @@ function boolFromEnv(value: string | undefined, fallback = false): boolean {
 function intFromEnv(value: string | undefined, fallback: number): number {
   const n = Number.parseInt((value ?? '').trim(), 10);
   return Number.isFinite(n) ? n : fallback;
+}
+
+function intListFromEnv(value: string | undefined, fallback: number[]): number[] {
+  const parsed = (value ?? '')
+    .split(',')
+    .map((item) => Number.parseInt(item.trim(), 10))
+    .filter((item) => Number.isFinite(item));
+  return parsed.length > 0 ? parsed : fallback;
 }
 
 function strFromEnv(
@@ -89,6 +104,36 @@ export function getFlags(): Flags {
     ),
     dry_run_manifest: boolFromEnv(process.env.DRY_RUN_MANIFEST, false),
     dry_run_manifest_send_email: boolFromEnv(process.env.DRY_RUN_MANIFEST_SEND_EMAIL, false),
+    enable_postnl_pickup_inference: boolFromEnv(
+      process.env.ENABLE_POSTNL_PICKUP_INFERENCE ?? process.env.enable_postnl_pickup_inference,
+      false,
+    ),
+    postnl_pickup_account_ids: intListFromEnv(
+      process.env.POSTNL_PICKUP_ACCOUNT_IDS ?? process.env.postnl_pickup_account_ids,
+      [85552],
+    ),
+    postnl_pickup_confidence_threshold: intFromEnv(
+      process.env.POSTNL_PICKUP_CONFIDENCE_THRESHOLD ?? process.env.postnl_pickup_confidence_threshold,
+      85,
+    ),
+    enable_postnl_pickup_address_fallback: boolFromEnv(
+      process.env.ENABLE_POSTNL_PICKUP_ADDRESS_FALLBACK
+        ?? process.env.enable_postnl_pickup_address_fallback,
+      true,
+    ),
+    postnl_pickup_strict_address_match_required: boolFromEnv(
+      process.env.POSTNL_PICKUP_STRICT_ADDRESS_MATCH_REQUIRED
+        ?? process.env.postnl_pickup_strict_address_match_required,
+      true,
+    ),
+    postnl_pickup_max_distance_meters: intFromEnv(
+      process.env.POSTNL_PICKUP_MAX_DISTANCE_METERS ?? process.env.postnl_pickup_max_distance_meters,
+      500,
+    ),
+    postnl_pickup_log_only: boolFromEnv(
+      process.env.POSTNL_PICKUP_LOG_ONLY ?? process.env.postnl_pickup_log_only,
+      true,
+    ),
   };
 
   cache = { value: flags, expiresAt: now + TTL_MS };

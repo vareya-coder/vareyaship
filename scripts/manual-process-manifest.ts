@@ -64,8 +64,6 @@ async function main() {
       status: error?.response?.status,
       error: error?.message ?? 'unknown error',
       response: error?.response?.data ?? null,
-      recoveredManifestIds: error?.recoveredManifestIds ?? null,
-      unrecoveredParcelIds: error?.unrecoveredParcelIds ?? null,
     }, null, 2));
     process.exit(1);
   }

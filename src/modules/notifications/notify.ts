@@ -1,5 +1,6 @@
 import { logEvent } from '@/modules/logging/events';
 import { sendResendEmail } from './resendEmail';
+import { logError, logInfo } from '@/utils/logger';
 
 type ManifestNotificationInput = {
   kind: 'partial_failure' | 'verification_mismatch';
@@ -35,6 +36,13 @@ type ManifestDryRunSummaryInput = {
     pendingShipmentCount: number;
     eligibleToCloseNow: boolean;
   }>;
+};
+
+type ManifestTriggerFailureInput = {
+  operationalDate: string;
+  errorMessage: string;
+  occurredAt?: Date;
+  batchId?: number | null;
 };
 
 function getManifestNotificationConfig() {
@@ -108,7 +116,7 @@ export async function notifyManifestIssue(input: ManifestNotificationInput) {
 
   try {
     const id = await sendResendEmail({ subject, html, to: to || undefined, from: from || undefined });
-    console.info('Manifest issue notification sent', {
+    logInfo('Manifest issue notification sent', {
       kind: input.kind,
       batchId: input.batchId,
       manifestId: input.manifestId,
@@ -118,7 +126,7 @@ export async function notifyManifestIssue(input: ManifestNotificationInput) {
     });
     logEvent({ event: 'notification_enqueued', subject, to: to || 'default', from: from || 'default', status: 'sent', id });
   } catch (e: any) {
-    console.error('Manifest issue notification failed', {
+    logError('Manifest issue notification failed', {
       kind: input.kind,
       batchId: input.batchId,
       manifestId: input.manifestId,
@@ -165,8 +173,45 @@ export async function notifyManifestDryRunSummary(input: ManifestDryRunSummaryIn
     const id = await sendResendEmail({ subject, html, to: to || undefined, from: from || undefined });
     logEvent({ event: 'notification_enqueued', subject, to: to || 'default', from: from || 'default', status: 'sent', id });
   } catch (e: any) {
-    console.error('Manifest dry run summary notification failed', {
+    logError('Manifest dry run summary notification failed', {
       operationalDate: input.operationalDate,
+      to: to || 'default',
+      from: from || 'default',
+      error: e?.message ?? 'unknown',
+    });
+    logEvent({ event: 'notification_enqueued', subject, to: to || 'default', from: from || 'default', status: 'error', errorMessage: e?.message });
+  }
+}
+
+export async function notifyManifestTriggerFailure(input: ManifestTriggerFailureInput) {
+  const { to, from, timeZone } = getManifestNotificationConfig();
+  const occurredAt = input.occurredAt ?? new Date();
+  const formattedTimestamp = formatManifestTimestamp(occurredAt, timeZone);
+  const subject = input.batchId
+    ? `Manifest trigger failure | ${formattedTimestamp} | ${input.operationalDate} | batch ${input.batchId}`
+    : `Manifest trigger failure | ${formattedTimestamp} | ${input.operationalDate}`;
+  const html = [
+    `<p>Manifest trigger failed.</p>`,
+    `<p><strong>Date/time:</strong> ${escapeHtml(formattedTimestamp)}</p>`,
+    `<p><strong>Operational date:</strong> ${escapeHtml(input.operationalDate)}</p>`,
+    input.batchId ? `<p><strong>Batch ID:</strong> ${input.batchId}</p>` : '',
+    `<p><strong>Error:</strong> ${escapeHtml(input.errorMessage)}</p>`,
+  ].join('');
+
+  try {
+    const id = await sendResendEmail({ subject, html, to: to || undefined, from: from || undefined });
+    logInfo('Manifest trigger failure notification sent', {
+      operationalDate: input.operationalDate,
+      batchId: input.batchId ?? null,
+      to: to || 'default',
+      from: from || 'default',
+      id: id ?? null,
+    });
+    logEvent({ event: 'notification_enqueued', subject, to: to || 'default', from: from || 'default', status: 'sent', id });
+  } catch (e: any) {
+    logError('Manifest trigger failure notification failed', {
+      operationalDate: input.operationalDate,
+      batchId: input.batchId ?? null,
       to: to || 'default',
       from: from || 'default',
       error: e?.message ?? 'unknown',

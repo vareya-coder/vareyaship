@@ -1,3 +1,5 @@
+import { getPositiveIntFromEnv } from '@/utils/timeout';
+
 type ResendSendResponse = {
   id?: string;
 };
@@ -16,6 +18,7 @@ export async function sendResendEmail(input: {
 }): Promise<string | undefined> {
   const apiKey = process.env.RESEND_API_KEY;
   const endpoint = process.env.RESEND_API_ENDPOINT || 'https://api.resend.com/emails';
+  const timeoutMs = getPositiveIntFromEnv(process.env.RESEND_TIMEOUT_MS, 15000);
 
   if (!apiKey) throw new Error('Missing RESEND_API_KEY');
 
@@ -26,6 +29,7 @@ export async function sendResendEmail(input: {
 
   const response = await fetch(endpoint, {
     method: 'POST',
+    signal: AbortSignal.timeout(timeoutMs),
     headers: {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${apiKey}`,

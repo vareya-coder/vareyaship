@@ -6,7 +6,7 @@ config();
 
 function authenticateUser(email: string, password: string): boolean {
     // Your authentication logic here
-    if (email === 'vareyaship@vareyabv.com' && password === '@vareyabvpassword.') {
+    if (email === 'vareyaship@vareya.nl' && password === '@vareyabvpassword.') {
         return true;
     }
     return false;
