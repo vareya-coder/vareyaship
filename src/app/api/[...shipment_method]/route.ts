@@ -204,6 +204,7 @@ export async function POST(req: NextRequest) {
                   sender_tax_code: asendiaResponse.data.senderTaxCode ?? null,
                   tracking_number: trackingNumber,
                   label_url: labelUrl,
+                  created_at: shipmentData.created_at ?? shipmentData.createdAt ?? null,
                 });
               } catch (e) {
                 logError('Failed to persist Asendia shipment', { error: (e as any)?.message });

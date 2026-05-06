@@ -1,10 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { evaluateBatchesForClosing, closeBatchGuarded } from '@/modules/batching/batch.service';
 import { getFlags } from '@/modules/featureFlags/featureFlag.service';
-import { getBatchShipments, listBatchesForOperationalDate, listBatchShipments } from '@/modules/batching/batch.repository';
+import {
+  findBatchById,
+  getBatchShipments,
+  listBatchesForOperationalDate,
+  listBatchShipments,
+  listClosingBatchesDueThrough,
+} from '@/modules/batching/batch.repository';
 import { manifestBatch } from '@/modules/manifesting/manifest.service';
 import { logEvent } from '@/modules/logging/events';
-import { getOperationalDateISO, hasReachedCutoff } from '@/modules/time/time';
+import {
+  getOperationalDateISO,
+  getShipmentOperationalDateISO,
+  hasReachedCutoff,
+} from '@/modules/time/time';
 import { acquireDailyCronRun, completeCronRun, failCronRun } from '@/modules/cron/cronRun.repository';
 import { logError, logInfo, logger } from '@/utils/logger';
 import { notifyManifestDryRunSummary, notifyManifestTriggerFailure } from '@/modules/notifications/notify';
@@ -17,6 +27,23 @@ const MANIFEST_TRIGGER_JOB = 'manifest-trigger';
 function authorized(req: NextRequest): boolean {
   const token = req.headers.get('authorization');
   return token === `Bearer ${process.env.CRON_SECRET}`;
+}
+
+function isShipmentEligibleForBatchOperationalDate(
+  shipment: any,
+  batchOperationalDate: string | null,
+  cutoffTime: string,
+  timeZone: string,
+): boolean {
+  if (!batchOperationalDate) return false;
+  if (!shipment.created_at) return true;
+
+  const createdAt = shipment.created_at instanceof Date
+    ? shipment.created_at
+    : new Date(shipment.created_at);
+  if (Number.isNaN(createdAt.getTime())) return false;
+
+  return getShipmentOperationalDateISO(createdAt, cutoffTime, timeZone) === batchOperationalDate;
 }
 
 async function buildDryRunSummary(operationalDate: string, now: Date) {
@@ -153,8 +180,13 @@ export async function GET(req: NextRequest) {
 
   try {
     const evalRes = await evaluateBatchesForClosing(now);
+    const closingBatchesDue = await listClosingBatchesDueThrough(operationalDate);
+    const batchIdsToProcess = Array.from(new Set([
+      ...evalRes.toCloseIds,
+      ...(closingBatchesDue as any[]).map((batch) => batch.batch_id as number),
+    ]));
 
-    if (evalRes.toCloseIds.length === 0) {
+    if (batchIdsToProcess.length === 0) {
       await completeCronRun(runState.runId);
       return NextResponse.json({
         message: 'No eligible batches',
@@ -166,23 +198,45 @@ export async function GET(req: NextRequest) {
 
     const results: any[] = [];
 
-    for (const batchId of evalRes.toCloseIds) {
+    if (!dryRun) {
+      for (const batchId of evalRes.toCloseIds) {
+        currentBatchId = batchId;
+        await closeBatchGuarded(batchId);
+      }
+    }
+
+    const failures: Array<{ batchId: number; error: string }> = [];
+
+    for (const batchId of batchIdsToProcess) {
       currentBatchId = batchId;
+      const batch = await findBatchById(batchId);
+      const batchOperationalDate = (batch as any)?.operational_date?.toString() ?? null;
       logInfo('manifest_trigger_batch_started', {
         batch_id: batchId,
-        operational_date: operationalDate,
+        operational_date: batchOperationalDate ?? operationalDate,
         timestamp: new Date().toISOString(),
       });
 
-      if (!dryRun) {
-        await closeBatchGuarded(batchId);
-      }
       const toManifestShipments = await getBatchShipments(batchId);
-      const parcelIds = (toManifestShipments as any[]).map((s) => s.parcel_id).filter(Boolean);
+      const parcelIds = (toManifestShipments as any[])
+        .filter((shipment) => isShipmentEligibleForBatchOperationalDate(
+          shipment,
+          batchOperationalDate,
+          flags.cutoff_time,
+          flags.manifest_trigger_timezone,
+        ))
+        .map((s) => s.parcel_id)
+        .filter(Boolean);
 
       if (dryRun) {
         logEvent({ event: 'manifest_triggered', batch_id: batchId, status: 'dry_run', count: parcelIds.length });
         results.push({ batchId, dryRun: true, wouldManifestCount: parcelIds.length });
+        continue;
+      }
+
+      if (parcelIds.length === 0) {
+        logEvent({ event: 'manifest_triggered', batch_id: batchId, status: 'no_parcels', manifest_id: null });
+        results.push({ batchId, skipped: true, reason: 'no_eligible_parcels' });
         continue;
       }
 
@@ -192,19 +246,26 @@ export async function GET(req: NextRequest) {
       } catch (error: any) {
         logError('manifest_trigger_batch_failed', {
           batch_id: batchId,
-          operational_date: operationalDate,
+          operational_date: batchOperationalDate ?? operationalDate,
           error: error?.message ?? 'unknown',
           timestamp: new Date().toISOString(),
         });
-        throw error;
+        failures.push({ batchId, error: error?.message ?? 'unknown' });
+        results.push({ batchId, error: error?.message ?? 'unknown' });
+        continue;
       }
       logInfo('manifest_trigger_batch_completed', {
         batch_id: batchId,
-        operational_date: operationalDate,
+        operational_date: batchOperationalDate ?? operationalDate,
         manifestRes,
         timestamp: new Date().toISOString(),
       });
       results.push({ batchId, manifestRes });
+    }
+
+    if (failures.length > 0) {
+      currentBatchId = failures[0].batchId;
+      throw new Error(`Manifest trigger failed for ${failures.length} batch(es): ${failures.map((failure) => failure.batchId).join(', ')}`);
     }
 
     await completeCronRun(runState.runId);

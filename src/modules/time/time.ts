@@ -1,3 +1,5 @@
+export const AMSTERDAM_TIME_ZONE = 'Europe/Amsterdam';
+
 export function getOperationalDateISO(
   d: Date,
   timeZone: string,
@@ -12,7 +14,11 @@ export function getOperationalDateISO(
   return fmt.format(d);
 }
 
-function parseTimeOfDay(value: string): { hour: number; minute: number } {
+export function toAmsterdamDate(ts: Date): string {
+  return getOperationalDateISO(ts, AMSTERDAM_TIME_ZONE);
+}
+
+export function parseTimeOfDay(value: string): { hour: number; minute: number } {
   const normalized = value.trim().toLowerCase();
 
   const hhmmMatch = normalized.match(/^(\d{1,2}):(\d{2})$/);
@@ -42,10 +48,7 @@ function parseTimeOfDay(value: string): { hour: number; minute: number } {
   throw new Error(`Invalid time format: "${value}". Use HH:mm or values like 7pm.`);
 }
 
-export function hasReachedCutoff(now: Date, cutoffHHmm: string, timeZone: string): boolean {
-  const { hour, minute } = parseTimeOfDay(cutoffHHmm);
-
-  // Build a Date object that represents today at cutoff in the target TZ by parsing parts
+export function getLocalDateAndMinutes(date: Date, timeZone: string): { date: string; minutes: number } {
   const parts = new Intl.DateTimeFormat('en-GB', {
     timeZone,
     year: 'numeric',
@@ -54,18 +57,44 @@ export function hasReachedCutoff(now: Date, cutoffHHmm: string, timeZone: string
     hour: '2-digit',
     minute: '2-digit',
     hour12: false,
-  }).formatToParts(now);
+  }).formatToParts(date);
 
-  const y = Number(parts.find((p) => p.type === 'year')?.value);
-  const m = Number(parts.find((p) => p.type === 'month')?.value);
-  const dNum = Number(parts.find((p) => p.type === 'day')?.value);
-
-  // Construct local time string for that TZ day; JS Date will interpret as local time, so we compare string values for simplicity.
-  // Instead, compare minutes since start of day using parts from the same TZ snapshot.
-  const currentHour = Number(parts.find((p) => p.type === 'hour')?.value);
+  const year = parts.find((p) => p.type === 'year')?.value ?? '0000';
+  const month = parts.find((p) => p.type === 'month')?.value ?? '00';
+  const day = parts.find((p) => p.type === 'day')?.value ?? '00';
+  const rawHour = Number(parts.find((p) => p.type === 'hour')?.value);
+  const currentHour = rawHour === 24 ? 0 : rawHour;
   const currentMinute = Number(parts.find((p) => p.type === 'minute')?.value);
 
-  const currentTotalMin = currentHour * 60 + currentMinute;
+  return {
+    date: `${year}-${month}-${day}`,
+    minutes: currentHour * 60 + currentMinute,
+  };
+}
+
+function addDaysToISODate(dateISO: string, days: number): string {
+  const [year, month, day] = dateISO.split('-').map((part) => Number.parseInt(part, 10));
+  const date = new Date(Date.UTC(year, month - 1, day + days));
+  return date.toISOString().slice(0, 10);
+}
+
+export function getShipmentOperationalDateISO(
+  shipmentCreatedAt: Date,
+  cutoffHHmm: string,
+  timeZone: string = AMSTERDAM_TIME_ZONE,
+): string {
+  const local = getLocalDateAndMinutes(shipmentCreatedAt, timeZone);
+  const { hour, minute } = parseTimeOfDay(cutoffHHmm);
+  const cutoffTotalMin = hour * 60 + minute;
+
+  return local.minutes > cutoffTotalMin
+    ? addDaysToISODate(local.date, 1)
+    : local.date;
+}
+
+export function hasReachedCutoff(now: Date, cutoffHHmm: string, timeZone: string): boolean {
+  const { hour, minute } = parseTimeOfDay(cutoffHHmm);
+  const currentTotalMin = getLocalDateAndMinutes(now, timeZone).minutes;
   const cutoffTotalMin = hour * 60 + minute;
 
   return currentTotalMin >= cutoffTotalMin;

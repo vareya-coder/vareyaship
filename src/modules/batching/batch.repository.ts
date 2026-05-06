@@ -1,6 +1,6 @@
 import { db } from '@/lib/db';
 import { batches, shipments } from '@/lib/db/schema';
-import { and, eq, sql, desc, isNull } from 'drizzle-orm';
+import { and, eq, sql, desc, isNull, lte } from 'drizzle-orm';
 import type { BatchStatus } from './batch.types';
 
 export async function findBatchById(batchId: number) {
@@ -42,14 +42,29 @@ export async function incrementBatchShipmentCount(batchId: number) {
 }
 
 export async function setBatchStatusGuarded(batchId: number, fromStatus: BatchStatus, toStatus: BatchStatus) {
+  const data = toStatus === 'CLOSING'
+    ? { status: toStatus, closing_at: new Date() }
+    : { status: toStatus };
+
   await db.update(batches)
-    .set({ status: toStatus, closing_at: toStatus === 'CLOSING' ? new Date() : null })
+    .set(data)
     .where(and(eq(batches.batch_id, batchId), eq(batches.status, fromStatus)));
 }
 
 export async function listOpenBatches() {
   const rows = await db.select().from(batches).where(eq(batches.status, 'OPEN'));
   return rows;
+}
+
+export async function listClosingBatchesDueThrough(operationalDateISO: string) {
+  return db
+    .select()
+    .from(batches)
+    .where(and(
+      eq(batches.status, 'CLOSING'),
+      lte(batches.operational_date, operationalDateISO as any),
+    ))
+    .orderBy(desc(batches.created_at), desc(batches.batch_id));
 }
 
 export async function listBatchesForOperationalDate(operationalDateISO: string) {
@@ -67,17 +82,4 @@ export async function listBatchShipments(batchId: number) {
 export async function getBatchShipments(batchId: number) {
   const rows = await db.select().from(shipments).where(and(eq(shipments.batch_id, batchId), eq(shipments.is_manifested, false)));
   return rows;
-}
-
-export async function findLatestOpenBatchAnyDate(groupingKey: string | null, crmId?: string | null) {
-  const rows = await db
-    .select()
-    .from(batches)
-    .where(and(
-      eq(batches.status, 'OPEN'),
-      groupingKey ? eq(batches.grouping_key, groupingKey) : isNull(batches.grouping_key),
-      crmId ? eq(batches.crm_id, crmId) : isNull(batches.crm_id),
-    ))
-    .orderBy(desc(batches.created_at));
-  return rows[0] ?? null;
 }

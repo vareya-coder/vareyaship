@@ -3,6 +3,8 @@ export type ShipHeroWebhook = {
   order_id: number;
   profile: string;
   fulfillment_status: string;
+  created_at?: string;
+  createdAt?: string;
   order_number: string;
   shop_name: string;
   account_id: number;

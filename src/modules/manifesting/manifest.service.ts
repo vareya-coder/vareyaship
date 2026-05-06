@@ -130,6 +130,11 @@ function isFinalManifestState(input: {
     && input.shipments.every((shipment) => shipment.is_manifested === true && !!shipment.manifest_id);
 }
 
+function allShipmentsManifested(shipmentsForBatch: Array<{ is_manifested: boolean | null; manifest_id?: string | null }>): boolean {
+  return shipmentsForBatch.length > 0
+    && shipmentsForBatch.every((shipment) => shipment.is_manifested === true && !!shipment.manifest_id);
+}
+
 async function ensureBatchClosing(batchId: number, batchStatus?: string | null) {
   if (batchStatus === 'OPEN') {
     await setBatchStatusGuarded(batchId, 'OPEN', 'CLOSING');
@@ -310,15 +315,17 @@ async function executeManifestLifecycle(
 
 export async function manifestBatch(batchId: number, parcelIds: string[], options?: ProcessManifestBatchOptions) {
   const dryRun = options?.dryRun === true;
+  const requestedParcelIds = Array.from(new Set(parcelIds.filter((parcelId): parcelId is string => !!parcelId)));
 
-  if (parcelIds.length === 0) {
+  if (requestedParcelIds.length === 0) {
     logEvent({ event: 'manifest_triggered', batch_id: batchId, status: 'no_parcels', manifest_id: null });
     return { skipped: true };
   }
 
-  const [batch, shipmentsForBatch] = await Promise.all([
+  const [batch, shipmentsForBatch, existingManifest] = await Promise.all([
     findBatchById(batchId),
     listBatchShipments(batchId),
+    findLatestManifestForBatch(batchId),
   ]);
 
   assertBatchHasSingleCrm({
@@ -327,6 +334,40 @@ export async function manifestBatch(batchId: number, parcelIds: string[], option
     shipmentsForBatch,
   });
 
+  if (!options?.recreateExistingManifestId && isFinalManifestState({
+    batchStatus: (batch as any)?.status,
+    manifest: existingManifest,
+    shipments: shipmentsForBatch,
+  })) {
+    logEvent({
+      event: 'manifest_triggered',
+      batch_id: batchId,
+      manifest_id: existingManifest?.manifest_id ?? null,
+      status: 'already_final',
+      source: options?.source ?? 'cron',
+    });
+    return {
+      skipped: true,
+      reason: 'already_final',
+      manifestId: existingManifest?.manifest_id ?? null,
+    };
+  }
+
+  if (!options?.recreateExistingManifestId && (batch as any)?.status === 'MANIFESTED') {
+    logEvent({
+      event: 'manifest_triggered',
+      batch_id: batchId,
+      manifest_id: existingManifest?.manifest_id ?? null,
+      status: 'already_manifested',
+      source: options?.source ?? 'cron',
+    });
+    return {
+      skipped: true,
+      reason: 'already_manifested',
+      manifestId: existingManifest?.manifest_id ?? null,
+    };
+  }
+
   const existingManifestedParcelIds = new Set(
     shipmentsForBatch
       .filter((shipment) => shipment.is_manifested === true && !!shipment.manifest_id)
@@ -334,15 +375,17 @@ export async function manifestBatch(batchId: number, parcelIds: string[], option
       .filter((parcelId): parcelId is string => !!parcelId),
   );
 
+  const requestedParcelIdSet = new Set(requestedParcelIds);
   const parcelIdsNeedingSync = shipmentsForBatch
-    .filter((shipment) => !!shipment.parcel_id && !existingManifestedParcelIds.has(shipment.parcel_id))
+    .filter((shipment) => !!shipment.parcel_id && requestedParcelIdSet.has(shipment.parcel_id))
+    .filter((shipment) => !existingManifestedParcelIds.has(shipment.parcel_id))
     .map((shipment) => shipment.parcel_id as string);
 
   logInfo('manifest_batch_preflight', {
     batch_id: batchId,
     source: options?.source ?? 'cron',
     totalShipmentCount: shipmentsForBatch.length,
-    requestedParcelCount: parcelIds.length,
+    requestedParcelCount: requestedParcelIds.length,
     existingManifestedParcelCount: existingManifestedParcelIds.size,
     parcelIdsNeedingSyncCount: parcelIdsNeedingSync.length,
     timestamp: new Date().toISOString(),
@@ -356,6 +399,7 @@ export async function manifestBatch(batchId: number, parcelIds: string[], option
   const parcelIdsToCreate = shipmentsForBatch
     .filter((shipment) => !!shipment.parcel_id)
     .map((shipment) => shipment.parcel_id as string)
+    .filter((parcelId) => requestedParcelIdSet.has(parcelId))
     .filter((parcelId) => !existingManifestedParcelIds.has(parcelId));
 
   logInfo('manifest_batch_ready_to_create', {
@@ -368,7 +412,10 @@ export async function manifestBatch(batchId: number, parcelIds: string[], option
 
   if (parcelIdsToCreate.length === 0) {
     await ensureBatchClosing(batchId, (batch as any)?.status);
-    await ensureBatchManifested(batchId, (batch as any)?.status === 'OPEN' ? 'CLOSING' : (batch as any)?.status);
+    const latestShipmentsForBatch = await listBatchShipments(batchId);
+    if (allShipmentsManifested(latestShipmentsForBatch)) {
+      await ensureBatchManifested(batchId, (batch as any)?.status === 'OPEN' ? 'CLOSING' : (batch as any)?.status);
+    }
     return {
       skipped: true,
       manifestId: currentManifestIds.length === 1 ? currentManifestIds[0] : null,
@@ -387,7 +434,10 @@ export async function manifestBatch(batchId: number, parcelIds: string[], option
       source: options?.source ?? 'cron',
     });
     if (result.manifestId) {
-      await ensureBatchManifested(batchId, 'CLOSING');
+      const latestShipmentsForBatch = await listBatchShipments(batchId);
+      if (allShipmentsManifested(latestShipmentsForBatch)) {
+        await ensureBatchManifested(batchId, 'CLOSING');
+      }
     }
     return {
       manifestId: result.manifestId,
@@ -425,7 +475,7 @@ export async function manualProcessBatchManifest(input: { batchId: number; manif
       .filter((shipment) => shipment.is_manifested === true && shipment.manifest_id)
       .map((shipment) => shipment.manifest_id as string),
   ));
-  if (shipmentsForBatch.length > 0 && shipmentsForBatch.every((shipment) => shipment.is_manifested === true && !!shipment.manifest_id)) {
+  if (allShipmentsManifested(shipmentsForBatch)) {
     await ensureBatchClosing(input.batchId, (batch as any).status);
     await ensureBatchManifested(input.batchId, (batch as any).status === 'OPEN' ? 'CLOSING' : (batch as any).status);
     if (batchShipmentManifestIds.length === 1) {
@@ -505,7 +555,10 @@ export async function manualProcessBatchManifest(input: { batchId: number; manif
     source: 'manual',
   });
   if (result.manifestId) {
-    await ensureBatchManifested(input.batchId, (batch as any).status === 'OPEN' ? 'CLOSING' : (batch as any).status);
+    const latestShipmentsForBatch = await listBatchShipments(input.batchId);
+    if (allShipmentsManifested(latestShipmentsForBatch)) {
+      await ensureBatchManifested(input.batchId, (batch as any).status === 'OPEN' ? 'CLOSING' : (batch as any).status);
+    }
   }
 
   return {

@@ -1,6 +1,6 @@
 import { logger } from '@/utils/logger';
 
-type LateShipmentMode = 'assign_to_last' | 'create_new_batch';
+type LateShipmentMode = 'assign_to_next_day' | 'create_new_batch';
 
 type Flags = {
   cutoff_time: string; // HH:mm
@@ -15,6 +15,7 @@ type Flags = {
   retention_days: number;
   dry_run_manifest: boolean;
   dry_run_manifest_send_email: boolean;
+  manifest_enabled_crm_ids: string[];
   enable_postnl_pickup_inference: boolean;
   postnl_pickup_account_ids: number[];
   postnl_pickup_confidence_threshold: number;
@@ -44,6 +45,29 @@ function intListFromEnv(value: string | undefined, fallback: number[]): number[]
     .split(',')
     .map((item) => Number.parseInt(item.trim(), 10))
     .filter((item) => Number.isFinite(item));
+  return parsed.length > 0 ? parsed : fallback;
+}
+
+function strListFromEnv(value: string | undefined, fallback: string[]): string[] {
+  const raw = (value ?? '').trim();
+  if (raw === '') return fallback;
+
+  try {
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) {
+      const list = parsed
+        .map((item) => String(item).trim())
+        .filter((item) => item.length > 0);
+      return list.length > 0 ? list : fallback;
+    }
+  } catch (_error) {
+    // Fall through to comma-separated parsing.
+  }
+
+  const parsed = raw
+    .split(',')
+    .map((item) => item.trim())
+    .filter((item) => item.length > 0);
   return parsed.length > 0 ? parsed : fallback;
 }
 
@@ -96,7 +120,7 @@ export function getFlags(): Flags {
     ),
     late_shipment_mode: (strFromEnv(
       process.env.LATE_SHIPMENT_MODE ?? process.env.late_shipment_mode,
-      'assign_to_last',
+      'assign_to_next_day',
     ) as LateShipmentMode),
     retention_days: intFromEnv(
       process.env.RETENTION_DAYS ?? process.env.retention_days,
@@ -104,6 +128,10 @@ export function getFlags(): Flags {
     ),
     dry_run_manifest: boolFromEnv(process.env.DRY_RUN_MANIFEST, false),
     dry_run_manifest_send_email: boolFromEnv(process.env.DRY_RUN_MANIFEST_SEND_EMAIL, false),
+    manifest_enabled_crm_ids: strListFromEnv(
+      process.env.MANIFEST_ENABLED_CRM_IDS ?? process.env.manifest_enabled_crm_ids,
+      [],
+    ),
     enable_postnl_pickup_inference: boolFromEnv(
       process.env.ENABLE_POSTNL_PICKUP_INFERENCE ?? process.env.enable_postnl_pickup_inference,
       false,
@@ -139,6 +167,12 @@ export function getFlags(): Flags {
   cache = { value: flags, expiresAt: now + TTL_MS };
   logger.info('feature_flags_loaded', flags as any);
   return flags;
+}
+
+export function isManifestEnabled(crmId?: string | null): boolean {
+  const enabledCrmIds = getFlags().manifest_enabled_crm_ids;
+  if (enabledCrmIds.length === 0) return true;
+  return !!crmId && enabledCrmIds.includes(crmId);
 }
 
 export type { Flags, LateShipmentMode };

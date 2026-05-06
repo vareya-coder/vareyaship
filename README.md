@@ -71,6 +71,7 @@ Endpoints:
 
 Feature flags (env):
 - `DRY_RUN_MANIFEST`, `CUTOFF_TIME`, `CUTOFF_TIMEZONE`, `MANIFEST_TRIGGER_TIME`, `MANIFEST_TRIGGER_TIMEZONE`, `BATCH_INTERVAL_HOURS`, `SHIPMENT_THRESHOLD`, `RETENTION_DAYS`
+- `MANIFEST_ENABLED_CRM_IDS` optionally limits manifest automation to a comma-separated or JSON list, e.g. `NL24120003` or `["NL24120003"]`
 
 Docs:
 - docs/operations/asendia-manifest-cron.md

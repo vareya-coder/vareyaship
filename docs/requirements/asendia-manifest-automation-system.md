@@ -570,9 +570,10 @@ batch_interval_hours
 shipment_threshold
 
 late_shipment_mode:
-  - assign_to_last
+  - assign_to_next_day
   - create_new_batch
 
+manifest_enabled_crm_ids
 retention_days (default 30)
 ```
 
@@ -678,4 +679,3 @@ retention_days (default 30)
 ✅ Fully aligned with Asendia API
 ✅ No ambiguity remaining
 ✅ Ready for architecture + implementation
-

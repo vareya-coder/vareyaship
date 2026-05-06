@@ -1,7 +1,12 @@
 import { logger } from '@/utils/logger';
 import { getFlags } from '@/modules/featureFlags/featureFlag.service';
-import { getOperationalDateISO, hasReachedCutoff } from '@/modules/time/time';
-import { createBatch, findOpenBatch, incrementBatchShipmentCount, listOpenBatches, setBatchStatusGuarded, findLatestOpenBatchAnyDate } from './batch.repository';
+import {
+  AMSTERDAM_TIME_ZONE,
+  getOperationalDateISO,
+  getShipmentOperationalDateISO,
+  hasReachedCutoff,
+} from '@/modules/time/time';
+import { createBatch, findOpenBatch, incrementBatchShipmentCount, listOpenBatches, setBatchStatusGuarded } from './batch.repository';
 import type { GroupingKey } from './batch.types';
 
 export function buildGroupingKey(input: { shipping_method?: string | null; account_id?: number | null; crm_id?: string | null }): GroupingKey | null {
@@ -19,10 +24,20 @@ export function buildGroupingKey(input: { shipping_method?: string | null; accou
   return parts.length > 0 ? parts.join('|') : null;
 }
 
-export async function getOrCreateOpenBatch(params: { shipping_method?: string | null; account_id?: number | null; crm_id?: string | null; now?: Date }): Promise<{ batch_id: number; operational_date: string }> {
-  const now = params.now ?? new Date();
-  const { cutoff_timezone } = getFlags();
-  const operationalDateISO = getOperationalDateISO(now, cutoff_timezone);
+export async function getOrCreateOpenBatch(params: {
+  shipping_method?: string | null;
+  account_id?: number | null;
+  crm_id?: string | null;
+  createdAt?: Date;
+  now?: Date;
+}): Promise<{ batch_id: number; operational_date: string }> {
+  const shipmentCreatedAt = params.createdAt ?? params.now ?? new Date();
+  const { cutoff_time } = getFlags();
+  const operationalDateISO = getShipmentOperationalDateISO(
+    shipmentCreatedAt,
+    cutoff_time,
+    AMSTERDAM_TIME_ZONE,
+  );
   const groupingKey = buildGroupingKey({
     shipping_method: params.shipping_method ?? null,
     account_id: params.account_id ?? null,
@@ -32,14 +47,6 @@ export async function getOrCreateOpenBatch(params: { shipping_method?: string | 
   const existing = await findOpenBatch(groupingKey, operationalDateISO, params.crm_id ?? null);
   if (existing) {
     return { batch_id: (existing as any).batch_id, operational_date: operationalDateISO };
-  }
-
-  // Late shipment handling
-  if (getFlags().late_shipment_mode === 'assign_to_last') {
-    const latest = await findLatestOpenBatchAnyDate(groupingKey, params.crm_id ?? null);
-    if (latest) {
-      return { batch_id: (latest as any).batch_id, operational_date: (latest as any).operational_date };
-    }
   }
 
   const created = await createBatch({
@@ -68,16 +75,29 @@ export async function evaluateBatchesForClosing(now: Date = new Date()): Promise
   const open = await listOpenBatches();
   if (open.length === 0) return { toCloseIds: [], reason: 'none' };
 
-  // If cutoff reached: close all OPEN batches for today
-  if (hasReachedCutoff(now, flags.cutoff_time, flags.cutoff_timezone)) {
-    const todayISO = getOperationalDateISO(now, flags.cutoff_timezone);
-    const ids = open.filter((b: any) => b.operational_date?.toString() === todayISO).map((b: any) => b.batch_id as number);
+  const todayISO = getOperationalDateISO(now, AMSTERDAM_TIME_ZONE);
+  const openDue = (open as any[]).filter((b) => {
+    const operationalDate = b.operational_date?.toString();
+    return !!operationalDate && operationalDate <= todayISO;
+  });
+
+  // If cutoff reached: close all due OPEN batches. Older operational dates are always due,
+  // which prevents a missed cron from leaving a prior business day OPEN indefinitely.
+  if (hasReachedCutoff(now, flags.cutoff_time, AMSTERDAM_TIME_ZONE)) {
+    const ids = openDue.map((b: any) => b.batch_id as number);
     return { toCloseIds: ids, reason: 'cutoff' };
+  }
+
+  const overdueIds = openDue
+    .filter((b: any) => b.operational_date?.toString() < todayISO)
+    .map((b: any) => b.batch_id as number);
+  if (overdueIds.length > 0) {
+    return { toCloseIds: overdueIds, reason: 'cutoff' };
   }
 
   // Else, evaluate by age or shipment threshold
   const toClose: number[] = [];
-  for (const b of open as any[]) {
+  for (const b of openDue as any[]) {
     const createdAt = b.created_at ? new Date(b.created_at) : null;
     const ageHours = createdAt ? (now.getTime() - createdAt.getTime()) / 3_600_000 : 0;
     if ((flags.batch_interval_hours && ageHours >= flags.batch_interval_hours) || (flags.shipment_threshold && (b.shipment_count ?? 0) >= flags.shipment_threshold)) {

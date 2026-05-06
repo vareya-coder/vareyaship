@@ -8,4 +8,5 @@ export type IngestAsendiaShipmentInput = {
   sender_tax_code?: string | null;
   tracking_number?: string;
   label_url?: string;
+  created_at?: Date | string | null;
 };
