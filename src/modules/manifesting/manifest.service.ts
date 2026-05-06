@@ -12,6 +12,7 @@ import { recreateManifest } from '@/modules/asendia/manifests/recreateManifest';
 import { getManifest } from '@/modules/asendia/manifests/getManifest';
 import { withTimeout } from '@/utils/timeout';
 import { logError, logInfo } from '@/utils/logger';
+import { getFlags } from '@/modules/featureFlags/featureFlag.service';
 
 type ProcessManifestBatchOptions = {
   dryRun?: boolean;
@@ -34,7 +35,7 @@ type ManifestRecord = {
 type ManifestLifecycleResult = {
   manifestId: string | null;
   errorParcelIds: string[];
-  verificationMatched: boolean;
+  verificationMatched: boolean | null;
   verificationActualCount: number;
   documentUrl: string | null;
   recreated: boolean;
@@ -114,6 +115,17 @@ async function finalizeManifestRecord(params: {
     verification_status: params.verificationStatus,
     document_url: params.documentUrl ?? null as any,
     status: 'completed',
+  }).where(eq(manifests.manifest_id, params.manifestId));
+}
+
+async function updateManifestCounts(params: {
+  manifestId: string;
+  actualCount: number;
+  verificationStatus: string;
+}) {
+  await db.update(manifests).set({
+    parcel_count_actual: params.actualCount,
+    verification_status: params.verificationStatus,
   }).where(eq(manifests.manifest_id, params.manifestId));
 }
 
@@ -245,31 +257,63 @@ async function executeManifestLifecycle(
     await markShipmentsManifestedByParcelIds(succeededParcelIds, manifestId);
   }
 
-  const verification = await verifyManifest(manifestId, succeededParcelIds);
-  const verificationStatus = verification.matched ? 'matched' : 'mismatch';
+  let verificationMatched: boolean | null = null;
+  let verificationStatus = 'skipped';
+  let actualParcelCount = succeededParcelIds.length;
+  const verificationEnabled = getFlags().enable_manifest_verification;
 
-  if (!verification.matched) {
-    logEvent({
-      event: 'verification_result',
-      batch_id: batchId,
-      manifest_id: manifestId,
-      status: 'mismatch',
-      source: options.source ?? 'cron',
-    });
+  if (verificationEnabled) {
+    try {
+      const verification = await verifyManifest(manifestId, succeededParcelIds);
+      verificationMatched = verification.matched;
+      verificationStatus = verification.matched ? 'matched' : 'mismatch';
+      actualParcelCount = verification.actual.length;
+
+      logEvent({
+        event: 'verification_result',
+        batch_id: batchId,
+        manifest_id: manifestId,
+        status: verificationStatus,
+        source: options.source ?? 'cron',
+      });
+    } catch (error: any) {
+      verificationStatus = 'failed';
+      logError('manifest_verification_failed', {
+        batch_id: batchId,
+        manifest_id: manifestId,
+        source: options.source ?? 'cron',
+        error: error?.message ?? 'unknown',
+        timestamp: new Date().toISOString(),
+      });
+      logEvent({
+        event: 'verification_result',
+        batch_id: batchId,
+        manifest_id: manifestId,
+        status: 'failed',
+        source: options.source ?? 'cron',
+        errorMessage: error?.message ?? 'unknown',
+      });
+    }
   } else {
     logEvent({
       event: 'verification_result',
       batch_id: batchId,
       manifest_id: manifestId,
-      status: 'matched',
+      status: 'skipped',
       source: options.source ?? 'cron',
     });
   }
 
+  await updateManifestCounts({
+    manifestId,
+    actualCount: actualParcelCount,
+    verificationStatus,
+  });
+
   const docUrl = await fetchAndStoreManifestDocument(manifestId);
   await finalizeManifestRecord({
     manifestId,
-    actualCount: verification.actual.length,
+    actualCount: actualParcelCount,
     verificationStatus,
     documentUrl: docUrl,
   });
@@ -285,7 +329,7 @@ async function executeManifestLifecycle(
     });
   }
 
-  if (notify && !verification.matched) {
+  if (notify && verificationMatched === false) {
     await notifyManifestIssue({
       kind: 'verification_mismatch',
       batchId,
@@ -306,8 +350,8 @@ async function executeManifestLifecycle(
   return {
     manifestId,
     errorParcelIds,
-    verificationMatched: verification.matched,
-    verificationActualCount: verification.actual.length,
+    verificationMatched,
+    verificationActualCount: actualParcelCount,
     documentUrl: docUrl ?? null,
     recreated: !!options.recreateExistingManifestId,
   };
@@ -442,6 +486,9 @@ export async function manifestBatch(batchId: number, parcelIds: string[], option
     return {
       manifestId: result.manifestId,
       errorParcelIds: result.errorParcelIds,
+      documentUrl: result.documentUrl,
+      verificationMatched: result.verificationMatched,
+      verificationActualCount: result.verificationActualCount,
     };
   } catch (error: any) {
     logError('manifest_failed', { batch_id: batchId, error: error?.message, timestamp: new Date().toISOString() });

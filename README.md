@@ -71,7 +71,10 @@ Endpoints:
 
 Feature flags (env):
 - `DRY_RUN_MANIFEST`, `CUTOFF_TIME`, `CUTOFF_TIMEZONE`, `MANIFEST_TRIGGER_TIME`, `MANIFEST_TRIGGER_TIMEZONE`, `BATCH_INTERVAL_HOURS`, `SHIPMENT_THRESHOLD`, `RETENTION_DAYS`
-- `MANIFEST_ENABLED_CRM_IDS` optionally limits manifest automation to a comma-separated or JSON list, e.g. `NL24120003` or `["NL24120003"]`
+- `ENABLE_MANIFEST_VERIFICATION` controls the Asendia parcel-list verification step and defaults to `true`
+- `ASENDIA_MANIFEST_PARCELS_PAGE_SIZE` controls manifest parcel-list verification page size and defaults to `250`
+- `ASENDIA_MANIFEST_PARCELS_MAX_PAGES` controls the maximum verification pages fetched and defaults to `50`
+- `MANIFEST_ENABLED_CRM_IDS` optionally limits manifest automation to a comma-separated or JSON list, e.g. `NL24120003` or `["NL24120003"]`; omit it or leave it empty to process all CRM IDs
 
 Docs:
 - docs/operations/asendia-manifest-cron.md

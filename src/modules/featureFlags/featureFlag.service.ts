@@ -15,6 +15,7 @@ type Flags = {
   retention_days: number;
   dry_run_manifest: boolean;
   dry_run_manifest_send_email: boolean;
+  enable_manifest_verification: boolean;
   manifest_enabled_crm_ids: string[];
   enable_postnl_pickup_inference: boolean;
   postnl_pickup_account_ids: number[];
@@ -128,6 +129,10 @@ export function getFlags(): Flags {
     ),
     dry_run_manifest: boolFromEnv(process.env.DRY_RUN_MANIFEST, false),
     dry_run_manifest_send_email: boolFromEnv(process.env.DRY_RUN_MANIFEST_SEND_EMAIL, false),
+    enable_manifest_verification: boolFromEnv(
+      process.env.ENABLE_MANIFEST_VERIFICATION ?? process.env.enable_manifest_verification,
+      true,
+    ),
     manifest_enabled_crm_ids: strListFromEnv(
       process.env.MANIFEST_ENABLED_CRM_IDS ?? process.env.manifest_enabled_crm_ids,
       [],

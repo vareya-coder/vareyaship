@@ -6,7 +6,6 @@ import {
   getBatchShipments,
   listBatchesForOperationalDate,
   listBatchShipments,
-  listClosingBatchesDueThrough,
 } from '@/modules/batching/batch.repository';
 import { manifestBatch } from '@/modules/manifesting/manifest.service';
 import { logEvent } from '@/modules/logging/events';
@@ -17,7 +16,11 @@ import {
 } from '@/modules/time/time';
 import { acquireDailyCronRun, completeCronRun, failCronRun } from '@/modules/cron/cronRun.repository';
 import { logError, logInfo, logger } from '@/utils/logger';
-import { notifyManifestDryRunSummary, notifyManifestTriggerFailure } from '@/modules/notifications/notify';
+import {
+  notifyManifestDryRunSummary,
+  notifyManifestTriggerFailure,
+  notifyManifestTriggerSuccess,
+} from '@/modules/notifications/notify';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -44,6 +47,12 @@ function isShipmentEligibleForBatchOperationalDate(
   if (Number.isNaN(createdAt.getTime())) return false;
 
   return getShipmentOperationalDateISO(createdAt, cutoffTime, timeZone) === batchOperationalDate;
+}
+
+function normalizeOperationalDate(value: unknown): string | null {
+  if (!value) return null;
+  if (value instanceof Date) return value.toISOString().slice(0, 10);
+  return String(value);
 }
 
 async function buildDryRunSummary(operationalDate: string, now: Date) {
@@ -124,6 +133,38 @@ async function buildDryRunSummary(operationalDate: string, now: Date) {
   };
 }
 
+async function buildBatchSuccessSummary(batchId: number, eligibleBatchIds: Set<number>) {
+  const [batch, shipments] = await Promise.all([
+    findBatchById(batchId),
+    listBatchShipments(batchId),
+  ]);
+  const totalShipmentCount = shipments.length;
+  const manifestedShipmentCount = shipments.filter((shipment) => shipment.is_manifested === true).length;
+  const pendingShipmentCount = shipments.filter((shipment) => shipment.is_manifested !== true).length;
+  const batchSummary = {
+    batchId,
+    status: (batch as any)?.status ?? null,
+    crmId: (batch as any)?.crm_id ?? null,
+    groupingKey: (batch as any)?.grouping_key ?? null,
+    shipmentCountStored: (batch as any)?.shipment_count ?? 0,
+    shipmentCountActual: totalShipmentCount,
+    manifestedShipmentCount,
+    pendingShipmentCount,
+    eligibleToCloseNow: eligibleBatchIds.has(batchId),
+  };
+
+  return {
+    batch: batchSummary,
+    totals: {
+      batchCount: 1,
+      shipmentCount: totalShipmentCount,
+      manifestedShipmentCount,
+      pendingShipmentCount,
+      eligibleBatchCount: batchSummary.eligibleToCloseNow ? 1 : 0,
+    },
+  };
+}
+
 export async function GET(req: NextRequest) {
   if (!authorized(req)) {
     return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
@@ -180,11 +221,8 @@ export async function GET(req: NextRequest) {
 
   try {
     const evalRes = await evaluateBatchesForClosing(now);
-    const closingBatchesDue = await listClosingBatchesDueThrough(operationalDate);
-    const batchIdsToProcess = Array.from(new Set([
-      ...evalRes.toCloseIds,
-      ...(closingBatchesDue as any[]).map((batch) => batch.batch_id as number),
-    ]));
+    const batchIdsToProcess = Array.from(new Set(evalRes.toCloseIds));
+    const eligibleBatchIds = new Set(batchIdsToProcess);
 
     if (batchIdsToProcess.length === 0) {
       await completeCronRun(runState.runId);
@@ -210,7 +248,7 @@ export async function GET(req: NextRequest) {
     for (const batchId of batchIdsToProcess) {
       currentBatchId = batchId;
       const batch = await findBatchById(batchId);
-      const batchOperationalDate = (batch as any)?.operational_date?.toString() ?? null;
+      const batchOperationalDate = normalizeOperationalDate((batch as any)?.operational_date);
       logInfo('manifest_trigger_batch_started', {
         batch_id: batchId,
         operational_date: batchOperationalDate ?? operationalDate,
@@ -260,6 +298,24 @@ export async function GET(req: NextRequest) {
         manifestRes,
         timestamp: new Date().toISOString(),
       });
+      const errorParcelIds = Array.isArray((manifestRes as any)?.errorParcelIds)
+        ? (manifestRes as any).errorParcelIds
+        : [];
+      const verificationMatched = (manifestRes as any)?.verificationMatched;
+      const shouldSendSuccessNotification = (manifestRes as any)?.manifestId
+        && !(manifestRes as any)?.skipped
+        && errorParcelIds.length === 0
+        && verificationMatched !== false;
+      if (shouldSendSuccessNotification) {
+        const successSummary = await buildBatchSuccessSummary(batchId, eligibleBatchIds);
+        await notifyManifestTriggerSuccess({
+          operationalDate: batchOperationalDate ?? operationalDate,
+          occurredAt: new Date(),
+          manifestUrl: (manifestRes as any).documentUrl ?? null,
+          totals: successSummary.totals,
+          batch: successSummary.batch,
+        });
+      }
       results.push({ batchId, manifestRes });
     }
 

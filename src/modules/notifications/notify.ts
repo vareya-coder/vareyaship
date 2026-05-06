@@ -38,6 +38,30 @@ type ManifestDryRunSummaryInput = {
   }>;
 };
 
+type ManifestTriggerSuccessInput = {
+  operationalDate: string;
+  occurredAt?: Date;
+  manifestUrl?: string | null;
+  totals: {
+    batchCount: number;
+    shipmentCount: number;
+    manifestedShipmentCount: number;
+    pendingShipmentCount: number;
+    eligibleBatchCount: number;
+  };
+  batch: {
+    batchId: number;
+    status: string | null;
+    crmId: string | null;
+    groupingKey: string | null;
+    shipmentCountStored: number;
+    shipmentCountActual: number;
+    manifestedShipmentCount: number;
+    pendingShipmentCount: number;
+    eligibleToCloseNow: boolean;
+  };
+};
+
 type ManifestTriggerFailureInput = {
   operationalDate: string;
   errorMessage: string;
@@ -135,6 +159,81 @@ export async function notifyManifestIssue(input: ManifestNotificationInput) {
       error: e?.message ?? 'unknown',
     });
     logEvent({ event: 'notification_enqueued', subject, to: to || 'default', from: from || 'default', status: 'error', errorMessage: e?.message });
+  }
+}
+
+export async function notifyManifestTriggerSuccess(input: ManifestTriggerSuccessInput) {
+  const { to, from, timeZone } = getManifestNotificationConfig();
+  const occurredAt = input.occurredAt ?? new Date();
+  const formattedTimestamp = formatManifestTimestamp(occurredAt, timeZone);
+  const subject = `Manifest trigger success | ${formattedTimestamp} | ${input.operationalDate} | batch ${input.batch.batchId}`;
+  const batch = input.batch;
+  const rows = [
+    `<tr>`,
+    `<td>${batch.batchId}</td>`,
+    `<td>${escapeHtml(batch.status ?? '')}</td>`,
+    `<td>${escapeHtml(batch.crmId ?? '')}</td>`,
+    `<td>${escapeHtml(batch.groupingKey ?? '')}</td>`,
+    `<td>${batch.shipmentCountStored}</td>`,
+    `<td>${batch.shipmentCountActual}</td>`,
+    `<td>${batch.manifestedShipmentCount}</td>`,
+    `<td>${batch.pendingShipmentCount}</td>`,
+    `<td>${batch.eligibleToCloseNow ? 'yes' : 'no'}</td>`,
+    `</tr>`,
+  ].join('');
+
+  const html = [
+    `<p>Manifest trigger success.</p>`,
+    `<p><strong>Date/time:</strong> ${escapeHtml(formattedTimestamp)}</p>`,
+    `<p><strong>Operational date:</strong> ${escapeHtml(input.operationalDate)}</p>`,
+    `<p><strong>Batch ID:</strong> ${batch.batchId}</p>`,
+    `<p><strong>Totals:</strong> batches=${input.totals.batchCount}, shipments=${input.totals.shipmentCount}, manifested shipments=${input.totals.manifestedShipmentCount}, pending shipments=${input.totals.pendingShipmentCount}, eligible batches=${input.totals.eligibleBatchCount}</p>`,
+    input.manifestUrl
+      ? `<p><strong>Manifest URL:</strong> <a href="${escapeHtml(input.manifestUrl)}">${escapeHtml(input.manifestUrl)}</a></p>`
+      : `<p><strong>Manifest URL:</strong> not available</p>`,
+    `<table border="1" cellpadding="6" cellspacing="0">`,
+    `<thead><tr><th>Batch</th><th>Status</th><th>CRM</th><th>Grouping</th><th>Stored</th><th>Actual</th><th>Manifested</th><th>Pending</th><th>Eligible now</th></tr></thead>`,
+    `<tbody>${rows}</tbody>`,
+    `</table>`,
+  ].join('');
+
+  try {
+    const id = await sendResendEmail({ subject, html, to: to || undefined, from: from || undefined });
+    logInfo('Manifest trigger success notification sent', {
+      operationalDate: input.operationalDate,
+      batchId: batch.batchId,
+      manifestUrl: input.manifestUrl ?? null,
+      to: to || 'default',
+      from: from || 'default',
+      id: id ?? null,
+    });
+    logEvent({
+      event: 'notification_enqueued',
+      batch_id: batch.batchId,
+      subject,
+      to: to || 'default',
+      from: from || 'default',
+      status: 'sent',
+      id,
+    });
+  } catch (e: any) {
+    logError('Manifest trigger success notification failed', {
+      operationalDate: input.operationalDate,
+      batchId: batch.batchId,
+      manifestUrl: input.manifestUrl ?? null,
+      to: to || 'default',
+      from: from || 'default',
+      error: e?.message ?? 'unknown',
+    });
+    logEvent({
+      event: 'notification_enqueued',
+      batch_id: batch.batchId,
+      subject,
+      to: to || 'default',
+      from: from || 'default',
+      status: 'error',
+      errorMessage: e?.message,
+    });
   }
 }
 

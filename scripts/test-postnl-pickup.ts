@@ -150,6 +150,7 @@ async function main() {
     retention_days: 30,
     dry_run_manifest: false,
     dry_run_manifest_send_email: false,
+    enable_manifest_verification: true,
     manifest_enabled_crm_ids: [],
     enable_postnl_pickup_inference: false,
     postnl_pickup_account_ids: [85552],

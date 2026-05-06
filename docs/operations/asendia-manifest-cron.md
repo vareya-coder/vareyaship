@@ -11,8 +11,9 @@
     - Evaluates OPEN batches
     - If now >= cutoff (env `CUTOFF_TIME` in `CUTOFF_TIMEZONE`), closes all today’s OPEN batches
     - Else closes batches by age (`BATCH_INTERVAL_HOURS`) or `SHIPMENT_THRESHOLD`
+    - Does not automatically retry pre-existing `CLOSING` batches
     - If `DRY_RUN_MANIFEST=y`, logs intended actions without mutating
-    - Otherwise: sets batch → CLOSING, creates manifest (explicit parcel_ids), verifies, fetches PDF, sets batch → MANIFESTED
+    - Otherwise: sets batch → CLOSING, creates manifest (explicit parcel_ids), optionally verifies, fetches PDF, sets batch → MANIFESTED
 
 - Retention: `GET /api/cron/manifest-retention`
   - Secured with `Authorization: Bearer ${CRON_SECRET}`
@@ -30,6 +31,10 @@
 - `BATCH_INTERVAL_HOURS` (default 24)
 - `SHIPMENT_THRESHOLD` (default 1000)
 - `RETENTION_DAYS` (default 30)
+- `ENABLE_MANIFEST_VERIFICATION` (default true; set false to skip `GET /api/manifests/{id}/parcels`)
+- `ASENDIA_MANIFEST_PARCELS_PAGE_SIZE` (default 250)
+- `ASENDIA_MANIFEST_PARCELS_MAX_PAGES` (default 50)
+- `MANIFEST_ENABLED_CRM_IDS` (optional comma-separated or JSON list; omit or leave empty to process all CRM IDs)
 
 Asendia REST:
 - `ASENDIA_API_BASE_URL`
