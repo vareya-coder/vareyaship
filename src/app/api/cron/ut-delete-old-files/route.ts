@@ -117,7 +117,14 @@ export async function GET(request: NextRequest) {
         offset: keepFilesCount,
       });
       const files = listFilesResponse.files;
-      const listedCount = files.length;
+
+      // Filter out files whose name starts with "manifest-"
+      const filteredFiles = files.filter(
+        ({ name }) => !name?.startsWith("manifest-")
+      );
+
+      // Count after filtering
+      const listedCount = filteredFiles.length;
 
       logInfo({
         event: 'ut_cleanup_batch_fetched',
@@ -136,7 +143,7 @@ export async function GET(request: NextRequest) {
         break;
       }
 
-      const fileKeysToDelete = files.map(({ key }) => key);
+      const fileKeysToDelete = filteredFiles.map(({ key }) => key);
       const deleteResult = await utapi.deleteFiles(fileKeysToDelete);
 
       batchesProcessed += 1;
