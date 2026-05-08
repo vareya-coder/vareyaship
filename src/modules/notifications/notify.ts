@@ -166,13 +166,13 @@ export async function notifyManifestTriggerSuccess(input: ManifestTriggerSuccess
   const { to, from, timeZone } = getManifestNotificationConfig();
   const occurredAt = input.occurredAt ?? new Date();
   const formattedTimestamp = formatManifestTimestamp(occurredAt, timeZone);
-  const subject = `Manifest trigger success | ${formattedTimestamp} | ${input.operationalDate} | batch ${input.batch.batchId}`;
+  const subject = `Manifest trigger success | Vareya BV | ${input.batch.crmId} | ${formattedTimestamp} | ${input.operationalDate}`;
   const batch = input.batch;
   const rows = [
     `<tr>`,
     `<td>${batch.batchId}</td>`,
     `<td>${escapeHtml(batch.status ?? '')}</td>`,
-    `<td>${escapeHtml(batch.crmId ?? '')}</td>`,
+    `<td>batch ${batch.batchId ?? ''}</td>`,
     `<td>${escapeHtml(batch.groupingKey ?? '')}</td>`,
     `<td>${batch.shipmentCountStored}</td>`,
     `<td>${batch.shipmentCountActual}</td>`,
@@ -186,13 +186,13 @@ export async function notifyManifestTriggerSuccess(input: ManifestTriggerSuccess
     `<p>Manifest trigger success.</p>`,
     `<p><strong>Date/time:</strong> ${escapeHtml(formattedTimestamp)}</p>`,
     `<p><strong>Operational date:</strong> ${escapeHtml(input.operationalDate)}</p>`,
-    `<p><strong>Batch ID:</strong> ${batch.batchId}</p>`,
+    `<p><strong>CRM ID:</strong> ${batch.crmId}</p>`,
     `<p><strong>Totals:</strong> batches=${input.totals.batchCount}, shipments=${input.totals.shipmentCount}, manifested shipments=${input.totals.manifestedShipmentCount}, pending shipments=${input.totals.pendingShipmentCount}, eligible batches=${input.totals.eligibleBatchCount}</p>`,
     input.manifestUrl
       ? `<p><strong>Manifest URL:</strong> <a href="${escapeHtml(input.manifestUrl)}">${escapeHtml(input.manifestUrl)}</a></p>`
       : `<p><strong>Manifest URL:</strong> not available</p>`,
     `<table border="1" cellpadding="6" cellspacing="0">`,
-    `<thead><tr><th>Batch</th><th>Status</th><th>CRM</th><th>Grouping</th><th>Stored</th><th>Actual</th><th>Manifested</th><th>Pending</th><th>Eligible now</th></tr></thead>`,
+    `<thead><tr><th>Batch</th><th>Status</th><th>Batch</th><th>Grouping</th><th>Stored</th><th>Actual</th><th>Manifested</th><th>Pending</th><th>Eligible now</th></tr></thead>`,
     `<tbody>${rows}</tbody>`,
     `</table>`,
   ].join('');

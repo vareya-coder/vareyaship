@@ -1,25 +1,27 @@
 import axios from 'axios';
 import { authenticateAsendiaSync, getAsendiaManifestBaseUrl, getAsendiaRequestTimeoutMs } from './client';
 
+const sleep = (ms: number) => 
+  new Promise((resolve) => setTimeout(resolve, ms));
+
 export async function getManifestDocument(manifestId: string): Promise<Buffer> {
   const baseURL = getAsendiaManifestBaseUrl();
   const idToken = await authenticateAsendiaSync();
-
-  const sleep = (ms: number) => 
-    new Promise((resolve) => setTimeout(resolve, ms));
 
   const maxAttempts = 2;
 
   const documentUrl = `/api/manifests/${encodeURIComponent(manifestId)}/document`;
 
+  const api = axios.create({
+    baseURL,
+    timeout: getAsendiaRequestTimeoutMs(),
+    responseType: 'arraybuffer',
+    headers: { Authorization: `Bearer ${idToken}`, Accept: 'application/pdf' },
+  });
+
+  console.log(`Ready to retrieve manifest document for manifest with id: ${manifestId} from url: ${documentUrl}`);
+  
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-    const api = axios.create({
-      baseURL,
-      timeout: getAsendiaRequestTimeoutMs(),
-      responseType: 'arraybuffer',
-      headers: { Authorization: `Bearer ${idToken}`, Accept: 'application/pdf' },
-    });
-    
     const res = await api.get(documentUrl);
     
     const contentType = res.headers['content-type'];
