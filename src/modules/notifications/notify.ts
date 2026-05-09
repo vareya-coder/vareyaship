@@ -172,7 +172,6 @@ export async function notifyManifestTriggerSuccess(input: ManifestTriggerSuccess
     `<tr>`,
     `<td>${batch.batchId}</td>`,
     `<td>${escapeHtml(batch.status ?? '')}</td>`,
-    `<td>batch ${batch.batchId ?? ''}</td>`,
     `<td>${escapeHtml(batch.groupingKey ?? '')}</td>`,
     `<td>${batch.shipmentCountStored}</td>`,
     `<td>${batch.shipmentCountActual}</td>`,
@@ -183,7 +182,7 @@ export async function notifyManifestTriggerSuccess(input: ManifestTriggerSuccess
   ].join('');
 
   const html = [
-    `<p>Manifest trigger success.</p>`,
+    `<p>Manifest success.</p>`,
     `<p><strong>Date/time:</strong> ${escapeHtml(formattedTimestamp)}</p>`,
     `<p><strong>Operational date:</strong> ${escapeHtml(input.operationalDate)}</p>`,
     `<p><strong>CRM ID:</strong> ${batch.crmId}</p>`,
@@ -192,7 +191,7 @@ export async function notifyManifestTriggerSuccess(input: ManifestTriggerSuccess
       ? `<p><strong>Manifest URL:</strong> <a href="${escapeHtml(input.manifestUrl)}">${escapeHtml(input.manifestUrl)}</a></p>`
       : `<p><strong>Manifest URL:</strong> not available</p>`,
     `<table border="1" cellpadding="6" cellspacing="0">`,
-    `<thead><tr><th>Batch</th><th>Status</th><th>Batch</th><th>Grouping</th><th>Stored</th><th>Actual</th><th>Manifested</th><th>Pending</th><th>Eligible now</th></tr></thead>`,
+    `<thead><tr><th>Batch</th><th>Status</th><th>Grouping</th><th>Stored</th><th>Actual</th><th>Manifested</th><th>Pending</th><th>Eligible now</th></tr></thead>`,
     `<tbody>${rows}</tbody>`,
     `</table>`,
   ].join('');
