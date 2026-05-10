@@ -1,7 +1,7 @@
 import { db } from '@/lib/db';
 import { manifests, shipments } from '@/lib/db/schema';
 import { createManifest } from '@/modules/asendia/manifests/createManifest';
-import { fetchAndStoreManifestDocument } from './document.service';
+import { attemptInitialManifestPdfFetch } from './document.service';
 import { verifyManifest } from './verification.service';
 import { markShipmentsManifestedByParcelIds } from '@/modules/shipments/shipment.repository';
 import { logEvent } from '@/modules/logging/events';
@@ -87,7 +87,7 @@ async function upsertManifestStart(params: { manifestId: string; batchId: number
   await db.insert(manifests).values({
     manifest_id: params.manifestId,
     batch_id: params.batchId,
-    status: 'created',
+    status: 'MANIFEST_CREATED',
     parcel_count_expected: params.expectedCount,
     parcel_count_actual: null as any,
     verification_status: null as any,
@@ -96,7 +96,7 @@ async function upsertManifestStart(params: { manifestId: string; batchId: number
     target: manifests.manifest_id,
     set: {
       batch_id: params.batchId,
-      status: 'created',
+      status: 'MANIFEST_CREATED',
       parcel_count_expected: params.expectedCount,
       parcel_count_actual: null as any,
       verification_status: null as any,
@@ -135,7 +135,7 @@ function isFinalManifestState(input: {
   shipments: Array<{ is_manifested: boolean | null; manifest_id?: string | null }>;
 }): boolean {
   return input.batchStatus === 'MANIFESTED'
-    && input.manifest?.status === 'completed'
+    && input.manifest?.status === 'UPLOADED'
     && !!input.manifest?.document_url
     && input.manifest?.verification_status !== null
     && input.shipments.length > 0
@@ -310,13 +310,8 @@ async function executeManifestLifecycle(
     verificationStatus,
   });
 
-  const docUrl = await fetchAndStoreManifestDocument(manifestId);
-  await finalizeManifestRecord({
-    manifestId,
-    actualCount: actualParcelCount,
-    verificationStatus,
-    documentUrl: docUrl,
-  });
+  const fetchResult = await attemptInitialManifestPdfFetch(manifestId);
+  const docUrl = fetchResult.success ? fetchResult.documentUrl : undefined;
 
   if (notify && errorParcelIds.length > 0) {
     await notifyManifestIssue({

@@ -65,13 +65,20 @@ export const asendiaCustomerMappings = pgTable('asendia_customer_mappings', {
 export const manifests = pgTable('manifests', {
     manifest_id: varchar('manifest_id').primaryKey(), // Asendia manifest id
     batch_id: integer('batch_id').references(() => batches.batch_id),
-    status: varchar('status'),
+    status: varchar('status'), // MANIFEST_CREATED, PDF_PENDING, UPLOADED, FAILED
     parcel_count_expected: integer('parcel_count_expected'),
     parcel_count_actual: integer('parcel_count_actual'),
     verification_status: varchar('verification_status'), // matched | mismatch
     document_url: varchar('document_url'),
     created_at: timestamp('created_at').default(sql`CURRENT_TIMESTAMP`),
-});
+    pdf_retry_count: integer('pdf_retry_count').default(0),
+    pdf_last_attempt_at: timestamp('pdf_last_attempt_at'),
+    pdf_next_retry_at: timestamp('pdf_next_retry_at'),
+    pdf_ready_at: timestamp('pdf_ready_at'),
+    pdf_failure_reason: text('pdf_failure_reason'),
+}, (table) => ({
+    statusNextRetryIdx: index('manifests_status_next_retry_idx').on(table.status, table.pdf_next_retry_at),
+}));
 
 export const cronRuns = pgTable('cron_runs', {
     id: serial('id').primaryKey(),

@@ -36,6 +36,13 @@
       "when": 1777051887374,
       "tag": "0004_redundant_junta",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "5",
+      "when": 1778426528820,
+      "tag": "0005_glorious_the_enforcers",
+      "breakpoints": true
     }
   ]
 }

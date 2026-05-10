@@ -1,5 +1,12 @@
-import { getManifestDocument } from '@/modules/asendia/manifests/getManifestDocument';
+import axios from 'axios';
+import { db } from '@/lib/db';
+import { manifests } from '@/lib/db/schema';
+import { eq, and, lte, asc, gte } from 'drizzle-orm';
+import { getAsendiaManifestBaseUrl, getAsendiaRequestTimeoutMs, authenticateAsendiaSync } from '@/modules/asendia/manifests/client';
 import { uploadPdfBuffer } from '@/app/utils/labelPdfUploader';
+import { logError, logInfo } from '@/utils/logger';
+import { logEvent } from '@/modules/logging/events';
+import { computeManifestRetryDelay, MAX_MANIFEST_PDF_RETRIES } from './retry.utils';
 
 function buildManifestDocumentTimestamp(d: Date): string {
   const parts = new Intl.DateTimeFormat('en-GB', {
@@ -23,9 +30,130 @@ function buildManifestDocumentTimestamp(d: Date): string {
   return `${year}${month}${day}-${hour}${minute}${second}-AMS`;
 }
 
+export async function fetchManifestPdf(manifestId: string) {
+    const baseURL = getAsendiaManifestBaseUrl();
+    const idToken = await authenticateAsendiaSync();
+    const documentUrl = `/api/manifests/${encodeURIComponent(manifestId)}/document`;
+
+    const api = axios.create({
+        baseURL,
+        timeout: getAsendiaRequestTimeoutMs(),
+        responseType: 'arraybuffer',
+        headers: { Authorization: `Bearer ${idToken}`, Accept: 'application/pdf' },
+        validateStatus: () => true, // Resolve on all statuses
+    });
+
+    const res = await api.get(documentUrl);
+    const contentType = res.headers['content-type'];
+    
+    if (res.status === 200 && contentType?.includes('pdf')) {
+        return { success: true as const, status: 200, pdfBuffer: Buffer.from(res.data) };
+    }
+
+    let errorBody = '';
+    try {
+        errorBody = Buffer.from(res.data).toString('utf8');
+    } catch {
+        errorBody = '[unable to decode response body]';
+    }
+
+    return { success: false as const, status: res.status, errorBody, contentType };
+}
+
+export async function processSingleManifestPdf(manifestId: string, currentRetryCount: number, cronRunId?: string) {
+    logInfo('Processing manifest PDF', { manifest_id: manifestId, retryCount: currentRetryCount, cronRunId, timestamp: new Date().toISOString() });
+    logEvent({ event: 'manifest_pdf_fetch_attempt', manifest_id: manifestId, status: 'attempt', cronRunId });
+
+    const fetchResult = await fetchManifestPdf(manifestId);
+
+    if (fetchResult.success) {
+        const timestamp = buildManifestDocumentTimestamp(new Date());
+        const documentUrl = await uploadPdfBuffer(fetchResult.pdfBuffer, `manifest-${timestamp}-${manifestId}`);
+        
+        await db.update(manifests).set({
+            status: 'UPLOADED',
+            document_url: documentUrl,
+            pdf_ready_at: new Date(),
+        }).where(eq(manifests.manifest_id, manifestId));
+
+        logInfo('Manifest PDF successfully uploaded', { manifest_id: manifestId, documentUrl, cronRunId, timestamp: new Date().toISOString() });
+        logEvent({ event: 'manifest_success', manifest_id: manifestId, status: 'UPLOADED', cronRunId });
+        return { success: true, documentUrl };
+    }
+
+    // Failure case
+    const is404 = fetchResult.status === 404;
+    const isFinalAttempt = currentRetryCount >= MAX_MANIFEST_PDF_RETRIES;
+
+    if (is404 && !isFinalAttempt) {
+        // Retryable temporary failure
+        const nextRetryCount = currentRetryCount + 1;
+        const nextRetryAt = computeManifestRetryDelay(nextRetryCount);
+
+        await db.update(manifests).set({
+            status: 'PDF_PENDING',
+            pdf_retry_count: nextRetryCount,
+            pdf_last_attempt_at: new Date(),
+            pdf_next_retry_at: nextRetryAt,
+            pdf_failure_reason: `HTTP 404: PDF not ready`,
+        }).where(eq(manifests.manifest_id, manifestId));
+
+        logInfo('Manifest PDF not ready, scheduling retry', { manifest_id: manifestId, nextRetryCount, nextRetryAt: nextRetryAt.toISOString(), cronRunId, timestamp: new Date().toISOString() });
+        logEvent({ event: 'manifest_pdf_retry', manifest_id: manifestId, status: 'PDF_PENDING', cronRunId });
+        return { success: false, retryable: true };
+    }
+
+    // Terminal failure (5xx, 403, 401, or exhausted retries)
+    const failureReason = `HTTP ${fetchResult.status}: ${fetchResult.errorBody}`;
+    await db.update(manifests).set({
+        status: 'FAILED',
+        pdf_retry_count: currentRetryCount + 1,
+        pdf_last_attempt_at: new Date(),
+        pdf_failure_reason: failureReason,
+    }).where(eq(manifests.manifest_id, manifestId));
+
+    logError('Manifest PDF fetching failed permanently', { manifest_id: manifestId, failureReason, currentRetryCount, cronRunId, timestamp: new Date().toISOString() });
+    logEvent({ event: 'manifest_failed', manifest_id: manifestId, status: 'FAILED', errorMessage: failureReason, cronRunId });
+    
+    return { success: false, retryable: false, failureReason };
+}
+
+export async function attemptInitialManifestPdfFetch(manifestId: string) {
+    return await processSingleManifestPdf(manifestId, 0, 'sync-initial');
+}
+
+export async function processPendingManifestPdfs(operationalDateISO: string, cronRunId?: string) {
+    // Only process manifests created within the last 24 hours to avoid retrying stale records
+    const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+
+    const pending = await db.select()
+        .from(manifests)
+        .where(and(
+            eq(manifests.status, 'PDF_PENDING'),
+            lte(manifests.pdf_next_retry_at, new Date()),
+            gte(manifests.created_at, oneDayAgo)
+        ))
+        .orderBy(asc(manifests.pdf_next_retry_at))
+        .limit(50); // limit to avoid massive cron execution
+
+    if (pending.length === 0) return;
+
+    logInfo(`Found ${pending.length} pending manifest PDFs to process`, { cronRunId, timestamp: new Date().toISOString() });
+
+    for (const manifest of pending) {
+        try {
+            await processSingleManifestPdf(manifest.manifest_id, manifest.pdf_retry_count || 0, cronRunId);
+        } catch (error: any) {
+            logError('Unexpected error processing pending manifest PDF', { manifest_id: manifest.manifest_id, error: error?.message, cronRunId, timestamp: new Date().toISOString() });
+        }
+    }
+}
+
 export async function fetchAndStoreManifestDocument(manifestId: string): Promise<string | undefined> {
-  const pdf = await getManifestDocument(manifestId);
-  const timestamp = buildManifestDocumentTimestamp(new Date());
-  const fileUrl = await uploadPdfBuffer(pdf, `manifest-${timestamp}-${manifestId}`);
-  return fileUrl;
+    const fetchResult = await fetchManifestPdf(manifestId);
+    if (fetchResult.success) {
+        const timestamp = buildManifestDocumentTimestamp(new Date());
+        return await uploadPdfBuffer(fetchResult.pdfBuffer, `manifest-${timestamp}-${manifestId}`);
+    }
+    return undefined;
 }

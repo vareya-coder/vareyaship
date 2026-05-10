@@ -8,6 +8,7 @@ import {
   listBatchShipments,
 } from '@/modules/batching/batch.repository';
 import { manifestBatch } from '@/modules/manifesting/manifest.service';
+import { processPendingManifestPdfs } from '@/modules/manifesting/document.service';
 import { logEvent } from '@/modules/logging/events';
 import {
   getOperationalDateISO,
@@ -197,6 +198,9 @@ export async function GET(req: NextRequest) {
       triggerTimezone: flags.manifest_trigger_timezone,
     });
   }
+
+  // Process any pending PDFs for today before attempting the daily lock
+  await processPendingManifestPdfs(operationalDate);
 
   const runState = await acquireDailyCronRun(MANIFEST_TRIGGER_JOB, operationalDate);
   if (runState.state === 'completed') {
