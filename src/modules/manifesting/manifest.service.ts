@@ -87,19 +87,30 @@ async function upsertManifestStart(params: { manifestId: string; batchId: number
   await db.insert(manifests).values({
     manifest_id: params.manifestId,
     batch_id: params.batchId,
-    status: 'MANIFEST_CREATED',
+    status: 'PDF_PENDING',
     parcel_count_expected: params.expectedCount,
     parcel_count_actual: null as any,
     verification_status: null as any,
     document_url: null as any,
+    pdf_retry_count: 0,
+    pdf_last_attempt_at: null as any,
+    pdf_next_retry_at: null as any,
+    pdf_ready_at: null as any,
+    pdf_failure_reason: null as any,
   }).onConflictDoUpdate({
     target: manifests.manifest_id,
     set: {
       batch_id: params.batchId,
-      status: 'MANIFEST_CREATED',
+      status: 'PDF_PENDING',
       parcel_count_expected: params.expectedCount,
       parcel_count_actual: null as any,
       verification_status: null as any,
+      document_url: null as any,
+      pdf_retry_count: 0,
+      pdf_last_attempt_at: null as any,
+      pdf_next_retry_at: null as any,
+      pdf_ready_at: null as any,
+      pdf_failure_reason: null as any,
     },
   });
 }
@@ -311,7 +322,9 @@ async function executeManifestLifecycle(
   });
 
   const fetchResult = await attemptInitialManifestPdfFetch(manifestId);
-  const docUrl = fetchResult.success ? fetchResult.documentUrl : undefined;
+  const docUrl = fetchResult.success && 'documentUrl' in fetchResult
+    ? fetchResult.documentUrl
+    : undefined;
 
   if (notify && errorParcelIds.length > 0) {
     await notifyManifestIssue({

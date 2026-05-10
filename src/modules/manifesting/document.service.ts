@@ -1,7 +1,7 @@
 import axios from 'axios';
 import { db } from '@/lib/db';
 import { manifests } from '@/lib/db/schema';
-import { eq, and, lte, asc, gte } from 'drizzle-orm';
+import { eq, and, lte, asc, gte, or, isNull, inArray } from 'drizzle-orm';
 import { getAsendiaManifestBaseUrl, getAsendiaRequestTimeoutMs, authenticateAsendiaSync } from '@/modules/asendia/manifests/client';
 import { uploadPdfBuffer } from '@/app/utils/labelPdfUploader';
 import { logError, logInfo } from '@/utils/logger';
@@ -119,18 +119,51 @@ export async function processSingleManifestPdf(manifestId: string, currentRetryC
 }
 
 export async function attemptInitialManifestPdfFetch(manifestId: string) {
-    return await processSingleManifestPdf(manifestId, 0, 'sync-initial');
+    try {
+        return await processSingleManifestPdf(manifestId, 0, 'sync-initial');
+    } catch (error: any) {
+        const nextRetryAt = computeManifestRetryDelay(1);
+
+        await db.update(manifests).set({
+            status: 'PDF_PENDING',
+            pdf_retry_count: 1,
+            pdf_last_attempt_at: new Date(),
+            pdf_next_retry_at: nextRetryAt,
+            pdf_failure_reason: `Unexpected initial PDF fetch error: ${error?.message ?? 'unknown'}`,
+        }).where(eq(manifests.manifest_id, manifestId));
+
+        logError('Initial manifest PDF fetch failed, scheduling retry', {
+            manifest_id: manifestId,
+            error: error?.message ?? 'unknown',
+            nextRetryAt: nextRetryAt.toISOString(),
+            timestamp: new Date().toISOString(),
+        });
+        logEvent({
+            event: 'manifest_pdf_retry',
+            manifest_id: manifestId,
+            status: 'PDF_PENDING',
+            errorMessage: error?.message ?? 'unknown',
+            cronRunId: 'sync-initial',
+        });
+
+        return { success: false, retryable: true, failureReason: error?.message ?? 'unknown' };
+    }
 }
 
 export async function processPendingManifestPdfs(operationalDateISO: string, cronRunId?: string) {
     // Only process manifests created within the last 24 hours to avoid retrying stale records
     const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const now = new Date();
 
     const pending = await db.select()
         .from(manifests)
         .where(and(
-            eq(manifests.status, 'PDF_PENDING'),
-            lte(manifests.pdf_next_retry_at, new Date()),
+            inArray(manifests.status, ['MANIFEST_CREATED', 'PDF_PENDING']),
+            isNull(manifests.document_url),
+            or(
+                lte(manifests.pdf_next_retry_at, now),
+                isNull(manifests.pdf_next_retry_at),
+            ),
             gte(manifests.created_at, oneDayAgo)
         ))
         .orderBy(asc(manifests.pdf_next_retry_at))
