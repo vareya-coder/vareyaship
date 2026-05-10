@@ -200,7 +200,11 @@ export async function GET(req: NextRequest) {
   }
 
   // Process any pending PDFs for today before attempting the daily lock
-  await processPendingManifestPdfs(operationalDate);
+  await processPendingManifestPdfs(operationalDate, {
+    now,
+    cutoffTime: flags.cutoff_time,
+    timeZone: flags.cutoff_timezone,
+  });
 
   const runState = await acquireDailyCronRun(MANIFEST_TRIGGER_JOB, operationalDate);
   if (runState.state === 'completed') {

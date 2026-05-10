@@ -1,12 +1,19 @@
 import axios from 'axios';
 import { db } from '@/lib/db';
 import { manifests } from '@/lib/db/schema';
-import { eq, and, lte, asc, gte, or, isNull, inArray } from 'drizzle-orm';
+import { eq, and, lte, asc, gte, or, isNull, inArray, lt } from 'drizzle-orm';
 import { getAsendiaManifestBaseUrl, getAsendiaRequestTimeoutMs, authenticateAsendiaSync } from '@/modules/asendia/manifests/client';
 import { uploadPdfBuffer } from '@/app/utils/labelPdfUploader';
 import { logError, logInfo } from '@/utils/logger';
 import { logEvent } from '@/modules/logging/events';
 import { computeManifestRetryDelay, MAX_MANIFEST_PDF_RETRIES } from './retry.utils';
+import { parseTimeOfDay } from '@/modules/time/time';
+
+type PendingManifestPdfOptions = {
+    now?: Date;
+    cutoffTime: string;
+    timeZone: string;
+};
 
 function buildManifestDocumentTimestamp(d: Date): string {
   const parts = new Intl.DateTimeFormat('en-GB', {
@@ -28,6 +35,62 @@ function buildManifestDocumentTimestamp(d: Date): string {
   const second = parts.find((p) => p.type === 'second')?.value;
 
   return `${year}${month}${day}-${hour}${minute}${second}-AMS`;
+}
+
+function addDaysToISODate(dateISO: string, days: number): string {
+    const [year, month, day] = dateISO.split('-').map((part) => Number.parseInt(part, 10));
+    const date = new Date(Date.UTC(year, month - 1, day + days));
+    return date.toISOString().slice(0, 10);
+}
+
+function getLocalDateTimeParts(date: Date, timeZone: string) {
+    const parts = new Intl.DateTimeFormat('en-GB', {
+        timeZone,
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false,
+    }).formatToParts(date);
+
+    const part = (type: Intl.DateTimeFormatPartTypes) => parts.find((p) => p.type === type)?.value;
+    const rawHour = Number(part('hour'));
+
+    return {
+        year: Number(part('year')),
+        month: Number(part('month')),
+        day: Number(part('day')),
+        hour: rawHour === 24 ? 0 : rawHour,
+        minute: Number(part('minute')),
+        second: Number(part('second')),
+    };
+}
+
+function localDateTimeToUtc(dateISO: string, timeHHmm: string, timeZone: string): Date {
+    const [year, month, day] = dateISO.split('-').map((part) => Number.parseInt(part, 10));
+    const { hour, minute } = parseTimeOfDay(timeHHmm);
+    const desiredUtcMs = Date.UTC(year, month - 1, day, hour, minute, 0, 0);
+    let candidate = new Date(desiredUtcMs);
+
+    for (let i = 0; i < 3; i += 1) {
+        const actual = getLocalDateTimeParts(candidate, timeZone);
+        const actualUtcMs = Date.UTC(
+            actual.year,
+            actual.month - 1,
+            actual.day,
+            actual.hour,
+            actual.minute,
+            actual.second,
+            0,
+        );
+        const deltaMs = desiredUtcMs - actualUtcMs;
+        if (deltaMs === 0) break;
+        candidate = new Date(candidate.getTime() + deltaMs);
+    }
+
+    return candidate;
 }
 
 export async function fetchManifestPdf(manifestId: string) {
@@ -150,10 +213,14 @@ export async function attemptInitialManifestPdfFetch(manifestId: string) {
     }
 }
 
-export async function processPendingManifestPdfs(operationalDateISO: string, cronRunId?: string) {
-    // Only process manifests created within the last 24 hours to avoid retrying stale records
-    const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
-    const now = new Date();
+export async function processPendingManifestPdfs(
+    operationalDateISO: string,
+    options: PendingManifestPdfOptions,
+    cronRunId?: string,
+) {
+    const now = options.now ?? new Date();
+    const windowStart = localDateTimeToUtc(operationalDateISO, options.cutoffTime, options.timeZone);
+    const windowEnd = localDateTimeToUtc(addDaysToISODate(operationalDateISO, 1), '00:00', options.timeZone);
 
     const pending = await db.select()
         .from(manifests)
@@ -162,16 +229,27 @@ export async function processPendingManifestPdfs(operationalDateISO: string, cro
             isNull(manifests.document_url),
             or(
                 lte(manifests.pdf_next_retry_at, now),
-                isNull(manifests.pdf_next_retry_at),
+                and(
+                    eq(manifests.status, 'MANIFEST_CREATED'),
+                    isNull(manifests.pdf_next_retry_at),
+                ),
             ),
-            gte(manifests.created_at, oneDayAgo)
+            gte(manifests.created_at, windowStart),
+            lt(manifests.created_at, windowEnd)
         ))
         .orderBy(asc(manifests.pdf_next_retry_at))
         .limit(50); // limit to avoid massive cron execution
 
     if (pending.length === 0) return;
 
-    logInfo(`Found ${pending.length} pending manifest PDFs to process`, { cronRunId, timestamp: new Date().toISOString() });
+    logInfo(`Found ${pending.length} pending manifest PDFs to process`, {
+        cronRunId,
+        operationalDateISO,
+        windowStart: windowStart.toISOString(),
+        windowEnd: windowEnd.toISOString(),
+        now: now.toISOString(),
+        timestamp: new Date().toISOString(),
+    });
 
     for (const manifest of pending) {
         try {
