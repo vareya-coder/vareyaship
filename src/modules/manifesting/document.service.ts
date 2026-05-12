@@ -1,7 +1,7 @@
 import axios from 'axios';
 import { db } from '@/lib/db';
 import { manifests } from '@/lib/db/schema';
-import { eq, and, lte, asc, gte, or, isNull, inArray, lt } from 'drizzle-orm';
+import { eq, and, lte, asc, gte, or, isNull, inArray, lt, sql } from 'drizzle-orm';
 import { getAsendiaManifestBaseUrl, getAsendiaRequestTimeoutMs, authenticateAsendiaSync } from '@/modules/asendia/manifests/client';
 import { uploadPdfBuffer } from '@/app/utils/labelPdfUploader';
 import { logError, logInfo } from '@/utils/logger';
@@ -13,6 +13,15 @@ type PendingManifestPdfOptions = {
     now?: Date;
     cutoffTime: string;
     timeZone: string;
+};
+
+export type ManifestPdfProcessingItem = {
+    manifestId: string;
+    batchId: number | null;
+    success: boolean;
+    documentUrl?: string;
+    retryable?: boolean;
+    failureReason?: string;
 };
 
 function buildManifestDocumentTimestamp(d: Date): string {
@@ -137,6 +146,8 @@ export async function processSingleManifestPdf(manifestId: string, currentRetryC
             status: 'UPLOADED',
             document_url: documentUrl,
             pdf_ready_at: new Date(),
+            pdf_last_attempt_at: new Date(),
+            pdf_failure_reason: null as any,
         }).where(eq(manifests.manifest_id, manifestId));
 
         logInfo('Manifest PDF successfully uploaded', { manifest_id: manifestId, documentUrl, cronRunId, timestamp: new Date().toISOString() });
@@ -181,46 +192,15 @@ export async function processSingleManifestPdf(manifestId: string, currentRetryC
     return { success: false, retryable: false, failureReason };
 }
 
-export async function attemptInitialManifestPdfFetch(manifestId: string) {
-    try {
-        return await processSingleManifestPdf(manifestId, 0, 'sync-initial');
-    } catch (error: any) {
-        const nextRetryAt = computeManifestRetryDelay(1);
-
-        await db.update(manifests).set({
-            status: 'PDF_PENDING',
-            pdf_retry_count: 1,
-            pdf_last_attempt_at: new Date(),
-            pdf_next_retry_at: nextRetryAt,
-            pdf_failure_reason: `Unexpected initial PDF fetch error: ${error?.message ?? 'unknown'}`,
-        }).where(eq(manifests.manifest_id, manifestId));
-
-        logError('Initial manifest PDF fetch failed, scheduling retry', {
-            manifest_id: manifestId,
-            error: error?.message ?? 'unknown',
-            nextRetryAt: nextRetryAt.toISOString(),
-            timestamp: new Date().toISOString(),
-        });
-        logEvent({
-            event: 'manifest_pdf_retry',
-            manifest_id: manifestId,
-            status: 'PDF_PENDING',
-            errorMessage: error?.message ?? 'unknown',
-            cronRunId: 'sync-initial',
-        });
-
-        return { success: false, retryable: true, failureReason: error?.message ?? 'unknown' };
-    }
-}
-
 export async function processPendingManifestPdfs(
     operationalDateISO: string,
     options: PendingManifestPdfOptions,
     cronRunId?: string,
-) {
+): Promise<{ processed: ManifestPdfProcessingItem[] }> {
     const now = options.now ?? new Date();
     const windowStart = localDateTimeToUtc(operationalDateISO, options.cutoffTime, options.timeZone);
     const windowEnd = localDateTimeToUtc(addDaysToISODate(operationalDateISO, 1), '00:00', options.timeZone);
+    const processed: ManifestPdfProcessingItem[] = [];
 
     const pending = await db.select()
         .from(manifests)
@@ -240,7 +220,7 @@ export async function processPendingManifestPdfs(
         .orderBy(asc(manifests.pdf_next_retry_at))
         .limit(50); // limit to avoid massive cron execution
 
-    if (pending.length === 0) return;
+    if (pending.length === 0) return { processed };
 
     logInfo(`Found ${pending.length} pending manifest PDFs to process`, {
         cronRunId,
@@ -253,11 +233,63 @@ export async function processPendingManifestPdfs(
 
     for (const manifest of pending) {
         try {
-            await processSingleManifestPdf(manifest.manifest_id, manifest.pdf_retry_count || 0, cronRunId);
+            const result = await processSingleManifestPdf(manifest.manifest_id, manifest.pdf_retry_count || 0, cronRunId);
+            processed.push({
+                manifestId: manifest.manifest_id,
+                batchId: manifest.batch_id ?? null,
+                success: result.success,
+                documentUrl: result.success ? result.documentUrl : undefined,
+                retryable: result.success ? undefined : result.retryable,
+                failureReason: result.success ? undefined : result.failureReason,
+            });
         } catch (error: any) {
             logError('Unexpected error processing pending manifest PDF', { manifest_id: manifest.manifest_id, error: error?.message, cronRunId, timestamp: new Date().toISOString() });
+            processed.push({
+                manifestId: manifest.manifest_id,
+                batchId: manifest.batch_id ?? null,
+                success: false,
+                retryable: false,
+                failureReason: error?.message ?? 'unknown',
+            });
         }
     }
+
+    return { processed };
+}
+
+export async function listUploadedManifestsPendingSuccessNotification(
+    operationalDateISO: string,
+    options: PendingManifestPdfOptions,
+) {
+    const windowStart = localDateTimeToUtc(operationalDateISO, options.cutoffTime, options.timeZone);
+    const windowEnd = localDateTimeToUtc(addDaysToISODate(operationalDateISO, 1), '00:00', options.timeZone);
+
+    return db.select({
+        manifestId: manifests.manifest_id,
+        batchId: manifests.batch_id,
+        documentUrl: manifests.document_url,
+        createdAt: manifests.created_at,
+    })
+        .from(manifests)
+        .where(and(
+            eq(manifests.status, 'UPLOADED'),
+            isNull(manifests.success_notified_at),
+            gte(manifests.created_at, windowStart),
+            lt(manifests.created_at, windowEnd),
+            // Drizzle 0.29 does not need a helper import for this SQL predicate.
+            sql`${manifests.document_url} IS NOT NULL`,
+        ))
+        .orderBy(asc(manifests.created_at), asc(manifests.manifest_id))
+        .limit(50);
+}
+
+export async function markManifestSuccessNotified(manifestId: string, notifiedAt = new Date()) {
+    await db.update(manifests).set({
+        success_notified_at: notifiedAt,
+    }).where(and(
+        eq(manifests.manifest_id, manifestId),
+        isNull(manifests.success_notified_at),
+    ));
 }
 
 export async function fetchAndStoreManifestDocument(manifestId: string): Promise<string | undefined> {

@@ -76,6 +76,7 @@ export const manifests = pgTable('manifests', {
     pdf_next_retry_at: timestamp('pdf_next_retry_at'),
     pdf_ready_at: timestamp('pdf_ready_at'),
     pdf_failure_reason: text('pdf_failure_reason'),
+    success_notified_at: timestamp('success_notified_at'),
 }, (table) => ({
     statusNextRetryIdx: index('manifests_status_next_retry_idx').on(table.status, table.pdf_next_retry_at),
 }));

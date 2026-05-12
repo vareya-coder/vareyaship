@@ -1,7 +1,6 @@
 import { db } from '@/lib/db';
 import { manifests, shipments } from '@/lib/db/schema';
 import { createManifest } from '@/modules/asendia/manifests/createManifest';
-import { attemptInitialManifestPdfFetch } from './document.service';
 import { verifyManifest } from './verification.service';
 import { markShipmentsManifestedByParcelIds } from '@/modules/shipments/shipment.repository';
 import { logEvent } from '@/modules/logging/events';
@@ -97,6 +96,7 @@ async function upsertManifestStart(params: { manifestId: string; batchId: number
     pdf_next_retry_at: null as any,
     pdf_ready_at: null as any,
     pdf_failure_reason: null as any,
+    success_notified_at: null as any,
   }).onConflictDoUpdate({
     target: manifests.manifest_id,
     set: {
@@ -111,6 +111,7 @@ async function upsertManifestStart(params: { manifestId: string; batchId: number
       pdf_next_retry_at: null as any,
       pdf_ready_at: null as any,
       pdf_failure_reason: null as any,
+      success_notified_at: null as any,
     },
   });
 }
@@ -321,11 +322,6 @@ async function executeManifestLifecycle(
     verificationStatus,
   });
 
-  const fetchResult = await attemptInitialManifestPdfFetch(manifestId);
-  const docUrl = fetchResult.success && 'documentUrl' in fetchResult
-    ? fetchResult.documentUrl
-    : undefined;
-
   if (notify && errorParcelIds.length > 0) {
     await notifyManifestIssue({
       kind: 'partial_failure',
@@ -333,7 +329,6 @@ async function executeManifestLifecycle(
       manifestId,
       occurredAt,
       failedParcelIds: errorParcelIds,
-      documentUrl: docUrl,
     });
   }
 
@@ -343,15 +338,14 @@ async function executeManifestLifecycle(
       batchId,
       manifestId,
       occurredAt,
-      documentUrl: docUrl,
     });
   }
 
   logEvent({
-    event: 'manifest_success',
+    event: 'manifest_triggered',
     batch_id: batchId,
     manifest_id: manifestId,
-    status: 'completed',
+    status: 'manifest_created_pdf_pending',
     source: options.source ?? 'cron',
   });
 
@@ -360,7 +354,7 @@ async function executeManifestLifecycle(
     errorParcelIds,
     verificationMatched,
     verificationActualCount: actualParcelCount,
-    documentUrl: docUrl ?? null,
+    documentUrl: null,
     recreated: !!options.recreateExistingManifestId,
   };
 }

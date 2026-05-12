@@ -4,16 +4,31 @@
 
 - Trigger: `GET /api/cron/manifest-trigger`
   - Secured with `Authorization: Bearer ${CRON_SECRET}`
-  - Runs every 10 minutes (see `vercel.json`)
+  - Scheduled for 17:25 Europe/Amsterdam (see `vercel.json`)
+  - Vercel cron is UTC-only, so `vercel.json` includes both CEST and CET UTC schedules. Route-level local-time guards ignore the inactive seasonal duplicate.
   - Behavior:
     - Waits until the daily trigger window opens (`MANIFEST_TRIGGER_TIME` in `MANIFEST_TRIGGER_TIMEZONE`)
+    - If the configured trigger/cutoff time is later than 17:25 Europe/Amsterdam, exits without work for that day
     - Executes only once per operational day, tracked in DB
     - Evaluates OPEN batches
     - If now >= cutoff (env `CUTOFF_TIME` in `CUTOFF_TIMEZONE`), closes all today’s OPEN batches
     - Else closes batches by age (`BATCH_INTERVAL_HOURS`) or `SHIPMENT_THRESHOLD`
     - Does not automatically retry pre-existing `CLOSING` batches
     - If `DRY_RUN_MANIFEST=y`, logs intended actions without mutating
-    - Otherwise: sets batch → CLOSING, creates manifest (explicit parcel_ids), optionally verifies, fetches PDF, sets batch → MANIFESTED
+    - Otherwise: sets batch → CLOSING, creates manifest (explicit parcel_ids), optionally verifies, sets batch → MANIFESTED, and leaves the manifest PDF pending
+
+- Documents: `GET /api/cron/manifest-documents`
+  - Secured with `Authorization: Bearer ${CRON_SECRET}`
+  - Scheduled for 17:30 Europe/Amsterdam (see `vercel.json`)
+  - Vercel cron is UTC-only, so `vercel.json` includes both CEST and CET UTC schedules. Route-level local-time guards ignore the inactive seasonal duplicate.
+  - Behavior:
+    - Waits until the daily trigger window opens (`MANIFEST_TRIGGER_TIME` in `MANIFEST_TRIGGER_TIMEZONE`)
+    - If the configured trigger/cutoff time is later than 17:30 Europe/Amsterdam, exits without work for that day
+    - Executes only once per operational day, tracked separately as `manifest-documents`
+    - Fetches pending manifest PDFs from Asendia for the current operational date
+    - Uploads successful PDFs to UploadThing and stores `manifests.document_url`
+    - Sends success email only after `document_url` exists
+    - Marks `manifests.success_notified_at` after a successful email send to prevent duplicates
 
 - Retention: `GET /api/cron/manifest-retention`
   - Secured with `Authorization: Bearer ${CRON_SECRET}`
@@ -54,6 +69,7 @@ Notifications (Resend):
 - `manifest-trigger` will:
   - Log which batches would be closed and how many parcels would be manifested
   - Not update batches or call Asendia
+- `manifest-documents` exits without fetching PDFs, uploading, or sending email
 
 ## Manual Recovery
 

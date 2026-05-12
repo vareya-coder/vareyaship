@@ -162,12 +162,29 @@ export async function notifyManifestIssue(input: ManifestNotificationInput) {
   }
 }
 
-export async function notifyManifestTriggerSuccess(input: ManifestTriggerSuccessInput) {
+export async function notifyManifestTriggerSuccess(input: ManifestTriggerSuccessInput): Promise<boolean> {
   const { to, from, timeZone } = getManifestNotificationConfig();
   const occurredAt = input.occurredAt ?? new Date();
   const formattedTimestamp = formatManifestTimestamp(occurredAt, timeZone);
-  const subject = `Manifest trigger success | Vareya BV | ${input.batch.crmId} | ${formattedTimestamp} | ${input.operationalDate}`;
+  const subject = `Manifest success | Vareya BV | ${input.batch.crmId} | ${formattedTimestamp} | ${input.operationalDate}`;
   const batch = input.batch;
+
+  if (!input.manifestUrl) {
+    logError('Manifest trigger success notification skipped because manifest URL is missing', {
+      operationalDate: input.operationalDate,
+      batchId: batch.batchId,
+    });
+    logEvent({
+      event: 'notification_enqueued',
+      batch_id: batch.batchId,
+      subject,
+      to: to || 'default',
+      from: from || 'default',
+      status: 'skipped_missing_manifest_url',
+    });
+    return false;
+  }
+
   const rows = [
     `<tr>`,
     `<td>${batch.batchId}</td>`,
@@ -182,14 +199,12 @@ export async function notifyManifestTriggerSuccess(input: ManifestTriggerSuccess
   ].join('');
 
   const html = [
-    `<p>Manifest success.</p>`,
+    `<p>Manifested successfully.</p>`,
     `<p><strong>Date/time:</strong> ${escapeHtml(formattedTimestamp)}</p>`,
     `<p><strong>Operational date:</strong> ${escapeHtml(input.operationalDate)}</p>`,
     `<p><strong>CRM ID:</strong> ${batch.crmId}</p>`,
     `<p><strong>Totals:</strong> batches=${input.totals.batchCount}, shipments=${input.totals.shipmentCount}, manifested shipments=${input.totals.manifestedShipmentCount}, pending shipments=${input.totals.pendingShipmentCount}, eligible batches=${input.totals.eligibleBatchCount}</p>`,
-    input.manifestUrl
-      ? `<p><strong>Manifest URL:</strong> <a href="${escapeHtml(input.manifestUrl)}">${escapeHtml(input.manifestUrl)}</a></p>`
-      : `<p><strong>Manifest URL:</strong> not available</p>`,
+    `<p><strong>Manifest URL:</strong> <a href="${escapeHtml(input.manifestUrl)}">${escapeHtml(input.manifestUrl)}</a></p>`,
     `<table border="1" cellpadding="6" cellspacing="0">`,
     `<thead><tr><th>Batch</th><th>Status</th><th>Grouping</th><th>Stored</th><th>Actual</th><th>Manifested</th><th>Pending</th><th>Eligible now</th></tr></thead>`,
     `<tbody>${rows}</tbody>`,
@@ -215,6 +230,7 @@ export async function notifyManifestTriggerSuccess(input: ManifestTriggerSuccess
       status: 'sent',
       id,
     });
+    return true;
   } catch (e: any) {
     logError('Manifest trigger success notification failed', {
       operationalDate: input.operationalDate,
@@ -233,6 +249,7 @@ export async function notifyManifestTriggerSuccess(input: ManifestTriggerSuccess
       status: 'error',
       errorMessage: e?.message,
     });
+    return false;
   }
 }
 

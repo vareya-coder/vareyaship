@@ -99,3 +99,17 @@ export function hasReachedCutoff(now: Date, cutoffHHmm: string, timeZone: string
 
   return currentTotalMin >= cutoffTotalMin;
 }
+
+export function isWithinLocalTimeWindow(
+  now: Date,
+  targetHHmm: string,
+  timeZone: string,
+  toleranceMinutes = 45,
+): boolean {
+  const { hour, minute } = parseTimeOfDay(targetHHmm);
+  const currentTotalMin = getLocalDateAndMinutes(now, timeZone).minutes;
+  const targetTotalMin = hour * 60 + minute;
+  const elapsedMinutes = currentTotalMin - targetTotalMin;
+
+  return elapsedMinutes >= 0 && elapsedMinutes <= toleranceMinutes;
+}

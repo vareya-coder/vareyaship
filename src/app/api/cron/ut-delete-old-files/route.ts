@@ -120,7 +120,7 @@ export async function GET(request: NextRequest) {
 
       // Filter out files whose name starts with "manifest-"
       const filteredFiles = files.filter(
-        ({ name }) => !name?.startsWith("manifest-")
+        ({ name }) => !(name?.startsWith("manifest-") || name?.startsWith("label-manifest-"))
       );
 
       // Count after filtering

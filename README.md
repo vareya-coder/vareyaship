@@ -66,8 +66,11 @@ Open [http://localhost:3000](http://localhost:3000) with your browser to see the
 ## Asendia Manifest Automation (Headless)
 
 Endpoints:
-- `GET /api/cron/manifest-trigger` — evaluates/creates manifests (10-min schedule, `Authorization: Bearer ${CRON_SECRET}`)
+- `GET /api/cron/manifest-trigger` — closes batches and creates Asendia manifests from explicit parcel IDs (17:25 Europe/Amsterdam, `Authorization: Bearer ${CRON_SECRET}`)
+- `GET /api/cron/manifest-documents` — fetches manifest PDFs, uploads to UploadThing, then sends success email only when a manifest URL exists (17:30 Europe/Amsterdam, `Authorization: Bearer ${CRON_SECRET}`)
 - `GET /api/cron/manifest-retention` — deletes old manifest PDFs (daily, `Authorization: Bearer ${CRON_SECRET}`)
+
+Vercel cron is UTC-only, so `vercel.json` contains both CEST and CET UTC schedules for the two manifest jobs. Route-level Amsterdam-time guards ignore the inactive seasonal duplicate. If `MANIFEST_TRIGGER_TIME` / `MANIFEST_TRIGGER_TIMEZONE` is configured later than the fixed cron execution time, that day’s cron exits without work.
 
 Feature flags (env):
 - `DRY_RUN_MANIFEST`, `CUTOFF_TIME`, `CUTOFF_TIMEZONE`, `MANIFEST_TRIGGER_TIME`, `MANIFEST_TRIGGER_TIMEZONE`, `BATCH_INTERVAL_HOURS`, `SHIPMENT_THRESHOLD`, `RETENTION_DAYS`

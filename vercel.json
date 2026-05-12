@@ -6,7 +6,19 @@
     },
     {
       "path": "/api/cron/manifest-trigger",
-      "schedule": "*/10 * * * *"
+      "schedule": "25 15 * * *"
+    },
+    {
+      "path": "/api/cron/manifest-documents",
+      "schedule": "30 15 * * *"
+    },
+    {
+      "path": "/api/cron/manifest-trigger",
+      "schedule": "25 16 * * *"
+    },
+    {
+      "path": "/api/cron/manifest-documents",
+      "schedule": "30 16 * * *"
     },
     {
       "path": "/api/cron/manifest-retention",

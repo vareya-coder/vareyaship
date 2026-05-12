@@ -8,25 +8,26 @@ import {
   listBatchShipments,
 } from '@/modules/batching/batch.repository';
 import { manifestBatch } from '@/modules/manifesting/manifest.service';
-import { processPendingManifestPdfs } from '@/modules/manifesting/document.service';
 import { logEvent } from '@/modules/logging/events';
 import {
   getOperationalDateISO,
   getShipmentOperationalDateISO,
   hasReachedCutoff,
+  isWithinLocalTimeWindow,
+  AMSTERDAM_TIME_ZONE,
 } from '@/modules/time/time';
 import { acquireDailyCronRun, completeCronRun, failCronRun } from '@/modules/cron/cronRun.repository';
 import { logError, logInfo, logger } from '@/utils/logger';
 import {
   notifyManifestDryRunSummary,
   notifyManifestTriggerFailure,
-  notifyManifestTriggerSuccess,
 } from '@/modules/notifications/notify';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 export const maxDuration = 300;
 const MANIFEST_TRIGGER_JOB = 'manifest-trigger';
+const MANIFEST_CREATION_LOCAL_TIME = '17:25';
 
 function authorized(req: NextRequest): boolean {
   const token = req.headers.get('authorization');
@@ -134,38 +135,6 @@ async function buildDryRunSummary(operationalDate: string, now: Date) {
   };
 }
 
-async function buildBatchSuccessSummary(batchId: number, eligibleBatchIds: Set<number>) {
-  const [batch, shipments] = await Promise.all([
-    findBatchById(batchId),
-    listBatchShipments(batchId),
-  ]);
-  const totalShipmentCount = shipments.length;
-  const manifestedShipmentCount = shipments.filter((shipment) => shipment.is_manifested === true).length;
-  const pendingShipmentCount = shipments.filter((shipment) => shipment.is_manifested !== true).length;
-  const batchSummary = {
-    batchId,
-    status: (batch as any)?.status ?? null,
-    crmId: (batch as any)?.crm_id ?? null,
-    groupingKey: (batch as any)?.grouping_key ?? null,
-    shipmentCountStored: (batch as any)?.shipment_count ?? 0,
-    shipmentCountActual: totalShipmentCount,
-    manifestedShipmentCount,
-    pendingShipmentCount,
-    eligibleToCloseNow: eligibleBatchIds.has(batchId),
-  };
-
-  return {
-    batch: batchSummary,
-    totals: {
-      batchCount: 1,
-      shipmentCount: totalShipmentCount,
-      manifestedShipmentCount,
-      pendingShipmentCount,
-      eligibleBatchCount: batchSummary.eligibleToCloseNow ? 1 : 0,
-    },
-  };
-}
-
 export async function GET(req: NextRequest) {
   if (!authorized(req)) {
     return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
@@ -199,12 +168,16 @@ export async function GET(req: NextRequest) {
     });
   }
 
-  // Process any pending PDFs for today before attempting the daily lock
-  await processPendingManifestPdfs(operationalDate, {
-    now,
-    cutoffTime: flags.cutoff_time,
-    timeZone: flags.cutoff_timezone,
-  });
+  if (!isWithinLocalTimeWindow(now, MANIFEST_CREATION_LOCAL_TIME, AMSTERDAM_TIME_ZONE)) {
+    return NextResponse.json({
+      message: 'Manifest creation cron ignored outside the scheduled Amsterdam window',
+      operationalDate,
+      scheduledLocalTime: MANIFEST_CREATION_LOCAL_TIME,
+      scheduledTimezone: AMSTERDAM_TIME_ZONE,
+      triggerTime: flags.manifest_trigger_time,
+      triggerTimezone: flags.manifest_trigger_timezone,
+    });
+  }
 
   const runState = await acquireDailyCronRun(MANIFEST_TRIGGER_JOB, operationalDate);
   if (runState.state === 'completed') {
@@ -230,7 +203,6 @@ export async function GET(req: NextRequest) {
   try {
     const evalRes = await evaluateBatchesForClosing(now);
     const batchIdsToProcess = Array.from(new Set(evalRes.toCloseIds));
-    const eligibleBatchIds = new Set(batchIdsToProcess);
 
     if (batchIdsToProcess.length === 0) {
       await completeCronRun(runState.runId);
@@ -306,24 +278,6 @@ export async function GET(req: NextRequest) {
         manifestRes,
         timestamp: new Date().toISOString(),
       });
-      const errorParcelIds = Array.isArray((manifestRes as any)?.errorParcelIds)
-        ? (manifestRes as any).errorParcelIds
-        : [];
-      const verificationMatched = (manifestRes as any)?.verificationMatched;
-      const shouldSendSuccessNotification = (manifestRes as any)?.manifestId
-        && !(manifestRes as any)?.skipped
-        && errorParcelIds.length === 0
-        && verificationMatched !== false;
-      if (shouldSendSuccessNotification) {
-        const successSummary = await buildBatchSuccessSummary(batchId, eligibleBatchIds);
-        await notifyManifestTriggerSuccess({
-          operationalDate: batchOperationalDate ?? operationalDate,
-          occurredAt: new Date(),
-          manifestUrl: (manifestRes as any).documentUrl ?? null,
-          totals: successSummary.totals,
-          batch: successSummary.batch,
-        });
-      }
       results.push({ batchId, manifestRes });
     }
 
