@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { desc } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { manifests } from '@/lib/db/schema';
-import { hasUiSession, unauthorizedResponse } from '@/modules/auth/uiSession';
+import { requireAuth } from '@/modules/auth/session';
 import { logError } from '@/utils/logger';
 
 export const dynamic = 'force-dynamic';
@@ -28,9 +28,8 @@ function mapManifest(row: any) {
 }
 
 export async function GET(req: NextRequest) {
-  if (!hasUiSession(req)) {
-    return unauthorizedResponse();
-  }
+  const authError = requireAuth(req);
+  if (authError) return authError;
 
   try {
     const limitParam = Number.parseInt(req.nextUrl.searchParams.get('limit') ?? '50', 10);

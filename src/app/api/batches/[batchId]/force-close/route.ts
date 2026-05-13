@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { hasUiSession, unauthorizedResponse } from '@/modules/auth/uiSession';
+import { requireAuth } from '@/modules/auth/session';
 import { findBatchById } from '@/modules/batching/batch.repository';
 import { closeBatchGuarded } from '@/modules/batching/batch.service';
 import { logError } from '@/utils/logger';
@@ -11,9 +11,8 @@ export async function POST(
   _req: NextRequest,
   { params }: { params: { batchId: string } },
 ) {
-  if (!hasUiSession(_req)) {
-    return unauthorizedResponse();
-  }
+  const authError = requireAuth(_req);
+  if (authError) return authError;
 
   const batchId = Number.parseInt(params.batchId, 10);
   if (!Number.isFinite(batchId)) {

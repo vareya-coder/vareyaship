@@ -3,5 +3,7 @@ import { drizzle } from 'drizzle-orm/neon-http'
 
 const sql = neon(process.env.VAREYASHIP_DATABASE_DATABASE_URL!) 
 
-export const db =drizzle(sql)
+export const db =drizzle(sql, { 
+  logger: process.env.DRIZZLE_DB_LOGGING === 'true'  
+})
 

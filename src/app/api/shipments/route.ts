@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { and, desc, eq, ilike, inArray, or } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { shipments } from '@/lib/db/schema';
-import { hasUiSession, unauthorizedResponse } from '@/modules/auth/uiSession';
+import { requireAuth } from '@/modules/auth/session';
 import { getFlags } from '@/modules/featureFlags/featureFlag.service';
 import {
   listActiveAsendiaCustomerMappingsByCrmId,
@@ -34,9 +34,8 @@ function mapShipment(row: any, clientName?: string | null) {
 }
 
 export async function GET(req: NextRequest) {
-  if (!hasUiSession(req)) {
-    return unauthorizedResponse();
-  }
+  const authError = requireAuth(req);
+  if (authError) return authError;
 
   try {
     const query = (req.nextUrl.searchParams.get('query') ?? '').trim();

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { hasUiSession, unauthorizedResponse } from '@/modules/auth/uiSession';
+import { requireAuth } from '@/modules/auth/session';
 import { getFlags } from '@/modules/featureFlags/featureFlag.service';
 import { logError } from '@/utils/logger';
 
@@ -7,9 +7,8 @@ export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
 export async function GET(req: NextRequest) {
-  if (!hasUiSession(req)) {
-    return unauthorizedResponse();
-  }
+  const authError = requireAuth(req);
+  if (authError) return authError;
 
   try {
     return NextResponse.json({

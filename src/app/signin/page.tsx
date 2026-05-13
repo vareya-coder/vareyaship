@@ -2,66 +2,41 @@
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
 import { useState } from "react"
-import { Label } from "@/components/ui/label";
+import { Label } from "@/components/ui/label"
 import { logger } from "@/utils/logger"
 
+export default function SignInPage() {
+  const [email, setEmail] = useState("")
+  const [password, setPassword] = useState("")
+  const [error, setError] = useState(false)
+  const [loading, setLoading] = useState(false)
 
-export default function Page() {
-  const router = useRouter();
-
-  const [isauth , setisauth]= useState(false)
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState(false); // State to hold error message
-  const [loading, setLoading] = useState(false); // State to track loading state
-
-  const handleLogin = async (e : any) => {
-    e.preventDefault(); // Prevent default form submission
-
-    setLoading(true); // Start loading
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setLoading(true)
+    setError(false)
 
     try {
       const response = await fetch("/api/login", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          email,
-          password,
-        }),
-      });
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      })
 
       if (!response.ok) {
-        logger.info("siginin faild");
-        setError(true); // Set error message
-        setLoading(false); // Stop loading
-        return;
+        logger.info("signin failed")
+        setError(true)
+        setLoading(false)
+        return
       }
 
-      const { token } = await response.json();
-
-      const expiryDate = new Date();
-      expiryDate.setTime(expiryDate.getTime() + 7 * 24 * 60 * 60 * 1000);
-      const expires = `expires=${expiryDate.toUTCString()}`;
-
-      const secure = window.location.protocol === "https:" ? "Secure;" : "";
-
-      document.cookie = `token=${token}; path=/; SameSite=Lax; ${expires} ${secure}`;
-      setisauth(true);
-      router.refresh();
-    } catch (error) {
-      setError(true); // Set error message
+      window.location.href = '/'
+    } catch {
+      setError(true)
     } finally {
-      setLoading(false); // Stop loading
+      setLoading(false)
     }
-  };
-
-  if(isauth){
-    router.push('/');
-    router.refresh();
   }
 
   return (
@@ -72,26 +47,45 @@ export default function Page() {
           <div className="text-lg font-bold text-gray-800 dark:text-gray-200">Sign in to your account</div>
           <p className="text-gray-500 dark:text-gray-400">Enter your email below to login to your account</p>
         </div>
-        <div className="space-y-4">
+        <form onSubmit={handleLogin} className="space-y-4">
           <div className="space-y-2">
             <Label className="text-gray-800 dark:text-gray-200" htmlFor="email">
               Email
             </Label>
-            <Input className="w-full" id="email" placeholder="m@example.com"value={email} onChange={(e) => setEmail(e.target.value)} />
+            <Input
+              className="w-full"
+              id="email"
+              type="email"
+              placeholder="m@example.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+            />
           </div>
           <div className="space-y-2">
             <Label className="text-gray-800 dark:text-gray-200" htmlFor="password">
               Password
             </Label>
-            <Input className="w-full" id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+            <Input
+              className="w-full"
+              id="password"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+            />
           </div>
           {error && <div className="text-red-500 text-sm">invalid email or password</div>}
           <div className="flex justify-center">
-            <Button type="submit" className="w-full bg-blue-600 text-white hover:bg-blue-700 dark:bg-blue-400 dark:hover:bg-blue-500" disabled={loading} onClick={handleLogin}>
+            <Button
+              type="submit"
+              className="w-full bg-blue-600 text-white hover:bg-blue-700 dark:bg-blue-400 dark:hover:bg-blue-500"
+              disabled={loading}
+            >
               {loading ? "Loading..." : "Login"}
             </Button>
           </div>
-        </div>
+        </form>
         <div className="text-center text-sm">
           <Link className="underline text-blue-600 dark:text-blue-400" href="#">
             Forgot your password?
@@ -99,10 +93,10 @@ export default function Page() {
         </div>
       </div>
     </div>
-  );
+  )
 }
 
-function FlagIcon(props : any) {
+function FlagIcon(props: any) {
   return (
     <svg
       {...props}

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { desc, eq } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { batches, manifests, shipments } from '@/lib/db/schema';
-import { hasUiSession, unauthorizedResponse } from '@/modules/auth/uiSession';
+import { requireAuth } from '@/modules/auth/session';
 import { logError } from '@/utils/logger';
 
 export const dynamic = 'force-dynamic';
@@ -49,9 +49,8 @@ export async function GET(
   _req: NextRequest,
   { params }: { params: { manifestId: string } },
 ) {
-  if (!hasUiSession(_req)) {
-    return unauthorizedResponse();
-  }
+  const authError = requireAuth(_req);
+  if (authError) return authError;
 
   const manifestId = decodeURIComponent(params.manifestId);
 

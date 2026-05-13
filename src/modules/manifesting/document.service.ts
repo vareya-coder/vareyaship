@@ -208,17 +208,14 @@ export async function processPendingManifestPdfs(
             inArray(manifests.status, ['MANIFEST_CREATED', 'PDF_PENDING']),
             isNull(manifests.document_url),
             or(
-                lte(manifests.pdf_next_retry_at, now),
-                and(
-                    eq(manifests.status, 'MANIFEST_CREATED'),
-                    isNull(manifests.pdf_next_retry_at),
-                ),
+                eq(manifests.status, 'MANIFEST_CREATED'),
+                isNull(manifests.pdf_next_retry_at)
             ),
             gte(manifests.created_at, windowStart),
             lt(manifests.created_at, windowEnd)
         ))
         .orderBy(asc(manifests.pdf_next_retry_at))
-        .limit(50); // limit to avoid massive cron execution
+        .limit(20); // limit to avoid massive cron execution
 
     if (pending.length === 0) return { processed };
 

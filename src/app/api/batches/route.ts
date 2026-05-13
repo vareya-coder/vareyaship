@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { hasUiSession, unauthorizedResponse } from '@/modules/auth/uiSession';
+import { requireAuth } from '@/modules/auth/session';
 import { getFlags } from '@/modules/featureFlags/featureFlag.service';
 import { getOperationalDateISO, hasReachedCutoff } from '@/modules/time/time';
 import { listBatchShipments } from '@/modules/batching/batch.repository';
@@ -123,9 +123,8 @@ function batchCutoffApplied(input: {
 }
 
 export async function GET(req: NextRequest) {
-  if (!hasUiSession(req)) {
-    return unauthorizedResponse();
-  }
+  const authError = requireAuth(req);
+  if (authError) return authError;
 
   try {
     const flags = getFlags();
