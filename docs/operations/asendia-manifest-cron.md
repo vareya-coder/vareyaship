@@ -59,9 +59,11 @@ Asendia REST:
 Notifications (Resend):
 - `RESEND_API_KEY`
 - `RESEND_API_ENDPOINT` (optional, defaults to https://api.resend.com/emails)
-- `MANIFEST_NOTIFICATION_EMAIL_TO`
 - `MANIFEST_NOTIFICATION_EMAIL_FROM`
 - `MANIFEST_NOTIFICATION_TIMEZONE` (optional, defaults to Europe/Amsterdam)
+- `MANIFEST_NOTIFICATION_SUCCESS_EMAIL_TO` — successful manifest trigger notifications
+- `MANIFEST_NOTIFICATION_SUCCESS_EMAIL_CC` — CC recipients for success notifications (comma-separated)
+- `MANIFEST_OPS_NOTIFICATION_EMAIL_TO` — failure, issue, and dry-run notifications
 
 ## Dry Run
 

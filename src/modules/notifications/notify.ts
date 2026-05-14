@@ -69,10 +69,15 @@ type ManifestTriggerFailureInput = {
   batchId?: number | null;
 };
 
+function parseEmailList(value: string | undefined): string[] | undefined {
+  if (!value) return undefined;
+  const emails = value.split(',').map((s) => s.trim()).filter(Boolean);
+  return emails.length > 0 ? emails : undefined;
+}
+
 function getManifestNotificationConfig() {
   return {
-    to: process.env.MANIFEST_NOTIFICATION_EMAIL_TO ?? process.env.NOTIFY_EMAIL_TO,
-    from: process.env.MANIFEST_NOTIFICATION_EMAIL_FROM ?? process.env.NOTIFY_EMAIL_FROM,
+    from: process.env.MANIFEST_NOTIFICATION_EMAIL_FROM,
     timeZone: process.env.MANIFEST_NOTIFICATION_TIMEZONE || 'Europe/Amsterdam',
   };
 }
@@ -133,7 +138,8 @@ function buildManifestNotificationContent(input: ManifestNotificationInput, form
 }
 
 export async function notifyManifestIssue(input: ManifestNotificationInput) {
-  const { to, from, timeZone } = getManifestNotificationConfig();
+  const { from, timeZone } = getManifestNotificationConfig();
+  const to = process.env.MANIFEST_OPS_NOTIFICATION_EMAIL_TO;
   const occurredAt = input.occurredAt ?? new Date();
   const formattedTimestamp = formatManifestTimestamp(occurredAt, timeZone);
   const { subject, html } = buildManifestNotificationContent(input, formattedTimestamp);
@@ -163,7 +169,10 @@ export async function notifyManifestIssue(input: ManifestNotificationInput) {
 }
 
 export async function notifyManifestTriggerSuccess(input: ManifestTriggerSuccessInput): Promise<boolean> {
-  const { to, from, timeZone } = getManifestNotificationConfig();
+  const { from, timeZone } = getManifestNotificationConfig();
+  const opsTo = process.env.MANIFEST_OPS_NOTIFICATION_EMAIL_TO;
+  const successTo = process.env.MANIFEST_NOTIFICATION_SUCCESS_EMAIL_TO;
+  const successCc = parseEmailList(process.env.MANIFEST_NOTIFICATION_SUCCESS_EMAIL_CC);
   const occurredAt = input.occurredAt ?? new Date();
   const formattedTimestamp = formatManifestTimestamp(occurredAt, timeZone);
   const subject = `Manifest success | Vareya BV | ${input.batch.crmId} | ${formattedTimestamp} | ${input.operationalDate}`;
@@ -178,7 +187,7 @@ export async function notifyManifestTriggerSuccess(input: ManifestTriggerSuccess
       event: 'notification_enqueued',
       batch_id: batch.batchId,
       subject,
-      to: to || 'default',
+      to: opsTo || 'default',
       from: from || 'default',
       status: 'skipped_missing_manifest_url',
     });
@@ -212,12 +221,13 @@ export async function notifyManifestTriggerSuccess(input: ManifestTriggerSuccess
   ].join('');
 
   try {
-    const id = await sendResendEmail({ subject, html, to: to || undefined, from: from || undefined });
+    const id = await sendResendEmail({ subject, html, to: successTo || undefined, from: from || undefined, cc: successCc });
     logInfo('Manifest trigger success notification sent', {
       operationalDate: input.operationalDate,
       batchId: batch.batchId,
       manifestUrl: input.manifestUrl ?? null,
-      to: to || 'default',
+      to: successTo || 'default',
+      cc: successCc,
       from: from || 'default',
       id: id ?? null,
     });
@@ -225,7 +235,8 @@ export async function notifyManifestTriggerSuccess(input: ManifestTriggerSuccess
       event: 'notification_enqueued',
       batch_id: batch.batchId,
       subject,
-      to: to || 'default',
+      to: successTo || 'default',
+      cc: successCc?.join(','),
       from: from || 'default',
       status: 'sent',
       id,
@@ -236,7 +247,7 @@ export async function notifyManifestTriggerSuccess(input: ManifestTriggerSuccess
       operationalDate: input.operationalDate,
       batchId: batch.batchId,
       manifestUrl: input.manifestUrl ?? null,
-      to: to || 'default',
+      to: opsTo || 'default',
       from: from || 'default',
       error: e?.message ?? 'unknown',
     });
@@ -244,7 +255,7 @@ export async function notifyManifestTriggerSuccess(input: ManifestTriggerSuccess
       event: 'notification_enqueued',
       batch_id: batch.batchId,
       subject,
-      to: to || 'default',
+      to: opsTo || 'default',
       from: from || 'default',
       status: 'error',
       errorMessage: e?.message,
@@ -254,7 +265,8 @@ export async function notifyManifestTriggerSuccess(input: ManifestTriggerSuccess
 }
 
 export async function notifyManifestDryRunSummary(input: ManifestDryRunSummaryInput) {
-  const { to, from, timeZone } = getManifestNotificationConfig();
+  const { from, timeZone } = getManifestNotificationConfig();
+  const to = process.env.MANIFEST_OPS_NOTIFICATION_EMAIL_TO;
   const occurredAt = input.occurredAt ?? new Date();
   const formattedTimestamp = formatManifestTimestamp(occurredAt, timeZone);
   const subject = `Manifest dry run summary | ${formattedTimestamp} | ${input.operationalDate}`;
@@ -299,7 +311,8 @@ export async function notifyManifestDryRunSummary(input: ManifestDryRunSummaryIn
 }
 
 export async function notifyManifestTriggerFailure(input: ManifestTriggerFailureInput) {
-  const { to, from, timeZone } = getManifestNotificationConfig();
+  const { from, timeZone } = getManifestNotificationConfig();
+  const to = process.env.MANIFEST_OPS_NOTIFICATION_EMAIL_TO;
   const occurredAt = input.occurredAt ?? new Date();
   const formattedTimestamp = formatManifestTimestamp(occurredAt, timeZone);
   const subject = input.batchId

@@ -15,6 +15,7 @@ export async function sendResendEmail(input: {
   html: string;
   to?: string | string[];
   from?: string;
+  cc?: string | string[];
 }): Promise<string | undefined> {
   const apiKey = process.env.RESEND_API_KEY;
   const endpoint = process.env.RESEND_API_ENDPOINT || 'https://api.resend.com/emails';
@@ -26,6 +27,9 @@ export async function sendResendEmail(input: {
     ? input.to
     : (input.to ? [input.to] : ['operations@vareya.nl']);
   const from = input.from || 'Vareya Operations <operations@vareya.nl>';
+  const cc = input.cc
+    ? (Array.isArray(input.cc) ? input.cc : [input.cc])
+    : undefined;
 
   const response = await fetch(endpoint, {
     method: 'POST',
@@ -34,7 +38,7 @@ export async function sendResendEmail(input: {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${apiKey}`,
     },
-    body: JSON.stringify({ from, to, subject: input.subject, html: input.html }),
+    body: JSON.stringify({ from, to, subject: input.subject, html: input.html, cc }),
   });
 
   const payload = (await response.json().catch(() => ({}))) as ResendApiResponse;
