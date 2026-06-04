@@ -171,7 +171,7 @@ export async function POST(req: NextRequest) {
       return new NextResponse('Method Not Allowed', { status: 405 });
     }
   } catch (error) {
-    logError('Error processing the shipment update.', { error });
+    logError('Error processing the asendia sync shipment update.', { error: JSON.stringify(error) });
     return new NextResponse('Internal Server Error', { status: 500 });
   }
 }

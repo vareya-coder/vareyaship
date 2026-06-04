@@ -122,7 +122,20 @@ export async function POST(req: NextRequest) {
     const filename = `${shipmentData.order_id}-${shipmentData.shipping_method}-${datetime}`
 
     if (Carrier ==="PostNL") {
-      const postNLApiResponse = await axios.post(postnlCallingapiProd, shipmentData);
+      const postNLApiResponse = await axios.post(postnlCallingapiProd, shipmentData, {
+        validateStatus: function (status) {
+          return status < 500;
+        }
+      });
+
+      if (postNLApiResponse.status >= 400) {
+        return new NextResponse(JSON.stringify(postNLApiResponse.data), {
+          status: postNLApiResponse.status,
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        });
+      }
   
       if (postNLApiResponse.data.ResponseShipments.length > 0 && postNLApiResponse.data.ResponseShipments[0].Labels.length > 0) {
         trackingNumber = postNLApiResponse.data.ResponseShipments[0].Barcode
@@ -327,7 +340,7 @@ export async function POST(req: NextRequest) {
       },
     });
   } catch (error) {
-    logError('Error processing the shipment update.', { error });
+    logError('Error processing the wrapper shipment update.', { error: JSON.stringify(error) });
 
     let errorMessage: any = 'Internal Server Error';
     let status = 500;
@@ -339,7 +352,9 @@ export async function POST(req: NextRequest) {
         const response: AxiosResponse = axiosError.response;
         status = response.status
 
-        errorMessage = JSON.stringify(response.data.errors);
+        errorMessage = typeof response.data === 'string'
+          ? response.data
+          : JSON.stringify(response.data ?? { message: 'Carrier endpoint failed' });
         // req.log.error('Error occured while calling Carrier Endpoint :', { error: errorMessage })
       }
     }
@@ -414,31 +429,31 @@ async function finalizeLabelUrlForWebhook(
   const { url: finalUrl, mode } = resolveWebhookLabelUrl(uploadThingUrl, req);
   const readinessEnabled = isLabelUrlReadinessCheckEnabled();
 
-  logger.log({
-    level: 'info',
-    message: 'label_url_mode_selected',
-    event: 'label_url_mode_selected',
-    route: SHIPMENT_WEBHOOK_ROUTE,
-    carrier: context.carrier,
-    orderId: String(context.orderId),
-    mode,
-    readinessEnabled,
-    readinessTimeoutMs: LABEL_URL_READINESS_TIMEOUT_MS,
-    readinessIntervalMs: LABEL_URL_READINESS_INTERVAL_MS,
-  });
+  // logger.log({
+  //   level: 'info',
+  //   message: 'label_url_mode_selected',
+  //   event: 'label_url_mode_selected',
+  //   route: SHIPMENT_WEBHOOK_ROUTE,
+  //   carrier: context.carrier,
+  //   orderId: String(context.orderId),
+  //   mode,
+  //   readinessEnabled,
+  //   readinessTimeoutMs: LABEL_URL_READINESS_TIMEOUT_MS,
+  //   readinessIntervalMs: LABEL_URL_READINESS_INTERVAL_MS,
+  // });
   // console.log(JSON.stringify({ event: 'label_url_mode_selected', route: SHIPMENT_WEBHOOK_ROUTE, carrier: context.carrier, orderId: String(context.orderId), mode }));
 
   if (!readinessEnabled) {
-    logger.log({
-      level: 'info',
-      message: 'label_url_readiness_skipped',
-      event: 'label_url_readiness_skipped',
-      route: SHIPMENT_WEBHOOK_ROUTE,
-      carrier: context.carrier,
-      orderId: String(context.orderId),
-      mode,
-      reason: 'feature_flag_disabled',
-    });
+    // logger.log({
+    //   level: 'info',
+    //   message: 'label_url_readiness_skipped',
+    //   event: 'label_url_readiness_skipped',
+    //   route: SHIPMENT_WEBHOOK_ROUTE,
+    //   carrier: context.carrier,
+    //   orderId: String(context.orderId),
+    //   mode,
+    //   reason: 'feature_flag_disabled',
+    // });
     // console.log(JSON.stringify({ event: 'label_url_readiness_skipped', route: SHIPMENT_WEBHOOK_ROUTE, carrier: context.carrier, orderId: String(context.orderId), mode, reason: 'feature_flag_disabled' }));
     return finalUrl;
   }
@@ -446,50 +461,50 @@ async function finalizeLabelUrlForWebhook(
   try {
     const readiness = await waitForLabelUrlReadiness(finalUrl);
     if (readiness.ready) {
-      logger.log({
-        level: 'info',
-        message: 'label_url_readiness_ready',
-        event: 'label_url_readiness_ready',
-        route: SHIPMENT_WEBHOOK_ROUTE,
-        carrier: context.carrier,
-        orderId: String(context.orderId),
-        mode,
-        attempts: readiness.attempts,
-        elapsedMs: readiness.elapsedMs,
-        status: readiness.status,
-      });
+      // logger.log({
+      //   level: 'info',
+      //   message: 'label_url_readiness_ready',
+      //   event: 'label_url_readiness_ready',
+      //   route: SHIPMENT_WEBHOOK_ROUTE,
+      //   carrier: context.carrier,
+      //   orderId: String(context.orderId),
+      //   mode,
+      //   attempts: readiness.attempts,
+      //   elapsedMs: readiness.elapsedMs,
+      //   status: readiness.status,
+      // });
       // console.log(JSON.stringify({ event: 'label_url_readiness_ready', route: SHIPMENT_WEBHOOK_ROUTE, attempts: readiness.attempts, elapsedMs: readiness.elapsedMs, status: readiness.status, mode }));
       return finalUrl;
     }
 
-    logger.log({
-      level: 'warn',
-      message: 'label_url_readiness_timeout',
-      event: 'label_url_readiness_timeout',
-      route: SHIPMENT_WEBHOOK_ROUTE,
-      carrier: context.carrier,
-      orderId: String(context.orderId),
-      returnedUrlMode: mode,
-      attempts: readiness.attempts,
-      elapsedMs: readiness.elapsedMs,
-      lastStatus: readiness.status,
-    });
+    // logger.log({
+    //   level: 'warn',
+    //   message: 'label_url_readiness_timeout',
+    //   event: 'label_url_readiness_timeout',
+    //   route: SHIPMENT_WEBHOOK_ROUTE,
+    //   carrier: context.carrier,
+    //   orderId: String(context.orderId),
+    //   returnedUrlMode: mode,
+    //   attempts: readiness.attempts,
+    //   elapsedMs: readiness.elapsedMs,
+    //   lastStatus: readiness.status,
+    // });
     // console.warn(JSON.stringify({ event: 'label_url_readiness_timeout', route: SHIPMENT_WEBHOOK_ROUTE, attempts: readiness.attempts, elapsedMs: readiness.elapsedMs, lastStatus: readiness.status, returnedUrlMode: mode }));
 
     return finalUrl;
   } catch (error) {
     const typedError = error as Error;
-    logger.log({
-      level: 'error',
-      message: 'label_url_readiness_error',
-      event: 'label_url_readiness_error',
-      route: SHIPMENT_WEBHOOK_ROUTE,
-      carrier: context.carrier,
-      orderId: String(context.orderId),
-      returnedUrlMode: mode,
-      errorName: typedError.name,
-      errorMessage: typedError.message,
-    });
+    // logger.log({
+    //   level: 'error',
+    //   message: 'label_url_readiness_error',
+    //   event: 'label_url_readiness_error',
+    //   route: SHIPMENT_WEBHOOK_ROUTE,
+    //   carrier: context.carrier,
+    //   orderId: String(context.orderId),
+    //   returnedUrlMode: mode,
+    //   errorName: typedError.name,
+    //   errorMessage: typedError.message,
+    // });
     // console.error(JSON.stringify({ event: 'label_url_readiness_error', route: SHIPMENT_WEBHOOK_ROUTE, returnedUrlMode: mode, errorName: typedError.name, errorMessage: typedError.message }));
 
     return finalUrl;

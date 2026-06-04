@@ -3,6 +3,14 @@ import { logger } from '@/utils/logger';
 type LateShipmentMode = 'assign_to_next_day' | 'create_new_batch';
 
 type Flags = {
+  vacier_latam_customs_enabled: boolean;
+  vacier_latam_dry_run: boolean;
+  vacier_latam_countries: string[];
+  vacier_latam_reference_value_eur: number;
+  vacier_latam_processed_tag: string;
+  vacier_latam_processing_start_date: string;
+  vacier_latam_order_number_filter: string[];
+  vacier_latam_fulfillment_statuses: string[];
   cutoff_time: string; // HH:mm
   cutoff_timezone: string; // IANA TZ
   manifest_trigger_time: string; // HH:mm or values like 7pm
@@ -38,6 +46,11 @@ function boolFromEnv(value: string | undefined, fallback = false): boolean {
 
 function intFromEnv(value: string | undefined, fallback: number): number {
   const n = Number.parseInt((value ?? '').trim(), 10);
+  return Number.isFinite(n) ? n : fallback;
+}
+
+function floatFromEnv(value: string | undefined, fallback: number): number {
+  const n = Number.parseFloat((value ?? '').trim());
   return Number.isFinite(n) ? n : fallback;
 }
 
@@ -93,6 +106,38 @@ export function getFlags(): Flags {
   );
 
   const flags: Flags = {
+    vacier_latam_customs_enabled: boolFromEnv(
+      process.env.VACIER_LATAM_CUSTOMS_ENABLED ?? process.env.vacier_latam_customs_enabled,
+      false,
+    ),
+    vacier_latam_dry_run: boolFromEnv(
+      process.env.VACIER_LATAM_DRY_RUN ?? process.env.vacier_latam_dry_run,
+      true,
+    ),
+    vacier_latam_countries: strListFromEnv(
+      process.env.VACIER_LATAM_COUNTRIES ?? process.env.vacier_latam_countries,
+      ['EC', 'BR', 'AR'],
+    ).map((country) => country.toUpperCase()),
+    vacier_latam_reference_value_eur: floatFromEnv(
+      process.env.VACIER_LATAM_REFERENCE_VALUE_EUR ?? process.env.vacier_latam_reference_value_eur,
+      50,
+    ),
+    vacier_latam_processed_tag: strFromEnv(
+      process.env.VACIER_LATAM_PROCESSED_TAG ?? process.env.vacier_latam_processed_tag,
+      'vacier_latam_customs_adjusted_v1',
+    ),
+    vacier_latam_processing_start_date: strFromEnv(
+      process.env.VACIER_LATAM_PROCESSING_START_DATE ?? process.env.vacier_latam_processing_start_date,
+      '2026-05-01T00:00:00.000Z',
+    ),
+    vacier_latam_order_number_filter: strListFromEnv(
+      process.env.VACIER_LATAM_ORDER_NUMBER_FILTER ?? process.env.vacier_latam_order_number_filter,
+      [],
+    ),
+    vacier_latam_fulfillment_statuses: strListFromEnv(
+      process.env.VACIER_LATAM_FULFILLMENT_STATUSES ?? process.env.vacier_latam_fulfillment_statuses,
+      ['Vacier', 'unfulfilled'],
+    ),
     cutoff_time: cutoffTime,
     cutoff_timezone: cutoffTimezone,
     manifest_trigger_time: strFromEnv(

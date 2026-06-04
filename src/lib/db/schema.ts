@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, serial, timestamp, integer, varchar, boolean, date, text, uniqueIndex, index } from "drizzle-orm/pg-core";
+import { pgTable, serial, timestamp, integer, varchar, boolean, date, text, uniqueIndex, index, jsonb, numeric } from "drizzle-orm/pg-core";
 
 // =============================
 // Manifest Automation - New Tables
@@ -93,8 +93,87 @@ export const cronRuns = pgTable('cron_runs', {
     jobDateUnique: uniqueIndex('cron_runs_job_name_operational_date_idx').on(table.job_name, table.operational_date),
 }));
 
+
+
+export const vacierLatamCustomsRuns = pgTable('vacier_latam_customs_runs', {
+    id: serial('id').primaryKey(),
+    batchId: varchar('batch_id', { length: 50 }).notNull().unique(),
+    startedAt: timestamp('started_at', { withTimezone: true }).notNull(),
+    completedAt: timestamp('completed_at', { withTimezone: true }),
+    ordersQueried: integer('orders_queried').default(0),
+    ordersProcessed: integer('orders_processed').default(0),
+    ordersSkipped: integer('orders_skipped').default(0),
+    errorsCount: integer('errors_count').default(0),
+    errorDetails: jsonb('error_details'),
+    creditsUsed: integer('credits_used').default(0),
+    dryRun: boolean('dry_run').default(false),
+    status: varchar('status', { length: 20 }).notNull(),
+}, (table) => ({
+    batchIdIdx: index('vacier_latam_customs_runs_batch_id_idx').on(table.batchId),
+    statusStartedIdx: index('vacier_latam_customs_runs_status_started_idx').on(table.status, table.startedAt),
+}));
+
+export const vacierLatamCustomsCursor = pgTable('vacier_latam_customs_cursor', {
+    id: serial('id').primaryKey(),
+    cursorName: varchar('cursor_name', { length: 50 }).notNull().unique(),
+    lastProcessedDate: timestamp('last_processed_date', { withTimezone: true }).notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().default(sql`CURRENT_TIMESTAMP`),
+    updatedByBatchId: varchar('updated_by_batch_id', { length: 50 }),
+}, (table) => ({
+    cursorNameIdx: index('vacier_latam_customs_cursor_name_idx').on(table.cursorName),
+}));
+
+export const vacierLatamCustomsOrderResults = pgTable('vacier_latam_customs_order_results', {
+    id: serial('id').primaryKey(),
+    batchId: varchar('batch_id', { length: 50 }).notNull(),
+    orderId: varchar('order_id', { length: 80 }).notNull(),
+    orderNumber: varchar('order_number', { length: 120 }).notNull(),
+    destinationCountry: varchar('destination_country', { length: 10 }),
+    orderDate: timestamp('order_date', { withTimezone: true }),
+    status: varchar('status', { length: 20 }).notNull(),
+    reason: varchar('reason', { length: 120 }),
+    copiedCustomsTotal: varchar('copied_customs_total', { length: 30 }),
+    aboveReferenceValue: boolean('above_reference_value').default(false),
+    lineItemCount: integer('line_item_count').default(0),
+    errorMessage: text('error_message'),
+    createdAt: timestamp('created_at', { withTimezone: true }).default(sql`CURRENT_TIMESTAMP`),
+}, (table) => ({
+    batchIdIdx: index('vacier_latam_customs_results_batch_id_idx').on(table.batchId),
+    orderIdIdx: index('vacier_latam_customs_results_order_id_idx').on(table.orderId),
+    orderNumberIdx: index('vacier_latam_customs_results_order_number_idx').on(table.orderNumber),
+    statusIdx: index('vacier_latam_customs_results_status_idx').on(table.status),
+    createdAtIdx: index('vacier_latam_customs_results_created_at_idx').on(table.createdAt),
+}));
+
+
+export const vacierLatamCustomsOverrides = pgTable('vacier_latam_customs_overrides', {
+    id: serial('id').primaryKey(),
+    sku: varchar('sku', { length: 120 }).notNull(),
+    productName: varchar('product_name', { length: 255 }),
+    customsValue: numeric('customs_value', { precision: 12, scale: 2 }).notNull(),
+    currency: varchar('currency', { length: 3 }).notNull().default('EUR'),
+    countryCode: varchar('country_code', { length: 10 }).notNull(),
+    isActive: boolean('is_active').notNull().default(true),
+    source: varchar('source', { length: 120 }),
+    notes: text('notes'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().default(sql`CURRENT_TIMESTAMP`),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().default(sql`CURRENT_TIMESTAMP`),
+    updatedBy: varchar('updated_by', { length: 120 }),
+}, (table) => ({
+    skuIdx: index('vacier_latam_customs_overrides_sku_idx').on(table.sku),
+    countryIdx: index('vacier_latam_customs_overrides_country_idx').on(table.countryCode),
+    activeIdx: index('vacier_latam_customs_overrides_active_idx').on(table.isActive),
+    activeSkuCountryUnique: uniqueIndex('vacier_latam_customs_overrides_active_sku_country_idx')
+        .on(table.sku, table.countryCode)
+        .where(sql`is_active = true`),
+}));
+
 export type BatchRow = typeof batches.$inferInsert;
 export type ShipmentRow = typeof shipments.$inferInsert;
 export type ManifestRow = typeof manifests.$inferInsert;
 export type CronRunRow = typeof cronRuns.$inferInsert;
 export type AsendiaCustomerMappingRow = typeof asendiaCustomerMappings.$inferInsert;
+export type VacierLatamCustomsRunRow = typeof vacierLatamCustomsRuns.$inferInsert;
+export type VacierLatamCustomsCursorRow = typeof vacierLatamCustomsCursor.$inferInsert;
+export type VacierLatamCustomsOrderResultRow = typeof vacierLatamCustomsOrderResults.$inferInsert;
+export type VacierLatamCustomsOverrideRow = typeof vacierLatamCustomsOverrides.$inferInsert;

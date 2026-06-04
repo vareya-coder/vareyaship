@@ -6,6 +6,7 @@ import { ShipHeroWebhook } from '@/app/utils/types';
 
 import { Data } from '@/app/utils/postnl/postnltypes';
 import { decidePostNLPickupHandling } from '@/modules/postnl/pickup/pickup.service';
+import { extractPostNLResponseError, formatPostNLErrors } from '@/modules/postnl/labelError';
 import { logger } from '@/utils/logger';
 
 config();
@@ -38,6 +39,16 @@ export async function POST(req: NextRequest) {
       logger.info(JSON.stringify(postNLBody))
       try {
         const postNLApiResponse = await callPostNLApi(postNLApiKey, JSON.stringify(postNLBody));
+        const postNLError = extractPostNLResponseError(postNLApiResponse);
+        if (postNLError) {
+          logger.error('PostNL label API returned shipment errors', postNLError);
+          return new NextResponse(JSON.stringify(postNLError), {
+            status: 400,
+            headers: {
+              'Content-Type': 'application/json',
+            },
+          });
+        }
         
         logger.info(JSON.stringify("postNLApiResponse received: "));
         return new NextResponse(JSON.stringify(postNLApiResponse), {
@@ -47,14 +58,14 @@ export async function POST(req: NextRequest) {
           },
         });
       } catch (error) {
-        
+        logger.error("PostNL API call error: " + JSON.stringify(error));
         return handlePostNLError(error);
       }
     } else {
       return new NextResponse('Method Not Allowed', { status: 405 });
     }
   } catch (error) {
-    logger.error('Error processing the shipment update:', error);
+    logger.error('Error processing the postnl shipment update:', JSON.stringify(error));
     return new NextResponse('Internal Server Error', { status: 500 });
   }
 }
@@ -138,13 +149,31 @@ function handlePostNLError(error: any) {
     if (errorResponse) {
       const statusCode = errorResponse.status;
       const errorData = errorResponse.data;
+      const postNLError = extractPostNLResponseError(errorData);
+      if (postNLError) {
+        return new NextResponse(JSON.stringify({
+          ...postNLError,
+          statusCode,
+        }), {
+          status: statusCode >= 400 && statusCode < 500 ? statusCode : 400,
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        });
+      }
   
       if (statusCode === 400) {
-        const errors = errorData.Errors.map((error: any) => ({
+        const errors = (errorData?.Errors ?? []).map((error: any) => ({
           code: error.Code,
           description: error.Description,
         }));
-        return new NextResponse(JSON.stringify({ statusCode, errors }), {
+        return new NextResponse(JSON.stringify({
+          statusCode,
+          message: formatPostNLErrors(errors),
+          provider: 'PostNL',
+          errorCode: 'POSTNL_LABEL_ERROR',
+          errors,
+        }), {
           status: 400,
           headers: {
             'Content-Type': 'application/json',

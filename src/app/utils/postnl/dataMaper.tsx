@@ -3,6 +3,7 @@ import { Data } from "./postnltypes";
 import { config } from 'dotenv';
 import axios from "axios";
 import { PostNLPickupDecision } from "@/modules/postnl/pickup/pickup.service";
+import { isConfiguredVacierLatamCountry } from "@/modules/vacierLatamCustoms/latamConfig";
 
 config();
 
@@ -16,6 +17,14 @@ export async function mapShipHeroToPostNL(shipHeroData: ShipHeroWebhook, barCode
     function convertOzToGrams(weightInOz: any) {
         const grams = weightInOz * 28.3495;
         return Math.round(grams);
+    }
+
+    function parseLatamCustomsValue(lineItem: any) {
+        const parsed = Number.parseFloat(String(lineItem.customs_value ?? '').trim());
+        if (!Number.isFinite(parsed) || parsed < 0) {
+            throw new Error(`Missing or invalid LATAM customs_value for SKU ${lineItem.sku ?? 'unknown'} and country ${shipHeroData.to_address.country}`);
+        }
+        return parsed;
     }
 
     if (shipHeroData.to_address.country == 'UK') {
@@ -103,6 +112,8 @@ export async function mapShipHeroToPostNL(shipHeroData: ShipHeroWebhook, barCode
 
     if (!barCode) delete postNLData.Shipments[0].Barcode;
 
+    const isVacierLatamDestination = isConfiguredVacierLatamCountry(shipHeroData.to_address?.country);
+
     let orderNumCleaned = `${shipHeroData.order_number.replace(/[#A-Z-]+/gi, '')}`;
 
     //Check if the destination country is not in the EU
@@ -169,7 +180,9 @@ export async function mapShipHeroToPostNL(shipHeroData: ShipHeroWebhook, barCode
                             priceAsFloat = 1.0;
                         }
                     }
-                    let Value: any = priceAsFloat * lineItem.quantity
+                    let Value: any = isVacierLatamDestination
+                        ? parseLatamCustomsValue(lineItem) * lineItem.quantity
+                        : priceAsFloat * lineItem.quantity
 
 
 

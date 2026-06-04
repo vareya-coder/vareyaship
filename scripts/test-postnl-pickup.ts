@@ -138,6 +138,14 @@ async function main() {
   );
 
   const disabledDecision = await decidePostNLPickupHandling(makeShipment(), 'test-key', {
+    vacier_latam_customs_enabled: false,
+    vacier_latam_dry_run: true,
+    vacier_latam_countries: ['EC', 'BR', 'AR'],
+    vacier_latam_reference_value_eur: 50,
+    vacier_latam_processed_tag: 'vacier_latam_customs_adjusted_v1',
+    vacier_latam_processing_start_date: '2026-05-01T00:00:00.000Z',
+    vacier_latam_order_number_filter: [],
+    vacier_latam_fulfillment_statuses: ['Vacier', 'unfulfilled'],
     cutoff_time: '17:00',
     cutoff_timezone: 'Europe/Amsterdam',
     manifest_trigger_time: '17:00',
