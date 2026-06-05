@@ -43,8 +43,8 @@ export async function updateRun(result: VacierLatamBatchResult): Promise<void> {
     .where(eq(vacierLatamCustomsRuns.batchId, result.batchId));
 }
 
-export async function insertOrderResult(batchId: string, result: VacierLatamOrderResult): Promise<void> {
-  await db.insert(vacierLatamCustomsOrderResults).values({
+function mapOrderResultForInsert(batchId: string, result: VacierLatamOrderResult) {
+  return {
     batchId,
     orderId: result.orderId,
     orderNumber: result.orderNumber,
@@ -56,7 +56,18 @@ export async function insertOrderResult(batchId: string, result: VacierLatamOrde
     aboveReferenceValue: result.aboveReferenceValue ?? false,
     lineItemCount: result.lineItemCount ?? 0,
     errorMessage: result.error?.message ?? null,
-  });
+  };
+}
+
+export async function insertOrderResult(batchId: string, result: VacierLatamOrderResult): Promise<void> {
+  await db.insert(vacierLatamCustomsOrderResults).values(mapOrderResultForInsert(batchId, result));
+}
+
+export async function insertOrderResults(batchId: string, results: VacierLatamOrderResult[]): Promise<void> {
+  if (results.length === 0) return;
+  await db.insert(vacierLatamCustomsOrderResults).values(
+    results.map((result) => mapOrderResultForInsert(batchId, result)),
+  );
 }
 
 export async function getProcessingCursor(

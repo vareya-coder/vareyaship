@@ -32,12 +32,19 @@ export function getVacierLatamConfig(): VacierLatamConfig {
     orderNumberFilter: flags.vacier_latam_order_number_filter,
     fulfillmentStatuses: flags.vacier_latam_fulfillment_statuses,
     customerAccountId: process.env.VACIER_CUSTOMER_ACCOUNT_ID ?? '',
+    runWindowTimezone: flags.vacier_latam_run_window_timezone,
+    runWindowStart: flags.vacier_latam_run_window_start,
+    runWindowEnd: flags.vacier_latam_run_window_end,
+    maxPagesPerRun: Math.max(flags.vacier_latam_max_pages_per_run, 0),
+    maxOrdersPerRun: Math.max(flags.vacier_latam_max_orders_per_run, 0),
+    maxShipHeroCreditsPerRun: Math.max(flags.vacier_latam_max_shiphero_credits_per_run, 0),
   };
 }
 
 export function validateVacierLatamConfig(config: VacierLatamConfig): string[] {
   const errors: string[] = [];
   if (!config.customerAccountId) errors.push('VACIER_CUSTOMER_ACCOUNT_ID is required');
+  if (!config.runWindowTimezone) errors.push('VACIER_LATAM_RUN_WINDOW_TIMEZONE is required');
   if (!config.processingStartDate || Number.isNaN(new Date(config.processingStartDate).getTime())) {
     errors.push('VACIER_LATAM_PROCESSING_START_DATE must be a valid ISO date');
   }
@@ -222,7 +229,7 @@ export async function processVacierLatamCustomsBatch(
     getLatestOrderDate,
     getProcessingCursor,
     hasRecentRunningRun,
-    insertOrderResult,
+    insertOrderResults,
     updateProcessingCursor,
     updateRun,
   } = await import('./customs.repository');
@@ -256,7 +263,11 @@ export async function processVacierLatamCustomsBatch(
     const context: VacierLatamProcessingContext = { batchId, config, ...dependencies };
     const quotaManager = getQuotaManager();
 
+    let pagesQueried = 0;
+    let stopProcessing = false;
+
     for (const status of config.fulfillmentStatuses) {
+      if (stopProcessing) break;
       const orderGenerator = fetchAllOrders({
         customerAccountId: config.customerAccountId,
         fulfillmentStatus: status,
@@ -265,20 +276,41 @@ export async function processVacierLatamCustomsBatch(
       });
 
       for await (const orderBatch of orderGenerator) {
+        pagesQueried += 1;
         result.ordersQueried += orderBatch.length;
 
+        const orderResults: VacierLatamOrderResult[] = [];
+
         for (const order of orderBatch) {
+          const attemptedOrders = result.ordersProcessed + result.ordersSkipped + result.errorsCount;
+          if (config.maxOrdersPerRun > 0 && attemptedOrders >= config.maxOrdersPerRun) {
+            logger.info('vacier_latam_max_orders_reached', { batchId, maxOrdersPerRun: config.maxOrdersPerRun });
+            stopProcessing = true;
+            break;
+          }
+
+          if (config.maxShipHeroCreditsPerRun > 0 && result.creditsUsed >= config.maxShipHeroCreditsPerRun) {
+            logger.info('vacier_latam_max_shiphero_credits_reached', {
+              batchId,
+              maxShipHeroCreditsPerRun: config.maxShipHeroCreditsPerRun,
+              creditsUsed: result.creditsUsed,
+            });
+            stopProcessing = true;
+            break;
+          }
+
           const quotaCheck = quotaManager.canProceed(ESTIMATED_ORDER_COST);
           if (!quotaCheck.ok) {
             const canProceed = await quotaManager.waitForCredits(ESTIMATED_ORDER_COST, 120000);
             if (!canProceed) {
               logger.warn('vacier_latam_quota_stop', { batchId, ordersQueried: result.ordersQueried });
+              stopProcessing = true;
               break;
             }
           }
 
           const orderResult = await processVacierLatamOrder(order, context);
-          await insertOrderResult(batchId, orderResult);
+          orderResults.push(orderResult);
           quotaManager.updateFromResponse(orderResult.creditsUsed);
 
           if (!config.dryRun && (orderResult.status === 'processed' || orderResult.status === 'skipped') && order.order_date) {
@@ -298,6 +330,17 @@ export async function processVacierLatamCustomsBatch(
 
           result.creditsUsed += orderResult.creditsUsed;
         }
+
+        if (orderResults.length > 0) {
+          await insertOrderResults(batchId, orderResults);
+        }
+
+        if (config.maxPagesPerRun > 0 && pagesQueried >= config.maxPagesPerRun) {
+          logger.info('vacier_latam_max_pages_reached', { batchId, maxPagesPerRun: config.maxPagesPerRun });
+          stopProcessing = true;
+        }
+
+        if (stopProcessing) break;
       }
     }
 

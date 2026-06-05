@@ -113,3 +113,23 @@ export function isWithinLocalTimeWindow(
 
   return elapsedMinutes >= 0 && elapsedMinutes <= toleranceMinutes;
 }
+
+export function isWithinLocalTimeRange(
+  now: Date,
+  startHHmm: string,
+  endHHmm: string,
+  timeZone: string,
+): boolean {
+  const start = parseTimeOfDay(startHHmm);
+  const end = parseTimeOfDay(endHHmm);
+  const currentTotalMin = getLocalDateAndMinutes(now, timeZone).minutes;
+  const startTotalMin = start.hour * 60 + start.minute;
+  const endTotalMin = end.hour * 60 + end.minute;
+
+  if (startTotalMin === endTotalMin) return true;
+  if (startTotalMin < endTotalMin) {
+    return currentTotalMin >= startTotalMin && currentTotalMin < endTotalMin;
+  }
+
+  return currentTotalMin >= startTotalMin || currentTotalMin < endTotalMin;
+}

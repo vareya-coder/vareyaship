@@ -5,23 +5,28 @@ import {
   validateVacierLatamConfig,
 } from '@/modules/vacierLatamCustoms/customs.service';
 import { logger } from '@/utils/logger';
+import { isWithinLocalTimeRange } from '@/modules/time/time';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 export const maxDuration = 300;
 
-function authorized(req: NextRequest): boolean {
+function authorizeCron(req: NextRequest): NextResponse | null {
   const secret = process.env.CRON_SECRET;
-  if (!secret) return true;
-  return req.headers.get('authorization') === `Bearer ${secret}`;
+  if (!secret) {
+    return NextResponse.json({ message: 'CRON_SECRET is not configured' }, { status: 500 });
+  }
+  if (req.headers.get('authorization') !== `Bearer ${secret}`) {
+    return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+  }
+  return null;
 }
 
 export async function GET(req: NextRequest) {
   const startTime = Date.now();
 
-  if (!authorized(req)) {
-    return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
-  }
+  const authError = authorizeCron(req);
+  if (authError) return authError;
 
   const config = getVacierLatamConfig();
   if (!config.enabled) {
@@ -29,6 +34,17 @@ export async function GET(req: NextRequest) {
       message: 'Vacier LATAM customs processing is disabled',
       enabled: config.enabled,
       dryRun: config.dryRun,
+    });
+  }
+
+  if (!isWithinLocalTimeRange(new Date(), config.runWindowStart, config.runWindowEnd, config.runWindowTimezone)) {
+    return NextResponse.json({
+      message: 'Vacier LATAM customs cron skipped outside processing window',
+      enabled: config.enabled,
+      dryRun: config.dryRun,
+      runWindowStart: config.runWindowStart,
+      runWindowEnd: config.runWindowEnd,
+      runWindowTimezone: config.runWindowTimezone,
     });
   }
 

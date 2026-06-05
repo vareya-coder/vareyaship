@@ -39,6 +39,7 @@ export const shipments = pgTable('shipments', {
     is_manifested: boolean('is_manifested').default(false),
     created_at: timestamp('created_at').default(sql`CURRENT_TIMESTAMP`),
 }, (table) => ({
+    externalShipmentUnique: uniqueIndex('shipments_external_shipment_id_unique_idx').on(table.external_shipment_id),
     batchCrmManifestedIdx: index('shipments_batch_crm_manifested_idx').on(
         table.batch_id,
         table.crm_id,

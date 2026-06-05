@@ -5,6 +5,14 @@
       "schedule": "0 3 * * *"
     },
     {
+      "path": "/api/cron/shipment-buffer-flush",
+      "schedule": "20 16 * * *"
+    },
+    {
+      "path": "/api/cron/shipment-buffer-flush",
+      "schedule": "20 15 * * *"
+    },
+    {
       "path": "/api/cron/manifest-trigger",
       "schedule": "25 15 * * *"
     },
@@ -26,7 +34,7 @@
     },
     {
       "path": "/api/cron/vacier-latam-customs",
-      "schedule": "*/10 * * * *"
+      "schedule": "*/10 3-18 * * 1-5"
     }
   ]
 }

@@ -12,6 +12,15 @@ export async function insertShipment(row: any) {
   return res[0];
 }
 
+export async function insertShipmentIfNew(row: any) {
+  const res = await db
+    .insert(shipments)
+    .values(row)
+    .onConflictDoNothing({ target: shipments.external_shipment_id })
+    .returning({ id: shipments.id });
+  return res[0] ?? null;
+}
+
 export async function setShipmentBatch(shipmentId: number, batchId: number) {
   await db.update(shipments).set({ batch_id: batchId }).where(eq(shipments.id, shipmentId));
 }

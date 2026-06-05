@@ -11,6 +11,12 @@ type Flags = {
   vacier_latam_processing_start_date: string;
   vacier_latam_order_number_filter: string[];
   vacier_latam_fulfillment_statuses: string[];
+  vacier_latam_run_window_timezone: string;
+  vacier_latam_run_window_start: string;
+  vacier_latam_run_window_end: string;
+  vacier_latam_max_pages_per_run: number;
+  vacier_latam_max_orders_per_run: number;
+  vacier_latam_max_shiphero_credits_per_run: number;
   cutoff_time: string; // HH:mm
   cutoff_timezone: string; // IANA TZ
   manifest_trigger_time: string; // HH:mm or values like 7pm
@@ -137,6 +143,30 @@ export function getFlags(): Flags {
     vacier_latam_fulfillment_statuses: strListFromEnv(
       process.env.VACIER_LATAM_FULFILLMENT_STATUSES ?? process.env.vacier_latam_fulfillment_statuses,
       ['Vacier', 'unfulfilled'],
+    ),
+    vacier_latam_run_window_timezone: strFromEnv(
+      process.env.VACIER_LATAM_RUN_WINDOW_TIMEZONE ?? process.env.vacier_latam_run_window_timezone,
+      'Europe/Amsterdam',
+    ),
+    vacier_latam_run_window_start: strFromEnv(
+      process.env.VACIER_LATAM_RUN_WINDOW_START ?? process.env.vacier_latam_run_window_start,
+      '05:00',
+    ),
+    vacier_latam_run_window_end: strFromEnv(
+      process.env.VACIER_LATAM_RUN_WINDOW_END ?? process.env.vacier_latam_run_window_end,
+      '19:00',
+    ),
+    vacier_latam_max_pages_per_run: intFromEnv(
+      process.env.VACIER_LATAM_MAX_PAGES_PER_RUN ?? process.env.vacier_latam_max_pages_per_run,
+      0,
+    ),
+    vacier_latam_max_orders_per_run: intFromEnv(
+      process.env.VACIER_LATAM_MAX_ORDERS_PER_RUN ?? process.env.vacier_latam_max_orders_per_run,
+      0,
+    ),
+    vacier_latam_max_shiphero_credits_per_run: intFromEnv(
+      process.env.VACIER_LATAM_MAX_SHIPHERO_CREDITS_PER_RUN ?? process.env.vacier_latam_max_shiphero_credits_per_run,
+      0,
     ),
     cutoff_time: cutoffTime,
     cutoff_timezone: cutoffTimezone,

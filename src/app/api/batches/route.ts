@@ -8,6 +8,10 @@ import {
   listManifestUiBatchesForDate,
 } from '@/modules/manifesting/manifestUi.repository';
 import { logError } from '@/utils/logger';
+import {
+  isShipmentBufferUiReadsEnabled,
+  listBufferedShipmentsForDate,
+} from '@/modules/shipments/shipmentBuffer.service';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -146,77 +150,96 @@ export async function GET(req: NextRequest) {
       if (crmIdFilter && crmIdFilter !== 'all' && batch.crm_id !== crmIdFilter) return false;
       return true;
     });
-    const summaries = await Promise.all(
-      (batches as any[]).map(async (batch) => {
-        const batchShipments = await listBatchShipments(batch.batch_id);
-        const shipmentsForBatch = batchShipments as any[];
-        const customer = batch.crm_id ? customerMap.get(batch.crm_id) : null;
-        const totalShipmentCount = shipmentsForBatch.length;
-        const manifestedShipmentCount = shipmentsForBatch
-          .filter((shipment) => shipment.is_manifested === true).length;
-        const pendingShipmentCount = totalShipmentCount - manifestedShipmentCount;
-        const lateShipmentCount = shipmentsForBatch
-          .filter((shipment) => isLateShipment(
-            shipment.created_at,
-            selectedDate,
-            flags.cutoff_time,
-            flags.cutoff_timezone,
-          )).length;
-        const cutoffApplied = batchCutoffApplied({
-          batchStatus: batch.status ?? null,
-          closingAt: batch.closing_at ?? null,
-          operationalDate: batch.operational_date?.toString() ?? null,
-          selectedDate,
-          now,
-          cutoffTime: flags.cutoff_time,
-          cutoffTimezone: flags.cutoff_timezone,
-        });
-        const readyShipmentCount = Math.max(totalShipmentCount - lateShipmentCount, 0);
-        const readinessPercent = totalShipmentCount === 0
-          ? 0
-          : Math.round((readyShipmentCount / totalShipmentCount) * 100);
-        const readiness = lateShipmentCount === 0
-          ? 'ready'
-          : readyShipmentCount > 0
-            ? 'partial'
-            : 'risk';
-
-        return {
-          batchId: batch.batch_id,
-          groupingKey: batch.grouping_key ?? null,
-          crmId: batch.crm_id ?? null,
-          clientName: customer?.customer_name ?? null,
-          operationalDate: batch.operational_date?.toString() ?? selectedDate,
-          status: batch.status ?? null,
-          shipmentCountStored: batch.shipment_count ?? 0,
-          shipmentCountActual: totalShipmentCount,
-          manifestedShipmentCount,
-          pendingShipmentCount,
-          lateShipmentCount,
-          cutoffApplied,
-          readiness,
-          readinessPercent,
-          createdAt: batch.created_at ? new Date(batch.created_at).toISOString() : null,
-          closingAt: batch.closing_at ? new Date(batch.closing_at).toISOString() : null,
-        };
-      }),
+    const batchShipmentPairs = await Promise.all(
+      (batches as any[]).map(async (batch) => ({
+        batchId: batch.batch_id as number,
+        shipments: await listBatchShipments(batch.batch_id),
+      })),
+    );
+    const shipmentsByBatchId = new Map(
+      batchShipmentPairs.map((entry) => [entry.batchId, entry.shipments as any[]]),
     );
 
-    const lateShipments = (
-      await Promise.all(
-        (batches as any[]).map(async (batch) => {
-          const batchShipments = await listBatchShipments(batch.batch_id);
-          return (batchShipments as any[])
-            .filter((shipment) => isLateShipment(
-              shipment.created_at,
-              selectedDate,
-              flags.cutoff_time,
-              flags.cutoff_timezone,
-            ))
-            .map(mapShipment);
-        }),
-      )
-    ).flat();
+    const summaries = (batches as any[]).map((batch) => {
+      const shipmentsForBatch = shipmentsByBatchId.get(batch.batch_id) ?? [];
+      const customer = batch.crm_id ? customerMap.get(batch.crm_id) : null;
+      const totalShipmentCount = shipmentsForBatch.length;
+      const manifestedShipmentCount = shipmentsForBatch
+        .filter((shipment) => shipment.is_manifested === true).length;
+      const pendingShipmentCount = totalShipmentCount - manifestedShipmentCount;
+      const lateShipmentCount = shipmentsForBatch
+        .filter((shipment) => isLateShipment(
+          shipment.created_at,
+          selectedDate,
+          flags.cutoff_time,
+          flags.cutoff_timezone,
+        )).length;
+      const cutoffApplied = batchCutoffApplied({
+        batchStatus: batch.status ?? null,
+        closingAt: batch.closing_at ?? null,
+        operationalDate: batch.operational_date?.toString() ?? null,
+        selectedDate,
+        now,
+        cutoffTime: flags.cutoff_time,
+        cutoffTimezone: flags.cutoff_timezone,
+      });
+      const readyShipmentCount = Math.max(totalShipmentCount - lateShipmentCount, 0);
+      const readinessPercent = totalShipmentCount === 0
+        ? 0
+        : Math.round((readyShipmentCount / totalShipmentCount) * 100);
+      const readiness = lateShipmentCount === 0
+        ? 'ready'
+        : readyShipmentCount > 0
+          ? 'partial'
+          : 'risk';
+
+      return {
+        batchId: batch.batch_id,
+        groupingKey: batch.grouping_key ?? null,
+        crmId: batch.crm_id ?? null,
+        clientName: customer?.customer_name ?? null,
+        operationalDate: batch.operational_date?.toString() ?? selectedDate,
+        status: batch.status ?? null,
+        shipmentCountStored: batch.shipment_count ?? 0,
+        shipmentCountActual: totalShipmentCount,
+        manifestedShipmentCount,
+        pendingShipmentCount,
+        lateShipmentCount,
+        cutoffApplied,
+        readiness,
+        readinessPercent,
+        createdAt: batch.created_at ? new Date(batch.created_at).toISOString() : null,
+        closingAt: batch.closing_at ? new Date(batch.closing_at).toISOString() : null,
+      };
+    });
+
+    const lateShipments = (batches as any[]).flatMap((batch) => (
+      (shipmentsByBatchId.get(batch.batch_id) ?? [])
+        .filter((shipment) => isLateShipment(
+          shipment.created_at,
+          selectedDate,
+          flags.cutoff_time,
+          flags.cutoff_timezone,
+        ))
+        .map(mapShipment)
+    ));
+
+    let bufferStatus: 'db_only' | 'cache_plus_db' | 'cache_unavailable_db_fallback' = 'db_only';
+    let bufferedShipmentCount = 0;
+    if (isShipmentBufferUiReadsEnabled()) {
+      try {
+        const bufferedShipments = await listBufferedShipmentsForDate(selectedDate);
+        bufferedShipmentCount = bufferedShipments.length;
+        bufferStatus = bufferedShipmentCount > 0 ? 'cache_plus_db' : 'db_only';
+      } catch (bufferError: any) {
+        bufferStatus = 'cache_unavailable_db_fallback';
+        logError('shipment_buffer_ui_read_failed', {
+          error: bufferError?.message ?? 'unknown',
+          selectedDate,
+          timestamp: new Date().toISOString(),
+        });
+      }
+    }
 
     const totals = summaries.reduce((acc, batch) => {
       acc.batchCount += 1;
@@ -231,7 +254,7 @@ export async function GET(req: NextRequest) {
       return acc;
     }, {
       batchCount: 0,
-      shipmentCount: 0,
+      shipmentCount: bufferedShipmentCount,
       pendingShipmentCount: 0,
       lateShipmentCount: 0,
       openBatchCount: 0,
@@ -293,6 +316,9 @@ export async function GET(req: NextRequest) {
       batches: summaries,
       lateShipments,
       filterOptions,
+      dataSource: bufferStatus,
+      bufferStatus,
+      bufferedShipmentCount,
     });
   } catch (error: any) {
     logError('batch_monitor_api_failed', {

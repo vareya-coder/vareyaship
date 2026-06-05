@@ -71,6 +71,20 @@
       "when": 1780606056321,
       "tag": "0009_milky_red_skull",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "5",
+      "when": 1780606056322,
+      "tag": "0010_neon_compute_savings",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "5",
+      "when": 1780616728825,
+      "tag": "0011_lumpy_sentinels",
+      "breakpoints": true
     }
   ]
 }

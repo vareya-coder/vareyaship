@@ -12,6 +12,12 @@ export interface VacierLatamConfig {
   orderNumberFilter: string[];
   fulfillmentStatuses: string[];
   customerAccountId: string;
+  runWindowTimezone: string;
+  runWindowStart: string;
+  runWindowEnd: string;
+  maxPagesPerRun: number;
+  maxOrdersPerRun: number;
+  maxShipHeroCreditsPerRun: number;
 }
 
 export interface VacierLatamResolvedLineOverride {

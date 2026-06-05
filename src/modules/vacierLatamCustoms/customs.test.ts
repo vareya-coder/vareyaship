@@ -17,6 +17,12 @@ const baseConfig: VacierLatamConfig = {
   orderNumberFilter: [],
   fulfillmentStatuses: ['Vacier'],
   customerAccountId: '123',
+  runWindowTimezone: 'Europe/Amsterdam',
+  runWindowStart: '05:00',
+  runWindowEnd: '19:00',
+  maxPagesPerRun: 0,
+  maxOrdersPerRun: 0,
+  maxShipHeroCreditsPerRun: 0,
 };
 
 const overrideRows = [

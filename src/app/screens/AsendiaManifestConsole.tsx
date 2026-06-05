@@ -93,6 +93,9 @@ type BatchApiResponse = {
   };
   batches: BatchSummary[];
   lateShipments: ShipmentRow[];
+  dataSource?: string;
+  bufferStatus?: string;
+  bufferedShipmentCount?: number;
   filterOptions: {
     batches: Array<{
       batchId: number;
@@ -149,6 +152,8 @@ type ShipmentSearchResponse = {
   shipments: ShipmentRow[];
   refreshedAt: string;
 };
+
+const OPERATIONS_REFRESH_INTERVAL_MS = 300_000;
 
 type FeatureFlagsResponse = {
   flags: Record<string, unknown>;
@@ -310,6 +315,7 @@ export default function AsendiaManifestConsole() {
   const [actionBatchId, setActionBatchId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState("batches");
 
   const loadOperations = useCallback(async () => {
     setError(null);
@@ -372,13 +378,13 @@ export default function AsendiaManifestConsole() {
   useEffect(() => {
     const interval = window.setInterval(() => {
       void loadOperations();
-    }, 45_000);
+    }, OPERATIONS_REFRESH_INTERVAL_MS);
 
     return () => window.clearInterval(interval);
   }, [loadOperations]);
 
   useEffect(() => {
-    if (!selectedManifestId) {
+    if (!selectedManifestId || activeTab !== "manifests") {
       setManifestDetail(null);
       return;
     }
@@ -395,7 +401,7 @@ export default function AsendiaManifestConsole() {
     return () => {
       active = false;
     };
-  }, [selectedManifestId]);
+  }, [activeTab, selectedManifestId]);
 
   const selectedBatch = useMemo(
     () => batchData?.batches.find((batch) => batch.batchId === selectedBatchId) ?? null,
@@ -509,16 +515,18 @@ export default function AsendiaManifestConsole() {
             </div>
           ) : null}
 
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
             <MetricTile label="Batches" value={formatNumber(batchData?.totals.batchCount)} tone="neutral" />
             <MetricTile label="Shipments" value={formatNumber(batchData?.totals.shipmentCount)} tone="neutral" />
             <MetricTile label="Pending" value={formatNumber(batchData?.totals.pendingShipmentCount)} tone="warn" />
             <MetricTile label="Late" value={formatNumber(batchData?.totals.lateShipmentCount)} tone={batchData?.totals.lateShipmentCount ? "risk" : "ready"} />
             <MetricTile label="Manifested" value={formatNumber(batchData?.totals.manifestedBatchCount)} tone="ready" />
+            <MetricTile label="Buffered" value={formatNumber(batchData?.bufferedShipmentCount)} tone={batchData?.bufferedShipmentCount ? "warn" : "neutral"} />
           </div>
 
           <div className="text-xs text-gray-500">
             Last refresh: {lastUpdated ? formatDateTime(lastUpdated) : "-"}
+            {batchData?.bufferStatus ? ` · Buffer: ${batchData.bufferStatus}` : ""}
           </div>
 
           <div className="flex flex-col gap-3 rounded-md border bg-gray-50 p-3 lg:flex-row lg:items-center lg:justify-between">
@@ -567,7 +575,7 @@ export default function AsendiaManifestConsole() {
       </section>
 
       <section className="mx-auto max-w-[1500px] px-4 py-5 sm:px-6 lg:px-8">
-        <Tabs defaultValue="batches" className="w-full">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="h-auto flex-wrap justify-start gap-1 rounded-md border bg-white p-1">
             <TabsTrigger value="batches" className="gap-2 data-[state=active]:bg-gray-900 data-[state=active]:text-white">
               <PackageSearch className="h-4 w-4" aria-hidden="true" />

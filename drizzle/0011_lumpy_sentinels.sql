@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX IF NOT EXISTS "shipments_external_shipment_id_unique_idx" ON "shipments" ("external_shipment_id");

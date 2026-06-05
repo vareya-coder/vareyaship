@@ -1,0 +1,897 @@
+{
+  "id": "f2dc6759-034d-4503-8cb6-0246d99f183e",
+  "prevId": "66376e2d-b01d-4131-b4f7-532c0cd19b9f",
+  "version": "5",
+  "dialect": "pg",
+  "tables": {
+    "asendia_customer_mappings": {
+      "name": "asendia_customer_mappings",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "account_id": {
+          "name": "account_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "customer_name": {
+          "name": "customer_name",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "crm_id": {
+          "name": "crm_id",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "sender_tax_code": {
+          "name": "sender_tax_code",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "is_active": {
+          "name": "is_active",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "CURRENT_TIMESTAMP"
+        }
+      },
+      "indexes": {
+        "asendia_customer_mappings_account_id_idx": {
+          "name": "asendia_customer_mappings_account_id_idx",
+          "columns": [
+            "account_id"
+          ],
+          "isUnique": true
+        },
+        "asendia_customer_mappings_crm_id_idx": {
+          "name": "asendia_customer_mappings_crm_id_idx",
+          "columns": [
+            "crm_id"
+          ],
+          "isUnique": false
+        },
+        "asendia_customer_mappings_active_idx": {
+          "name": "asendia_customer_mappings_active_idx",
+          "columns": [
+            "is_active"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {}
+    },
+    "batches": {
+      "name": "batches",
+      "schema": "",
+      "columns": {
+        "batch_id": {
+          "name": "batch_id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "grouping_key": {
+          "name": "grouping_key",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "operational_date": {
+          "name": "operational_date",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "status": {
+          "name": "status",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "crm_id": {
+          "name": "crm_id",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "shipment_count": {
+          "name": "shipment_count",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "default": 0
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "CURRENT_TIMESTAMP"
+        },
+        "closing_at": {
+          "name": "closing_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "batches_operational_status_grouping_crm_idx": {
+          "name": "batches_operational_status_grouping_crm_idx",
+          "columns": [
+            "operational_date",
+            "status",
+            "grouping_key",
+            "crm_id"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {}
+    },
+    "cron_runs": {
+      "name": "cron_runs",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "job_name": {
+          "name": "job_name",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "operational_date": {
+          "name": "operational_date",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "started_at": {
+          "name": "started_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "CURRENT_TIMESTAMP"
+        },
+        "completed_at": {
+          "name": "completed_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "error_message": {
+          "name": "error_message",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "cron_runs_job_name_operational_date_idx": {
+          "name": "cron_runs_job_name_operational_date_idx",
+          "columns": [
+            "job_name",
+            "operational_date"
+          ],
+          "isUnique": true
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {}
+    },
+    "manifests": {
+      "name": "manifests",
+      "schema": "",
+      "columns": {
+        "manifest_id": {
+          "name": "manifest_id",
+          "type": "varchar",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "batch_id": {
+          "name": "batch_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "status": {
+          "name": "status",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "parcel_count_expected": {
+          "name": "parcel_count_expected",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "parcel_count_actual": {
+          "name": "parcel_count_actual",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "verification_status": {
+          "name": "verification_status",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "document_url": {
+          "name": "document_url",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "CURRENT_TIMESTAMP"
+        },
+        "pdf_retry_count": {
+          "name": "pdf_retry_count",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "default": 0
+        },
+        "pdf_last_attempt_at": {
+          "name": "pdf_last_attempt_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "pdf_next_retry_at": {
+          "name": "pdf_next_retry_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "pdf_ready_at": {
+          "name": "pdf_ready_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "pdf_failure_reason": {
+          "name": "pdf_failure_reason",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "success_notified_at": {
+          "name": "success_notified_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "manifests_status_next_retry_idx": {
+          "name": "manifests_status_next_retry_idx",
+          "columns": [
+            "status",
+            "pdf_next_retry_at"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "manifests_batch_id_batches_batch_id_fk": {
+          "name": "manifests_batch_id_batches_batch_id_fk",
+          "tableFrom": "manifests",
+          "tableTo": "batches",
+          "columnsFrom": [
+            "batch_id"
+          ],
+          "columnsTo": [
+            "batch_id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {}
+    },
+    "shipments": {
+      "name": "shipments",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "external_shipment_id": {
+          "name": "external_shipment_id",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "order_id": {
+          "name": "order_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "account_id": {
+          "name": "account_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "crm_id": {
+          "name": "crm_id",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "manifest_id": {
+          "name": "manifest_id",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "sender_tax_code": {
+          "name": "sender_tax_code",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "shipping_method": {
+          "name": "shipping_method",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "parcel_id": {
+          "name": "parcel_id",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "tracking_number": {
+          "name": "tracking_number",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "label_url": {
+          "name": "label_url",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "batch_id": {
+          "name": "batch_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "is_manifested": {
+          "name": "is_manifested",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": false,
+          "default": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "CURRENT_TIMESTAMP"
+        }
+      },
+      "indexes": {
+        "shipments_external_shipment_id_unique_idx": {
+          "name": "shipments_external_shipment_id_unique_idx",
+          "columns": [
+            "external_shipment_id"
+          ],
+          "isUnique": true
+        },
+        "shipments_batch_crm_manifested_idx": {
+          "name": "shipments_batch_crm_manifested_idx",
+          "columns": [
+            "batch_id",
+            "crm_id",
+            "is_manifested"
+          ],
+          "isUnique": false
+        },
+        "shipments_account_crm_idx": {
+          "name": "shipments_account_crm_idx",
+          "columns": [
+            "account_id",
+            "crm_id"
+          ],
+          "isUnique": false
+        },
+        "shipments_manifest_id_idx": {
+          "name": "shipments_manifest_id_idx",
+          "columns": [
+            "manifest_id"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "shipments_batch_id_batches_batch_id_fk": {
+          "name": "shipments_batch_id_batches_batch_id_fk",
+          "tableFrom": "shipments",
+          "tableTo": "batches",
+          "columnsFrom": [
+            "batch_id"
+          ],
+          "columnsTo": [
+            "batch_id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {}
+    },
+    "vacier_latam_customs_cursor": {
+      "name": "vacier_latam_customs_cursor",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "cursor_name": {
+          "name": "cursor_name",
+          "type": "varchar(50)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "last_processed_date": {
+          "name": "last_processed_date",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "CURRENT_TIMESTAMP"
+        },
+        "updated_by_batch_id": {
+          "name": "updated_by_batch_id",
+          "type": "varchar(50)",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "vacier_latam_customs_cursor_name_idx": {
+          "name": "vacier_latam_customs_cursor_name_idx",
+          "columns": [
+            "cursor_name"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "vacier_latam_customs_cursor_cursor_name_unique": {
+          "name": "vacier_latam_customs_cursor_cursor_name_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "cursor_name"
+          ]
+        }
+      }
+    },
+    "vacier_latam_customs_order_results": {
+      "name": "vacier_latam_customs_order_results",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "batch_id": {
+          "name": "batch_id",
+          "type": "varchar(50)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "order_id": {
+          "name": "order_id",
+          "type": "varchar(80)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "order_number": {
+          "name": "order_number",
+          "type": "varchar(120)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "destination_country": {
+          "name": "destination_country",
+          "type": "varchar(10)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "order_date": {
+          "name": "order_date",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "status": {
+          "name": "status",
+          "type": "varchar(20)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "reason": {
+          "name": "reason",
+          "type": "varchar(120)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "copied_customs_total": {
+          "name": "copied_customs_total",
+          "type": "varchar(30)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "above_reference_value": {
+          "name": "above_reference_value",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": false,
+          "default": false
+        },
+        "line_item_count": {
+          "name": "line_item_count",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "default": 0
+        },
+        "error_message": {
+          "name": "error_message",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "CURRENT_TIMESTAMP"
+        }
+      },
+      "indexes": {
+        "vacier_latam_customs_results_batch_id_idx": {
+          "name": "vacier_latam_customs_results_batch_id_idx",
+          "columns": [
+            "batch_id"
+          ],
+          "isUnique": false
+        },
+        "vacier_latam_customs_results_order_id_idx": {
+          "name": "vacier_latam_customs_results_order_id_idx",
+          "columns": [
+            "order_id"
+          ],
+          "isUnique": false
+        },
+        "vacier_latam_customs_results_order_number_idx": {
+          "name": "vacier_latam_customs_results_order_number_idx",
+          "columns": [
+            "order_number"
+          ],
+          "isUnique": false
+        },
+        "vacier_latam_customs_results_status_idx": {
+          "name": "vacier_latam_customs_results_status_idx",
+          "columns": [
+            "status"
+          ],
+          "isUnique": false
+        },
+        "vacier_latam_customs_results_created_at_idx": {
+          "name": "vacier_latam_customs_results_created_at_idx",
+          "columns": [
+            "created_at"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {}
+    },
+    "vacier_latam_customs_overrides": {
+      "name": "vacier_latam_customs_overrides",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "sku": {
+          "name": "sku",
+          "type": "varchar(120)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "product_name": {
+          "name": "product_name",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "customs_value": {
+          "name": "customs_value",
+          "type": "numeric(12, 2)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "currency": {
+          "name": "currency",
+          "type": "varchar(3)",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'EUR'"
+        },
+        "country_code": {
+          "name": "country_code",
+          "type": "varchar(10)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "is_active": {
+          "name": "is_active",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
+        "source": {
+          "name": "source",
+          "type": "varchar(120)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "notes": {
+          "name": "notes",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "CURRENT_TIMESTAMP"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "CURRENT_TIMESTAMP"
+        },
+        "updated_by": {
+          "name": "updated_by",
+          "type": "varchar(120)",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "vacier_latam_customs_overrides_sku_idx": {
+          "name": "vacier_latam_customs_overrides_sku_idx",
+          "columns": [
+            "sku"
+          ],
+          "isUnique": false
+        },
+        "vacier_latam_customs_overrides_country_idx": {
+          "name": "vacier_latam_customs_overrides_country_idx",
+          "columns": [
+            "country_code"
+          ],
+          "isUnique": false
+        },
+        "vacier_latam_customs_overrides_active_idx": {
+          "name": "vacier_latam_customs_overrides_active_idx",
+          "columns": [
+            "is_active"
+          ],
+          "isUnique": false
+        },
+        "vacier_latam_customs_overrides_active_sku_country_idx": {
+          "name": "vacier_latam_customs_overrides_active_sku_country_idx",
+          "columns": [
+            "sku",
+            "country_code"
+          ],
+          "isUnique": true
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {}
+    },
+    "vacier_latam_customs_runs": {
+      "name": "vacier_latam_customs_runs",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "batch_id": {
+          "name": "batch_id",
+          "type": "varchar(50)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "started_at": {
+          "name": "started_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "completed_at": {
+          "name": "completed_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "orders_queried": {
+          "name": "orders_queried",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "default": 0
+        },
+        "orders_processed": {
+          "name": "orders_processed",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "default": 0
+        },
+        "orders_skipped": {
+          "name": "orders_skipped",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "default": 0
+        },
+        "errors_count": {
+          "name": "errors_count",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "default": 0
+        },
+        "error_details": {
+          "name": "error_details",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "credits_used": {
+          "name": "credits_used",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "default": 0
+        },
+        "dry_run": {
+          "name": "dry_run",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": false,
+          "default": false
+        },
+        "status": {
+          "name": "status",
+          "type": "varchar(20)",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "vacier_latam_customs_runs_batch_id_idx": {
+          "name": "vacier_latam_customs_runs_batch_id_idx",
+          "columns": [
+            "batch_id"
+          ],
+          "isUnique": false
+        },
+        "vacier_latam_customs_runs_status_started_idx": {
+          "name": "vacier_latam_customs_runs_status_started_idx",
+          "columns": [
+            "status",
+            "started_at"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "vacier_latam_customs_runs_batch_id_unique": {
+          "name": "vacier_latam_customs_runs_batch_id_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "batch_id"
+          ]
+        }
+      }
+    }
+  },
+  "enums": {},
+  "schemas": {},
+  "_meta": {
+    "columns": {},
+    "schemas": {},
+    "tables": {}
+  }
+}

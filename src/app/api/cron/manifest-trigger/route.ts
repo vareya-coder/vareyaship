@@ -18,6 +18,8 @@ import {
 } from '@/modules/time/time';
 import { acquireDailyCronRun, completeCronRun, failCronRun } from '@/modules/cron/cronRun.repository';
 import { logError, logInfo, logger } from '@/utils/logger';
+import { flushBufferedAsendiaShipmentsForDate } from '@/modules/shipments/shipment.service';
+import { isShipmentBufferFlushEnabled } from '@/modules/shipments/shipmentBuffer.service';
 import {
   notifyManifestDryRunSummary,
   notifyManifestTriggerFailure,
@@ -177,6 +179,23 @@ export async function GET(req: NextRequest) {
       triggerTime: flags.manifest_trigger_time,
       triggerTimezone: flags.manifest_trigger_timezone,
     });
+  }
+
+  if (isShipmentBufferFlushEnabled()) {
+    const flushResult = await flushBufferedAsendiaShipmentsForDate(operationalDate);
+    if (flushResult.failed > 0) {
+      logEvent({
+        event: 'manifest_blocked_unflushed_buffer',
+        status: 'failed',
+        operationalDate,
+        failedCount: flushResult.failed,
+      });
+      return NextResponse.json({
+        message: 'Manifest trigger blocked because buffered shipments could not be flushed',
+        operationalDate,
+        flushResult,
+      }, { status: 500 });
+    }
   }
 
   const runState = await acquireDailyCronRun(MANIFEST_TRIGGER_JOB, operationalDate);
