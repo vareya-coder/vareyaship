@@ -35,9 +35,10 @@ Use a phased rollout so low-risk savings ship first, then introduce durable buff
 ## Phase 3: Durable Shipment Buffer For Daytime Traffic
 
 - Add Upstash Redis or equivalent durable Redis-compatible cache for same-day Asendia shipment events.
-- On Asendia Sync label success, write shipment events to Redis first:
+- On Asendia Sync label success, create or resolve the DB batch for the shipment grouping, then write shipment events to Redis:
   - key by `external_shipment_id` / `parcel_id` for idempotency;
   - store all fields needed for later DB insert and manifesting;
+  - store `batch_id`, `operational_date`, and `grouping_key` so the UI can show live buffered counts against real DB batches;
   - maintain per-operational-date/grouping counters for UI.
 - Do not use process memory for shipment state.
 - Keep fallback behavior: if Redis write fails, persist directly to Postgres so manifest data is never lost.
@@ -72,8 +73,9 @@ Use a phased rollout so low-risk savings ship first, then introduce durable buff
 
 - Update manifest console APIs to read live daytime counts from Redis when buffer mode is enabled.
 - UI response should merge:
-  - Redis buffered shipment counts for unflushed current-day activity;
+  - Redis buffered shipment counts into the matching DB batch rows by `batch_id`;
   - Postgres batch/manifest state for flushed and finalized records.
+- Batch Monitor should show buffered shipments under the related batch, not only in the top-level Buffered card.
 - Show a clear `dataSource` / `bufferStatus` in API responses for operators:
   - `db_only`
   - `cache_plus_db`
@@ -117,6 +119,7 @@ Use a phased rollout so low-risk savings ship first, then introduce durable buff
 - Integration tests:
   - duplicate webhook produces one shipment and one batch count;
   - buffered shipments appear in UI counts before DB flush;
+  - buffered shipments appear under the correct DB batch before DB shipment flush;
   - flushed shipments appear in DB and manifest flow;
   - Redis outage falls back to direct DB persistence.
 - Verification commands:

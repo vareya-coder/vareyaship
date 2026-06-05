@@ -1,6 +1,7 @@
 import { logger } from '@/utils/logger';
 import { isManifestEnabled } from '@/modules/featureFlags/featureFlag.service';
 import { getOrCreateOpenBatch, assignShipmentToBatch } from '@/modules/batching/batch.service';
+import { reconcileBatchShipmentCount } from '@/modules/batching/batch.repository';
 import { findShipmentByExternalId, insertShipmentIfNew, listRecentShipments, setShipmentBatch } from './shipment.repository';
 import {
   bufferAsendiaShipment,
@@ -19,7 +20,10 @@ function normalizeCreatedAt(value: Date | string | null | undefined): Date {
   return createdAt;
 }
 
-export async function persistAsendiaShipment(input: IngestAsendiaShipmentInput) {
+export async function persistAsendiaShipment(
+  input: IngestAsendiaShipmentInput,
+  options: { batchId?: number; reconcileBatchCount?: boolean } = {},
+) {
   if (!input.crm_id) {
     throw new Error(`Missing crm_id for Asendia shipment ${input.external_shipment_id}.`);
   }
@@ -46,6 +50,7 @@ export async function persistAsendiaShipment(input: IngestAsendiaShipmentInput) 
     parcel_id: input.parcel_id,
     tracking_number: input.tracking_number ?? null,
     label_url: input.label_url ?? null,
+    batch_id: options.batchId ?? null,
     is_manifested: false,
     created_at: shipmentCreatedAt,
   });
@@ -61,6 +66,13 @@ export async function persistAsendiaShipment(input: IngestAsendiaShipmentInput) 
   }
 
   logger.info('shipment_ingested', { shipment_id: created.id, status: 'created', timestamp: new Date().toISOString() } as any);
+
+  if (options.batchId) {
+    if (options.reconcileBatchCount) {
+      await reconcileBatchShipmentCount(options.batchId);
+    }
+    return { id: (created as any).id, batch_id: options.batchId };
+  }
 
   const batch = await getOrCreateOpenBatch({
     shipping_method: input.shipping_method,
@@ -126,10 +138,13 @@ export async function flushBufferedAsendiaShipmentsForDate(operationalDate: stri
     attempted: records.length,
   } as any);
 
+  const affectedBatchIds = new Set<number>();
+
   for (const record of records) {
     try {
-      await persistAsendiaShipment(record);
+      await persistAsendiaShipment(record, { batchId: record.batch_id });
       await deleteBufferedShipment(record);
+      affectedBatchIds.add(record.batch_id);
       result.persisted += 1;
     } catch (error) {
       result.failed += 1;
@@ -138,6 +153,10 @@ export async function flushBufferedAsendiaShipmentsForDate(operationalDate: stri
         error: error instanceof Error ? error.message : String(error),
       });
     }
+  }
+
+  for (const batchId of affectedBatchIds) {
+    await reconcileBatchShipmentCount(batchId);
   }
 
   logger.info(result.failed > 0 ? 'shipment_buffer_flush_failed' : 'shipment_buffer_flush_completed', {

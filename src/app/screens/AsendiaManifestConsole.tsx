@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertTriangle,
   CalendarDays,
@@ -43,6 +43,7 @@ type BatchSummary = {
   status: string | null;
   shipmentCountStored: number;
   shipmentCountActual: number;
+  bufferedShipmentCount: number;
   manifestedShipmentCount: number;
   pendingShipmentCount: number;
   lateShipmentCount: number;
@@ -316,8 +317,11 @@ export default function AsendiaManifestConsole() {
   const [error, setError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState("batches");
+  const loadingRef = useRef(false);
 
   const loadOperations = useCallback(async () => {
+    if (loadingRef.current) return;
+    loadingRef.current = true;
     setError(null);
     setLoading(true);
     try {
@@ -367,6 +371,7 @@ export default function AsendiaManifestConsole() {
     } catch (loadError: any) {
       setError(loadError?.message ?? "Failed to load manifest operations data");
     } finally {
+      loadingRef.current = false;
       setLoading(false);
     }
   }, [batchFilter, crmFilter, selectedDate, shipmentQuery]);
@@ -377,6 +382,7 @@ export default function AsendiaManifestConsole() {
 
   useEffect(() => {
     const interval = window.setInterval(() => {
+      if (document.hidden) return;
       void loadOperations();
     }, OPERATIONS_REFRESH_INTERVAL_MS);
 
@@ -637,6 +643,9 @@ export default function AsendiaManifestConsole() {
                         <TableCell>
                           <div className="font-medium">{batch.shipmentCountActual}</div>
                           <div className="text-xs text-gray-500">{batch.pendingShipmentCount} pending</div>
+                          {batch.bufferedShipmentCount > 0 ? (
+                            <div className="text-xs text-amber-700">{batch.bufferedShipmentCount} buffered</div>
+                          ) : null}
                         </TableCell>
                         <TableCell>
                           <Badge variant="outline" className={statusBadgeClass(batch.status)}>

@@ -105,6 +105,20 @@ function mapShipment(shipment: any): ShipmentForUi {
   };
 }
 
+function mapBufferedShipment(shipment: any): ShipmentForUi {
+  return {
+    id: -Math.max(Number.parseInt(String(shipment.external_shipment_id).replace(/\D/g, '').slice(-9) || '1', 10), 1),
+    orderId: shipment.order_id ?? null,
+    parcelId: shipment.parcel_id,
+    trackingNumber: shipment.tracking_number ?? null,
+    batchId: shipment.batch_id ?? null,
+    manifestId: null,
+    shippingMethod: shipment.shipping_method ?? null,
+    createdAt: shipment.created_at ? new Date(shipment.created_at).toISOString() : null,
+    isManifested: false,
+  };
+}
+
 function batchCutoffApplied(input: {
   batchStatus?: string | null;
   closingAt?: Date | string | null;
@@ -160,13 +174,39 @@ export async function GET(req: NextRequest) {
       batchShipmentPairs.map((entry) => [entry.batchId, entry.shipments as any[]]),
     );
 
+    let bufferStatus: 'db_only' | 'cache_plus_db' | 'cache_unavailable_db_fallback' = 'db_only';
+    let bufferedShipments: any[] = [];
+    if (isShipmentBufferUiReadsEnabled()) {
+      try {
+        bufferedShipments = await listBufferedShipmentsForDate(selectedDate);
+        bufferStatus = bufferedShipments.length > 0 ? 'cache_plus_db' : 'db_only';
+      } catch (bufferError: any) {
+        bufferStatus = 'cache_unavailable_db_fallback';
+        logError('shipment_buffer_ui_read_failed', {
+          error: bufferError?.message ?? 'unknown',
+          selectedDate,
+          timestamp: new Date().toISOString(),
+        });
+      }
+    }
+
+    const bufferedShipmentsByBatchId = bufferedShipments.reduce((acc, shipment) => {
+      if (typeof shipment.batch_id !== 'number') return acc;
+      const current = acc.get(shipment.batch_id) ?? [];
+      current.push(shipment);
+      acc.set(shipment.batch_id, current);
+      return acc;
+    }, new Map<number, any[]>());
+
     const summaries = (batches as any[]).map((batch) => {
-      const shipmentsForBatch = shipmentsByBatchId.get(batch.batch_id) ?? [];
+      const persistedShipmentsForBatch = shipmentsByBatchId.get(batch.batch_id) ?? [];
+      const bufferedShipmentsForBatch = bufferedShipmentsByBatchId.get(batch.batch_id) ?? [];
+      const shipmentsForBatch = [...persistedShipmentsForBatch, ...bufferedShipmentsForBatch];
       const customer = batch.crm_id ? customerMap.get(batch.crm_id) : null;
       const totalShipmentCount = shipmentsForBatch.length;
-      const manifestedShipmentCount = shipmentsForBatch
+      const manifestedShipmentCount = persistedShipmentsForBatch
         .filter((shipment) => shipment.is_manifested === true).length;
-      const pendingShipmentCount = totalShipmentCount - manifestedShipmentCount;
+      const pendingShipmentCount = (persistedShipmentsForBatch.length - manifestedShipmentCount) + bufferedShipmentsForBatch.length;
       const lateShipmentCount = shipmentsForBatch
         .filter((shipment) => isLateShipment(
           shipment.created_at,
@@ -202,6 +242,7 @@ export async function GET(req: NextRequest) {
         status: batch.status ?? null,
         shipmentCountStored: batch.shipment_count ?? 0,
         shipmentCountActual: totalShipmentCount,
+        bufferedShipmentCount: bufferedShipmentsForBatch.length,
         manifestedShipmentCount,
         pendingShipmentCount,
         lateShipmentCount,
@@ -213,7 +254,7 @@ export async function GET(req: NextRequest) {
       };
     });
 
-    const lateShipments = (batches as any[]).flatMap((batch) => (
+    const latePersistedShipments = (batches as any[]).flatMap((batch) => (
       (shipmentsByBatchId.get(batch.batch_id) ?? [])
         .filter((shipment) => isLateShipment(
           shipment.created_at,
@@ -223,23 +264,16 @@ export async function GET(req: NextRequest) {
         ))
         .map(mapShipment)
     ));
-
-    let bufferStatus: 'db_only' | 'cache_plus_db' | 'cache_unavailable_db_fallback' = 'db_only';
-    let bufferedShipmentCount = 0;
-    if (isShipmentBufferUiReadsEnabled()) {
-      try {
-        const bufferedShipments = await listBufferedShipmentsForDate(selectedDate);
-        bufferedShipmentCount = bufferedShipments.length;
-        bufferStatus = bufferedShipmentCount > 0 ? 'cache_plus_db' : 'db_only';
-      } catch (bufferError: any) {
-        bufferStatus = 'cache_unavailable_db_fallback';
-        logError('shipment_buffer_ui_read_failed', {
-          error: bufferError?.message ?? 'unknown',
-          selectedDate,
-          timestamp: new Date().toISOString(),
-        });
-      }
-    }
+    const lateBufferedShipments = bufferedShipments
+      .filter((shipment) => isLateShipment(
+        shipment.created_at,
+        selectedDate,
+        flags.cutoff_time,
+        flags.cutoff_timezone,
+      ))
+      .map(mapBufferedShipment);
+    const lateShipments = [...latePersistedShipments, ...lateBufferedShipments];
+    const bufferedShipmentCount = bufferedShipments.length;
 
     const totals = summaries.reduce((acc, batch) => {
       acc.batchCount += 1;
@@ -254,7 +288,7 @@ export async function GET(req: NextRequest) {
       return acc;
     }, {
       batchCount: 0,
-      shipmentCount: bufferedShipmentCount,
+      shipmentCount: 0,
       pendingShipmentCount: 0,
       lateShipmentCount: 0,
       openBatchCount: 0,
@@ -281,7 +315,8 @@ export async function GET(req: NextRequest) {
             shipmentCount: 0,
           };
           existing.batchCount += 1;
-          existing.shipmentCount += batch.shipment_count ?? 0;
+          existing.shipmentCount += (batch.shipment_count ?? 0)
+            + (bufferedShipmentsByBatchId.get(batch.batch_id)?.length ?? 0);
           acc.set(crmId, existing);
           return acc;
         }, new Map<string, ClientFilterOption>())

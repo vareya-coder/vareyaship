@@ -41,6 +41,16 @@ export async function incrementBatchShipmentCount(batchId: number) {
   await db.execute(sql`UPDATE ${batches} SET shipment_count = shipment_count + 1 WHERE ${batches.batch_id} = ${batchId}`);
 }
 
+export async function reconcileBatchShipmentCount(batchId: number) {
+  await db.execute(sql`
+    UPDATE ${batches}
+    SET shipment_count = (
+      SELECT COUNT(*)::int FROM ${shipments} WHERE ${shipments.batch_id} = ${batchId}
+    )
+    WHERE ${batches.batch_id} = ${batchId}
+  `);
+}
+
 export async function setBatchStatusGuarded(batchId: number, fromStatus: BatchStatus, toStatus: BatchStatus) {
   const data = toStatus === 'CLOSING'
     ? { status: toStatus, closing_at: new Date() }
