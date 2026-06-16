@@ -7,6 +7,11 @@ import {
   isConfiguredVacierLatamCountry,
   requiresAsendiaReceiverTaxId,
 } from '@/modules/vacierLatamCustoms/latamConfig';
+import {
+  isVacierTurkeyShipment,
+  resolveVacierTurkeyCustomsOverride,
+  type VacierTurkeyCustomsOverrideMap,
+} from '@/modules/vacierTurkeyCustoms/customs.service';
 
 const ASENDIA_PRODUCT_EPAQPLS = 'EPAQPLS';
 const ASENDIA_PRODUCT_EPAQSCT = 'EPAQSCT';
@@ -21,9 +26,14 @@ const OZ_TO_KG_MULTIPLIER = 0.0283495231;
 
 config();
 
+export type MapShipHeroToAsendiaOptions = {
+  vacierTurkeyCustomsBySku?: VacierTurkeyCustomsOverrideMap | null;
+};
+
 export function mapShipHeroToAsendia(
   shipHeroData: ShipHeroWebhook,
   customerMapping: ResolvedAsendiaCustomerMapping,
+  options: MapShipHeroToAsendiaOptions = {},
 ): AsendiaParcelRequest {
   function convertOzToKg(weightInOz: number): number {
     return new Decimal(weightInOz)
@@ -58,11 +68,18 @@ export function mapShipHeroToAsendia(
     return totalWeightKg.toDecimalPlaces(4).toNumber();
   }
 
+  function getLineItemProductDescription(lineItem: any): string {
+    const productDescription = String(lineItem.product_name ?? lineItem.name ?? lineItem.sku ?? '').trim();
+    return productDescription || 'description';
+  }
+
   if (shipHeroData.to_address.country === 'UK') {
     shipHeroData.to_address.country = 'GB';
   }
 
   const isVacierLatamDestination = isConfiguredVacierLatamCountry(shipHeroData.to_address.country);
+  const isVacierTurkeyDestination = isVacierTurkeyShipment(shipHeroData)
+    && !!options.vacierTurkeyCustomsBySku;
   const receiverTaxIdRequired = requiresAsendiaReceiverTaxId(shipHeroData.to_address.country);
   if (receiverTaxIdRequired && !String(shipHeroData.tax_id ?? '').trim()) {
     throw new Error(`Missing required receiverTaxId/tax_id for Asendia LATAM destination ${shipHeroData.to_address.country}`);
@@ -189,20 +206,25 @@ export function mapShipHeroToAsendia(
     packageData.line_items!.forEach((lineItem) => {
       if (lineItem.ignore_on_customs) return;
 
+      const vacierTurkeyOverride = isVacierTurkeyDestination
+        ? resolveVacierTurkeyCustomsOverride(lineItem.sku, options.vacierTurkeyCustomsBySku)
+        : null;
       let priceAsFloat = 0.0;
-      if (isVacierLatamDestination) {
+      if (isVacierTurkeyDestination) {
+        priceAsFloat = vacierTurkeyOverride?.customsValue ?? 0;
+      } else if (isVacierLatamDestination) {
         priceAsFloat = parseLatamCustomsValue(lineItem);
       } else if (lineItem.price !== null) {
         priceAsFloat = lineItem.price;
       }
 
-      if (!isVacierLatamDestination && priceAsFloat <= 0.0) {
+      if (!isVacierTurkeyDestination && !isVacierLatamDestination && priceAsFloat <= 0.0) {
         priceAsFloat = 0.01;
       }
 
-      if (!isVacierLatamDestination && shipHeroData.order_number.indexOf('BBSPY') >= 0) {
+      if (!isVacierTurkeyDestination && !isVacierLatamDestination && shipHeroData.order_number.indexOf('BBSPY') >= 0) {
         priceAsFloat = 25.0;
-      } else if (!isVacierLatamDestination) {
+      } else if (!isVacierTurkeyDestination && !isVacierLatamDestination) {
         if (priceAsFloat == 0.0) {
           priceAsFloat = 1.0;
         }
@@ -228,11 +250,28 @@ export function mapShipHeroToAsendia(
         }
       }
 
+      if (isVacierTurkeyDestination && !vacierTurkeyOverride) {
+        logger.warn('vacier_turkey_customs_sku_missing', {
+          sku: lineItem.sku,
+          order_id: shipHeroData.order_id,
+          order_number: shipHeroData.order_number,
+        } as any);
+      }
+
+      const articleDescription = isVacierTurkeyDestination
+        ? vacierTurkeyOverride?.customsDescription ?? getLineItemProductDescription(lineItem)
+        : getLineItemProductDescription(lineItem);
+      const harmonizationCode = String(
+        isVacierTurkeyDestination && vacierTurkeyOverride?.tariffCode
+          ? vacierTurkeyOverride.tariffCode
+          : lineItem.tariff_code ?? '',
+      ).replace(/\./g, '');
+
       asendiaRequestData.customsInfo!.items.push({
-        articleDescription: lineItem.customs_description || lineItem.name,
+        articleDescription,
         unitValue: priceAsFloat,
         currency: orderCurrency,
-        harmonizationCode: lineItem.tariff_code.replace(/\./g, ''),
+        harmonizationCode,
         originCountry: lineItem.country_of_manufacture || "NL",
         unitWeight: getLineItemUnitWeightKg(lineItem.weight).toNumber(),
         quantity: lineItem.quantity,

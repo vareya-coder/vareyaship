@@ -4,6 +4,10 @@ import axios, { AxiosResponse, AxiosError } from 'axios';
 import { mapShipHeroToAsendia } from '@/app/utils/asendia/asendiaSyncDataMapper';
 import { ShipHeroWebhook, AsendiaAuthRequest, AsendiaAuthResponse, AsendiaParcelRequest, AsendiaParcelResponse } from '@/app/utils/types';
 import { getRequiredAsendiaCustomerMapping } from '@/modules/asendia/customers/customer.service';
+import {
+  getVacierTurkeyCustomsOverrideMap,
+  isVacierTurkeyShipment,
+} from '@/modules/vacierTurkeyCustoms/customs.service';
 
 import { Data } from '@/app/utils/postnl/postnltypes';
 import { logError, logInfo, logger } from '@/utils/logger';
@@ -68,7 +72,14 @@ export async function POST(req: NextRequest) {
       }
   
       // --- Step 2: Map data and create the parcel ---
-      const asendiaRequestBody:AsendiaParcelRequest = mapShipHeroToAsendia(shipmentData, customerMapping);
+      const vacierTurkeyCustomsBySku = isVacierTurkeyShipment(shipmentData)
+        ? await getVacierTurkeyCustomsOverrideMap()
+        : null;
+      const asendiaRequestBody:AsendiaParcelRequest = mapShipHeroToAsendia(
+        shipmentData,
+        customerMapping,
+        { vacierTurkeyCustomsBySku },
+      );
   
       try {
         logInfo('Creating Asendia parcel with request.', {

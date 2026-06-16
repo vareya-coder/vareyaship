@@ -22,16 +22,10 @@ export async function POST(req: NextRequest) {
   let trackingNumber = '';
   let trackingUrl = ''
   let labelUrl = '';
-  const postnlCallingapilocal = "http://localhost:3000/api/postnl/label"
   const postnlCallingapiProd = "https://vareyaship.vercel.app/api/postnl/label"
   
-  const asendiaCallingapilocal = "http://localhost:3000/api/asendia"
   const asendiaCallingapiProd = "https://vareyaship.vercel.app/api/asendia"
-  
-  const asendiaSyncCallingapilocal = "http://localhost:3000/api/asendiasync"
-  const asendiaSyncCallingapiProd = "https://vareyaship.vercel.app/api/asendiasync"
 
-  const royalMailCallingapilocal = "http://localhost:3000/api/royalmail/label"
   const royalMailCallingapiProd = "https://vareyaship.vercel.app/api/royalmail/label"
 
   const EU: any = ['AT', 'BE', 'BG', 'CY', 'CZ', 'DE', 'DK', 'EE', 'ES', 'FI', 'FR', 'GR', 'HR', 'HU', 'IE', 'IT', 'LT', 'LU', 'LV', 'MT', 'NL', 'PL', 'PT', 'RO', 'SE', 'SI', 'SK'];
@@ -166,7 +160,7 @@ export async function POST(req: NextRequest) {
       let asendiaResponse = undefined;
       if (asendiaSyncEnabled) {
         // If Asendia sync is enabled, we will call the Asendia Sync API to get the label and tracking number
-        asendiaResponse = await axios.post(asendiaSyncCallingapiProd, shipmentData, {
+        asendiaResponse = await axios.post(getInternalApiUrl(req, '/api/asendiasync'), shipmentData, {
           validateStatus: function (status) {
             return status < 500; // Resolve only if the status code is less than 500
           }
@@ -175,7 +169,30 @@ export async function POST(req: NextRequest) {
         logInfo('Successfully received response from Local Asendia API Handler in main.', {
           response: asendiaResponse.data,
         });
-        
+
+        if (asendiaResponse.status >= 400) {
+          logError('Asendia Sync API returned an unsuccessful status.', {
+            status: asendiaResponse.status,
+            response: formatCarrierFailureResponse(asendiaResponse.data),
+          });
+          return NextResponse.json({
+            message: 'Asendia Sync API call failed.',
+            provider: 'Asendia',
+            status: asendiaResponse.status,
+            response: formatCarrierFailureResponse(asendiaResponse.data),
+          }, { status: asendiaResponse.status });
+        }
+
+        if (asendiaResponse && asendiaResponse.data && asendiaResponse.data.errorCode) {
+          logError('Asendia Sync API reported input validation error.', { response: asendiaResponse.data });
+          return new NextResponse(JSON.stringify(asendiaResponse.data), {
+            status: asendiaResponse.status,
+            headers: {
+              'Content-Type': 'application/json',
+            },
+          });
+        }
+
         if (asendiaResponse && asendiaResponse.data && asendiaResponse.data.trackingNumber && asendiaResponse.data.labelLocation) {
           trackingNumber = asendiaResponse.data.trackingNumber
         
@@ -234,19 +251,18 @@ export async function POST(req: NextRequest) {
               // We don't re-throw here, so the process can continue even if the label fails.
               // The return object will simply be missing the `labelUrl`.
           }
-        } else if (asendiaResponse && asendiaResponse.data && asendiaResponse.data.errorCode) {
-          logError('Asendia Sync API reported input validation error.', { response: asendiaResponse.data });
-          return new NextResponse(JSON.stringify(asendiaResponse.data), {
-            status: asendiaResponse.status,
-            headers: {
-              'Content-Type': 'application/json',
-            },
+        } else {
+          logError('Asendia Sync API response missing trackingNumber or labelLocation.', {
+            status: asendiaResponse?.status,
+            response: formatCarrierFailureResponse(asendiaResponse?.data),
           });
+          return NextResponse.json({
+            message: 'Asendia Sync API did not return trackingNumber and labelLocation.',
+            provider: 'Asendia',
+            status: asendiaResponse?.status ?? 502,
+            response: formatCarrierFailureResponse(asendiaResponse?.data),
+          }, { status: 502 });
         }
-        // } else {
-        //   logger.warn('No trackingNumber and labelLocation provided in Asendia response. Skipping label fetch.');
-        //   console.warn('No trackingNumber and labelLocation provided in Asendia response. Skipping label fetch.');
-        // }
       } else {
         asendiaResponse = await axios.post(asendiaCallingapiProd, shipmentData)
         if (asendiaResponse && asendiaResponse.data) {
@@ -372,6 +388,16 @@ export async function POST(req: NextRequest) {
 
 function padLeftZero(n:number) {
   return ('0'+n).slice(-2)
+}
+
+function getInternalApiUrl(req: NextRequest, path: string): string {
+  return new URL(path, req.nextUrl.origin).toString();
+}
+
+function formatCarrierFailureResponse(data: unknown): unknown {
+  if (typeof data !== 'string') return data;
+  const compact = data.replace(/\s+/g, ' ').trim();
+  return compact.length > 500 ? `${compact.slice(0, 500)}...` : compact;
 }
 
 function isUploadThingPdfProxyEnabled(): boolean {

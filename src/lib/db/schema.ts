@@ -169,6 +169,26 @@ export const vacierLatamCustomsOverrides = pgTable('vacier_latam_customs_overrid
         .where(sql`is_active = true`),
 }));
 
+export const vacierTurkeyCustomsOverrides = pgTable('vacier_turkey_customs_overrides', {
+    id: serial('id').primaryKey(),
+    sku: varchar('sku', { length: 120 }).notNull(),
+    productName: varchar('product_name', { length: 255 }),
+    customsDescription: text('customs_description').notNull(),
+    customsValue: numeric('customs_value', { precision: 12, scale: 2 }).notNull(),
+    tariffCode: varchar('tariff_code', { length: 40 }),
+    currency: varchar('currency', { length: 3 }).notNull().default('EUR'),
+    isActive: boolean('is_active').notNull().default(true),
+    source: varchar('source', { length: 120 }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().default(sql`CURRENT_TIMESTAMP`),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (table) => ({
+    skuIdx: index('vacier_turkey_customs_overrides_sku_idx').on(table.sku),
+    activeIdx: index('vacier_turkey_customs_overrides_active_idx').on(table.isActive),
+    activeSkuUnique: uniqueIndex('vacier_turkey_customs_overrides_active_sku_idx')
+        .on(table.sku)
+        .where(sql`is_active = true`),
+}));
+
 export type BatchRow = typeof batches.$inferInsert;
 export type ShipmentRow = typeof shipments.$inferInsert;
 export type ManifestRow = typeof manifests.$inferInsert;
@@ -178,3 +198,4 @@ export type VacierLatamCustomsRunRow = typeof vacierLatamCustomsRuns.$inferInser
 export type VacierLatamCustomsCursorRow = typeof vacierLatamCustomsCursor.$inferInsert;
 export type VacierLatamCustomsOrderResultRow = typeof vacierLatamCustomsOrderResults.$inferInsert;
 export type VacierLatamCustomsOverrideRow = typeof vacierLatamCustomsOverrides.$inferInsert;
+export type VacierTurkeyCustomsOverrideRow = typeof vacierTurkeyCustomsOverrides.$inferInsert;
