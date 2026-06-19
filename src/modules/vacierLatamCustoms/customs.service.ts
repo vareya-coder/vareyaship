@@ -29,7 +29,6 @@ export function getVacierLatamConfig(): VacierLatamConfig {
     referenceValueEur: flags.vacier_latam_reference_value_eur,
     processedTag: flags.vacier_latam_processed_tag,
     processingStartDate: flags.vacier_latam_processing_start_date,
-    orderNumberFilter: flags.vacier_latam_order_number_filter,
     fulfillmentStatuses: flags.vacier_latam_fulfillment_statuses,
     customerAccountId: process.env.VACIER_CUSTOMER_ACCOUNT_ID ?? '',
     runWindowTimezone: flags.vacier_latam_run_window_timezone,
@@ -59,16 +58,6 @@ export function validateVacierLatamConfig(config: VacierLatamConfig): string[] {
 function getDestinationCountry(order: VacierLatamOrder): string | null {
   const country = order.shipping_address?.country_code || order.shipping_address?.country;
   return country ? String(country).toUpperCase() : null;
-}
-
-function normalizeOrderNumber(value: string): string {
-  return value.trim().replace(/^#/, '');
-}
-
-function isOrderNumberAllowed(orderNumber: string, filters: string[]): boolean {
-  if (filters.length === 0) return true;
-  const normalizedOrder = normalizeOrderNumber(orderNumber);
-  return filters.some((filter) => normalizeOrderNumber(filter) === normalizedOrder);
 }
 
 function formatAmount(value: number): string {
@@ -124,10 +113,6 @@ export async function processVacierLatamOrder(
     const destinationCountry = getDestinationCountry(order);
     if (!destinationCountry || !config.countries.includes(destinationCountry)) {
       return skipResult(order, 'not_latam_country', destinationCountry);
-    }
-
-    if (!isOrderNumberAllowed(order.order_number, config.orderNumberFilter)) {
-      return skipResult(order, 'not_in_order_number_filter', destinationCountry);
     }
 
     if (hasTag(order, config.processedTag)) {

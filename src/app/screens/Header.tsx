@@ -14,6 +14,7 @@ interface INavLink {
 const navLinks: INavLink[] = [
   { href: '/', label: 'Asendia Manifest' },
   { href: '/vacier-latam-customs', label: 'LATAM Customs' },
+  { href: '/vacier-turkey-customs', label: 'Turkey Customs' },
 ];
 
 const Header: React.FC = () => {

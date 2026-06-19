@@ -14,7 +14,7 @@ export function normalizeVacierLatamOverrideCountry(countryCode: string): string
 }
 
 export function normalizeVacierLatamOverrideCurrency(currency?: string | null): string {
-  const normalized = String(currency ?? 'EUR').trim().toUpperCase();
+  const normalized = String(currency ?? 'USD').trim().toUpperCase();
   if (!/^[A-Z]{3}$/.test(normalized)) throw new Error('Currency must be ISO3');
   return normalized;
 }

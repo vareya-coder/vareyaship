@@ -7,15 +7,30 @@ import { ShipHeroWebhook } from '@/app/utils/types';
 import { Data } from '@/app/utils/postnl/postnltypes';
 import { decidePostNLPickupHandling } from '@/modules/postnl/pickup/pickup.service';
 import { extractPostNLResponseError, formatPostNLErrors } from '@/modules/postnl/labelError';
-import { logger } from '@/utils/logger';
+import { isVacierLatamShipment } from '@/modules/vacierLatamCustoms/latamConfig';
+import {
+  getVacierLatamLabelOverrideMap,
+  isVacierLatamCustomsDataError,
+  validateVacierLatamShipmentOverrides,
+} from '@/modules/vacierLatamCustoms/labelOverrides.service';
+import { logger, logInfo } from '@/utils/logger';
 
 config();
 
 export async function POST(req: NextRequest) {
   try {
     if (req.method === 'POST') {
+      logInfo('Received request in PostNL label handler.', {
+        route: '/api/postnl/label',
+        origin: req.nextUrl.origin,
+      });
       const shipmentData: ShipHeroWebhook = await req.json();
-      logger.info(JSON.stringify(shipmentData));
+      logInfo('PostNL shipment data received.', {
+        orderId: shipmentData.order_id,
+        orderNumber: shipmentData.order_number,
+        shippingMethod: shipmentData.shipping_method,
+        destinationCountry: shipmentData.to_address?.country,
+      });
       const postNLProductCode = getProductCode(shipmentData.shipping_method);
       
       if (!postNLProductCode) {
@@ -24,19 +39,30 @@ export async function POST(req: NextRequest) {
 
       const postNLCustomerCode: string = process.env.CUSTOMER_CODE as string;
       const postNLCustomerNumber: string = process.env.CUSTOMER_NUMBER as string;    
+      const vacierLatamCustomsBySku = isVacierLatamShipment(shipmentData)
+        ? await getVacierLatamLabelOverrideMap()
+        : null;
+
+      if (vacierLatamCustomsBySku) {
+        validateVacierLatamShipmentOverrides(shipmentData, vacierLatamCustomsBySku);
+      }
 
       let barCode: string = '';
       if (postNLProductCode === '6942' || postNLProductCode === '6550') {
         barCode = await getBarcode(postNLCustomerCode, postNLCustomerNumber);
       }
-      logger.info(barCode);
+      logInfo('PostNL barcode resolved.', { barCode, postNLProductCode });
 
       const postNLApiKey = process.env.POSTNL_API_KEY as string;
       const pickupDecision = await decidePostNLPickupHandling(shipmentData, postNLApiKey);
       const postNLBody : Data = await mapShipHeroToPostNL(shipmentData, barCode, postNLProductCode, 
                                                           postNLCustomerCode, postNLCustomerNumber,
-                                                          pickupDecision);
-      logger.info(JSON.stringify(postNLBody))
+                                                          pickupDecision,
+                                                          { vacierLatamCustomsBySku });
+      logInfo('PostNL label request mapped.', {
+        orderId: shipmentData.order_id,
+        request: JSON.stringify(postNLBody),
+      });
       try {
         const postNLApiResponse = await callPostNLApi(postNLApiKey, JSON.stringify(postNLBody));
         const postNLError = extractPostNLResponseError(postNLApiResponse);
@@ -50,7 +76,10 @@ export async function POST(req: NextRequest) {
           });
         }
         
-        logger.info(JSON.stringify("postNLApiResponse received: "));
+        logInfo('PostNL label response received.', {
+          orderId: shipmentData.order_id,
+          responseShipmentCount: postNLApiResponse?.ResponseShipments?.length ?? 0,
+        });
         return new NextResponse(JSON.stringify(postNLApiResponse), {
           status: 200,
           headers: {
@@ -66,6 +95,16 @@ export async function POST(req: NextRequest) {
     }
   } catch (error) {
     logger.error('Error processing the postnl shipment update:', JSON.stringify(error));
+    if (isVacierLatamCustomsDataError(error)) {
+      return NextResponse.json({
+        message: error.message,
+        provider: 'VareyaShip',
+        carrier: 'PostNL',
+        errorCode: error.errorCode,
+        sku: error.sku,
+        countryCode: error.countryCode,
+      }, { status: 400 });
+    }
     return new NextResponse('Internal Server Error', { status: 500 });
   }
 }

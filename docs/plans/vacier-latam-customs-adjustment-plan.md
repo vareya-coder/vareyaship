@@ -1,5 +1,9 @@
 # Vacier LATAM Customs Override - Implementation Plan
 
+> **Superseded:** Use `docs/plans/vacier-latam-label-time-customs-plan.md`. This earlier plan mutates
+> ShipHero line-item customs values through a cron; the approved implementation applies overrides at
+> carrier label generation time so ShipHero invoice values remain unchanged.
+
 ## Summary
 
 Update the already-started Vacier LATAM customs implementation so LATAM customs values come from a Vacier-provided SKU override table, not ShipHero warehouse-product customs values.
@@ -107,7 +111,6 @@ VACIER_LATAM_COUNTRIES=EC,BR,AR,...
 VACIER_LATAM_REFERENCE_VALUE_EUR=50.00
 VACIER_LATAM_PROCESSED_TAG=vacier_latam_customs_adjusted_v1
 VACIER_LATAM_PROCESSING_START_DATE
-VACIER_LATAM_ORDER_NUMBER_FILTER
 VACIER_LATAM_FULFILLMENT_STATUSES=Vacier,unfulfilled
 VACIER_CUSTOMER_ACCOUNT_ID
 ```
@@ -177,7 +180,7 @@ Add/adjust tests for:
 Manual verification sequence:
 
 1. Import Vacier-provided override CSV with `CountryCode=ALL`.
-2. Run cron in dry-run with `VACIER_LATAM_ORDER_NUMBER_FILTER` for test orders.
+2. Run cron in dry-run with fresh test orders.
 3. Verify proposed values match override table.
 4. Enable mutation for filtered test orders.
 5. Verify ShipHero order line item `customs_value` changed.

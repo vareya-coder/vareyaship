@@ -1,5 +1,10 @@
 # Vacier LATAM Customs Value Adjustment
 
+> **Superseded:** This requirement records the earlier ShipHero mutation-cron design. The approved
+> implementation is the label-time override design in
+> `docs/plans/vacier-latam-label-time-customs-plan.md`. It keeps ShipHero values unchanged and applies
+> database overrides only to carrier payloads.
+
 ## 1. Objective
 
 Implement a Vercel-deployed, DB-driven workflow for Vacier orders shipping to configured Latin American countries.
@@ -216,7 +221,6 @@ VACIER_LATAM_PROCESSED_TAG=vacier_latam_customs_adjusted_v1
 VACIER_LATAM_DRY_RUN
 VACIER_LATAM_PROCESSING_START_DATE
 VACIER_LATAM_FULFILLMENT_STATUSES=Vacier,unfulfilled
-VACIER_LATAM_ORDER_NUMBER_FILTER
 VACIER_CUSTOMER_ACCOUNT_ID
 ```
 

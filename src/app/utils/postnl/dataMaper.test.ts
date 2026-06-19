@@ -1,8 +1,21 @@
 import assert from 'node:assert/strict';
 import { mapShipHeroToPostNL } from './dataMaper';
 import type { ShipHeroWebhook } from '../types';
+import { buildVacierLatamLabelOverrideMap } from '@/modules/vacierLatamCustoms/labelOverrides.service';
 
+process.env.VACIER_LATAM_CUSTOMS_ENABLED = 'true';
 process.env.VACIER_LATAM_COUNTRIES = 'EC,BR,AR';
+
+const latamOverrides = buildVacierLatamLabelOverrideMap([
+  {
+    sku: 'SKU1',
+    productName: 'Workbook Product',
+    customsValue: '4.50',
+    currency: 'USD',
+    countryCode: 'ALL',
+    source: 'test',
+  },
+]);
 
 function makeWebhook(country: string, overrides: Partial<ShipHeroWebhook> = {}): ShipHeroWebhook {
   return {
@@ -12,7 +25,7 @@ function makeWebhook(country: string, overrides: Partial<ShipHeroWebhook> = {}):
     fulfillment_status: 'pending',
     order_number: '#LATAM-1001',
     shop_name: 'Vacier',
-    account_id: 85552,
+    account_id: 73982,
     partner_order_id: 'p1',
     shipping_name: 'PostNL',
     tax_type: null,
@@ -24,7 +37,20 @@ function makeWebhook(country: string, overrides: Partial<ShipHeroWebhook> = {}):
     packages: [{
       weight_in_oz: 2,
       line_items: [{
-        sku: 'SKU1', tariff_code: '6109', price: 29, customs_value: '4.50', line_item_id: 1, quantity: 2, weight: 1, partner_line_item_id: 'pli1', id: 'li1', country_of_manufacture: 'NL', product_name: 'Shirt', name: 'Shirt', customs_description: 'Shirt', ignore_on_customs: false,
+        sku: 'SKU1',
+        tariff_code: '6109',
+        price: 29,
+        customs_value: '29.00',
+        line_item_id: 1,
+        quantity: 2,
+        weight: 1,
+        partner_line_item_id: 'pli1',
+        id: 'li1',
+        country_of_manufacture: 'US',
+        product_name: 'ShipHero Product Name',
+        name: 'Fallback Name',
+        customs_description: 'Imitation jewelry',
+        ignore_on_customs: false,
       }],
     }],
     ...overrides,
@@ -32,18 +58,43 @@ function makeWebhook(country: string, overrides: Partial<ShipHeroWebhook> = {}):
 }
 
 async function main() {
-  const latam = await mapShipHeroToPostNL(makeWebhook('EC'), 'barcode', '4945', 'CUST', '123');
+  const latam = await mapShipHeroToPostNL(
+    makeWebhook('EC'),
+    'barcode',
+    '6550',
+    'CUST',
+    '123',
+    undefined,
+    { vacierLatamCustomsBySku: latamOverrides },
+  );
+  assert.equal(latam.Shipments[0].Customs?.Currency, 'USD');
   assert.equal(latam.Shipments[0].Customs?.Content?.[0].Value, 9);
+  assert.equal(latam.Shipments[0].Customs?.Content?.[0].Description, 'ShipHero Product Name');
+  assert.equal(latam.Shipments[0].Customs?.Content?.[0].HSTariffNr, '6109');
+  assert.equal(latam.Shipments[0].Customs?.Content?.[0].CountryOfOrigin, 'US');
 
   await assert.rejects(
-    async () => mapShipHeroToPostNL(makeWebhook('EC', {
-      packages: [{ weight_in_oz: 1, line_items: [{ ...makeWebhook('EC').packages[0].line_items![0], customs_value: '' }] }],
-    }), 'barcode', '4945', 'CUST', '123'),
-    /Missing or invalid LATAM customs_value/,
+    async () => mapShipHeroToPostNL(
+      makeWebhook('EC', {
+        packages: [{
+          weight_in_oz: 1,
+          line_items: [{ ...makeWebhook('EC').packages[0].line_items![0], sku: 'MISSING' }],
+        }],
+      }),
+      'barcode',
+      '6550',
+      'CUST',
+      '123',
+      undefined,
+      { vacierLatamCustomsBySku: latamOverrides },
+    ),
+    /Missing active LATAM customs override/,
   );
 
-  const nonLatam = await mapShipHeroToPostNL(makeWebhook('US'), 'barcode', '4945', 'CUST', '123');
+  const nonLatam = await mapShipHeroToPostNL(makeWebhook('US'), 'barcode', '6550', 'CUST', '123');
+  assert.equal(nonLatam.Shipments[0].Customs?.Currency, 'EUR');
   assert.equal(nonLatam.Shipments[0].Customs?.Content?.[0].Value, 58);
+  assert.equal(nonLatam.Shipments[0].Customs?.Content?.[0].Description, 'Imitation jewelry');
 
   console.log('PostNL LATAM mapper tests passed.');
 }

@@ -9,7 +9,6 @@ type Flags = {
   vacier_latam_reference_value_eur: number;
   vacier_latam_processed_tag: string;
   vacier_latam_processing_start_date: string;
-  vacier_latam_order_number_filter: string[];
   vacier_latam_fulfillment_statuses: string[];
   vacier_latam_run_window_timezone: string;
   vacier_latam_run_window_start: string;
@@ -135,10 +134,6 @@ export function getFlags(): Flags {
     vacier_latam_processing_start_date: strFromEnv(
       process.env.VACIER_LATAM_PROCESSING_START_DATE ?? process.env.vacier_latam_processing_start_date,
       '2026-05-01T00:00:00.000Z',
-    ),
-    vacier_latam_order_number_filter: strListFromEnv(
-      process.env.VACIER_LATAM_ORDER_NUMBER_FILTER ?? process.env.vacier_latam_order_number_filter,
-      [],
     ),
     vacier_latam_fulfillment_statuses: strListFromEnv(
       process.env.VACIER_LATAM_FULFILLMENT_STATUSES ?? process.env.vacier_latam_fulfillment_statuses,

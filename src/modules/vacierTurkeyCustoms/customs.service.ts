@@ -97,6 +97,11 @@ export async function getVacierTurkeyCustomsOverrideMap(): Promise<VacierTurkeyC
   return map;
 }
 
+export async function invalidateVacierTurkeyCustomsOverrideCache(): Promise<void> {
+  if (!getRedisConfig()) return;
+  await redisCommand<number>(['DEL', buildCacheKey()]);
+}
+
 async function loadOverrideMapFromDb(): Promise<VacierTurkeyCustomsOverrideMap> {
   const { listActiveVacierTurkeyCustomsOverrides } = await import('./customs.repository');
   const rows = await listActiveVacierTurkeyCustomsOverrides();

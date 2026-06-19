@@ -4,9 +4,13 @@ import { logger } from '@/utils/logger';
 import { Decimal } from 'decimal.js';
 import type { ResolvedAsendiaCustomerMapping } from '@/modules/asendia/customers/customer.service';
 import {
-  isConfiguredVacierLatamCountry,
   requiresAsendiaReceiverTaxId,
 } from '@/modules/vacierLatamCustoms/latamConfig';
+import {
+  resolveVacierLatamLabelOverride,
+  validateVacierLatamShipmentOverrides,
+  type VacierLatamLabelOverrideMap,
+} from '@/modules/vacierLatamCustoms/labelOverrides.service';
 import {
   isVacierTurkeyShipment,
   resolveVacierTurkeyCustomsOverride,
@@ -27,6 +31,7 @@ const OZ_TO_KG_MULTIPLIER = 0.0283495231;
 config();
 
 export type MapShipHeroToAsendiaOptions = {
+  vacierLatamCustomsBySku?: VacierLatamLabelOverrideMap | null;
   vacierTurkeyCustomsBySku?: VacierTurkeyCustomsOverrideMap | null;
 };
 
@@ -40,14 +45,6 @@ export function mapShipHeroToAsendia(
       .times(OZ_TO_KG_MULTIPLIER)
       .toDecimalPlaces(3)
       .toNumber();
-  }
-
-  function parseLatamCustomsValue(lineItem: any): number {
-    const parsed = Number.parseFloat(String(lineItem.customs_value ?? '').trim());
-    if (!Number.isFinite(parsed) || parsed < 0) {
-      throw new Error(`Missing or invalid LATAM customs_value for SKU ${lineItem.sku ?? 'unknown'} and country ${shipHeroData.to_address.country}`);
-    }
-    return parsed;
   }
 
   function getLineItemUnitWeightKg(weightInOz: number): Decimal {
@@ -77,13 +74,17 @@ export function mapShipHeroToAsendia(
     shipHeroData.to_address.country = 'GB';
   }
 
-  const isVacierLatamDestination = isConfiguredVacierLatamCountry(shipHeroData.to_address.country);
+  const isVacierLatamDestination = !!options.vacierLatamCustomsBySku;
   const isVacierTurkeyDestination = isVacierTurkeyShipment(shipHeroData)
     && !!options.vacierTurkeyCustomsBySku;
-  const receiverTaxIdRequired = requiresAsendiaReceiverTaxId(shipHeroData.to_address.country);
+  const receiverTaxIdRequired = isVacierLatamDestination
+    && requiresAsendiaReceiverTaxId(shipHeroData.to_address.country);
   if (receiverTaxIdRequired && !String(shipHeroData.tax_id ?? '').trim()) {
     throw new Error(`Missing required receiverTaxId/tax_id for Asendia LATAM destination ${shipHeroData.to_address.country}`);
   }
+  const latamValidation = options.vacierLatamCustomsBySku
+    ? validateVacierLatamShipmentOverrides(shipHeroData, options.vacierLatamCustomsBySku)
+    : null;
 
   let shipmentToAddress1 = shipHeroData.to_address.address_1;
   let shipmentToAddress2 = '';
@@ -196,7 +197,7 @@ export function mapShipHeroToAsendia(
     },
   };
 
-  const orderCurrency = 'EUR';
+  const orderCurrency = latamValidation?.currency ?? 'EUR';
   asendiaRequestData.customsInfo = {
     currency: orderCurrency,
     items: [],
@@ -209,11 +210,18 @@ export function mapShipHeroToAsendia(
       const vacierTurkeyOverride = isVacierTurkeyDestination
         ? resolveVacierTurkeyCustomsOverride(lineItem.sku, options.vacierTurkeyCustomsBySku)
         : null;
+      const vacierLatamOverride = isVacierLatamDestination
+        ? resolveVacierLatamLabelOverride(
+            lineItem.sku,
+            shipHeroData.to_address.country,
+            options.vacierLatamCustomsBySku,
+          )
+        : null;
       let priceAsFloat = 0.0;
       if (isVacierTurkeyDestination) {
         priceAsFloat = vacierTurkeyOverride?.customsValue ?? 0;
-      } else if (isVacierLatamDestination) {
-        priceAsFloat = parseLatamCustomsValue(lineItem);
+      } else if (vacierLatamOverride) {
+        priceAsFloat = vacierLatamOverride.customsValue;
       } else if (lineItem.price !== null) {
         priceAsFloat = lineItem.price;
       }
@@ -267,10 +275,25 @@ export function mapShipHeroToAsendia(
           : lineItem.tariff_code ?? '',
       ).replace(/\./g, '');
 
+      if (vacierLatamOverride) {
+        logger.info('vacier_latam_customs_override_applied', {
+          carrier: 'Asendia',
+          order_id: shipHeroData.order_id,
+          order_number: shipHeroData.order_number,
+          destination_country: shipHeroData.to_address.country,
+          sku: lineItem.sku,
+          quantity: lineItem.quantity,
+          unit_value: vacierLatamOverride.customsValueFormatted,
+          currency: vacierLatamOverride.currency,
+          description: articleDescription,
+          source: vacierLatamOverride.source,
+        } as any);
+      }
+
       asendiaRequestData.customsInfo!.items.push({
         articleDescription,
         unitValue: priceAsFloat,
-        currency: orderCurrency,
+        currency: vacierLatamOverride?.currency ?? orderCurrency,
         harmonizationCode,
         originCountry: lineItem.country_of_manufacture || "NL",
         unitWeight: getLineItemUnitWeightKg(lineItem.weight).toNumber(),

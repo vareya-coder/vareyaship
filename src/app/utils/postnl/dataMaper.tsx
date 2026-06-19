@@ -3,14 +3,24 @@ import { Data } from "./postnltypes";
 import { config } from 'dotenv';
 import axios from "axios";
 import { PostNLPickupDecision } from "@/modules/postnl/pickup/pickup.service";
-import { isConfiguredVacierLatamCountry } from "@/modules/vacierLatamCustoms/latamConfig";
+import {
+    resolveVacierLatamLabelOverride,
+    type VacierLatamLabelOverride,
+    type VacierLatamLabelOverrideMap,
+} from "@/modules/vacierLatamCustoms/labelOverrides.service";
+import { logger } from "@/utils/logger";
 
 config();
+
+export type MapShipHeroToPostNLOptions = {
+    vacierLatamCustomsBySku?: VacierLatamLabelOverrideMap | null;
+};
 
 export async function mapShipHeroToPostNL(shipHeroData: ShipHeroWebhook, barCode: string, 
                                             postNLProductCode: string, postNLCustomerCode: string, 
                                             postNLCustomerNumber: string,
-                                            pickupDecision?: PostNLPickupDecision | null) {
+                                            pickupDecision?: PostNLPickupDecision | null,
+                                            options: MapShipHeroToPostNLOptions = {}) {
     const EU: any = ['AT', 'BE', 'BG', 'CY', 'CZ', 'DE', 'DK', 'EE', 'ES', 'FI', 'FR', 'GR', 'HR', 'HU', 'IE', 'IT', 'LT', 'LU', 'LV', 'MT', 'NL', 'PL', 'PT', 'RO', 'SE', 'SI', 'SK'];
 
     // const barcode: string = await getBarcode(customer_code, customer_number);
@@ -19,18 +29,34 @@ export async function mapShipHeroToPostNL(shipHeroData: ShipHeroWebhook, barCode
         return Math.round(grams);
     }
 
-    function parseLatamCustomsValue(lineItem: any) {
-        const parsed = Number.parseFloat(String(lineItem.customs_value ?? '').trim());
-        if (!Number.isFinite(parsed) || parsed < 0) {
-            throw new Error(`Missing or invalid LATAM customs_value for SKU ${lineItem.sku ?? 'unknown'} and country ${shipHeroData.to_address.country}`);
-        }
-        return parsed;
-    }
-
     if (shipHeroData.to_address.country == 'UK') {
         shipHeroData.to_address.country = 'GB';
 
     }
+
+    const isVacierLatamDestination = !!options.vacierLatamCustomsBySku;
+    const latamOverridesByLineItem = new Map<any, VacierLatamLabelOverride>();
+    let latamCurrency: string | null = null;
+
+    if (isVacierLatamDestination) {
+        shipHeroData.packages.forEach((packageData) => {
+            packageData.line_items?.forEach((lineItem) => {
+                if (lineItem.ignore_on_customs) return;
+
+                const override = resolveVacierLatamLabelOverride(
+                    lineItem.sku,
+                    shipHeroData.to_address.country,
+                    options.vacierLatamCustomsBySku,
+                );
+                if (latamCurrency && latamCurrency !== override.currency) {
+                    throw new Error(`Mixed LATAM customs currencies are not supported: ${latamCurrency} and ${override.currency}`);
+                }
+                latamCurrency = override.currency;
+                latamOverridesByLineItem.set(lineItem, override);
+            });
+        });
+    }
+
     function getTotalWeight() {
         let totalWeight = 0;
 
@@ -112,8 +138,6 @@ export async function mapShipHeroToPostNL(shipHeroData: ShipHeroWebhook, barCode
 
     if (!barCode) delete postNLData.Shipments[0].Barcode;
 
-    const isVacierLatamDestination = isConfiguredVacierLatamCountry(shipHeroData.to_address?.country);
-
     let orderNumCleaned = `${shipHeroData.order_number.replace(/[#A-Z-]+/gi, '')}`;
 
     //Check if the destination country is not in the EU
@@ -124,7 +148,7 @@ export async function mapShipHeroToPostNL(shipHeroData: ShipHeroWebhook, barCode
 
         postNLData.Shipments[0].Customs = {
             Content: [],
-            Currency: "EUR",
+            Currency: latamCurrency ?? "EUR",
             HandleAsNonDeliverable: false,
             Invoice: true,
             InvoiceNr: `INV-${orderNumCleaned}`,
@@ -180,16 +204,36 @@ export async function mapShipHeroToPostNL(shipHeroData: ShipHeroWebhook, barCode
                             priceAsFloat = 1.0;
                         }
                     }
-                    let Value: any = isVacierLatamDestination
-                        ? parseLatamCustomsValue(lineItem) * lineItem.quantity
+                    const latamOverride = isVacierLatamDestination
+                        ? latamOverridesByLineItem.get(lineItem)
+                        : null;
+                    let Value: any = latamOverride
+                        ? latamOverride.customsValue * lineItem.quantity
                         : priceAsFloat * lineItem.quantity
+
+                    if (latamOverride) {
+                        logger.info('vacier_latam_customs_override_applied', {
+                            carrier: 'PostNL',
+                            order_id: shipHeroData.order_id,
+                            order_number: shipHeroData.order_number,
+                            destination_country: shipHeroData.to_address.country,
+                            sku: lineItem.sku,
+                            quantity: lineItem.quantity,
+                            unit_value: latamOverride.customsValueFormatted,
+                            currency: latamOverride.currency,
+                            description: lineItem.product_name,
+                            source: latamOverride.source,
+                        } as any);
+                    }
 
 
 
                     if (postNLData.Shipments[0].Customs && postNLData.Shipments[0].Customs.Content) {
                         postNLData.Shipments[0].Customs.Content.push({
                             CountryOfOrigin: lineItem.country_of_manufacture || "NL",
-                            Description: lineItem.customs_description || "description",
+                            Description: latamOverride
+                                ? lineItem.product_name || lineItem.name || lineItem.sku || "description"
+                                : lineItem.customs_description || "description",
                             HSTariffNr: lineItem.tariff_code,
                             Quantity: lineItem.quantity,
                             Value: parseFloat(Value),

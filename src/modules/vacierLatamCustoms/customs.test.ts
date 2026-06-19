@@ -14,7 +14,6 @@ const baseConfig: VacierLatamConfig = {
   referenceValueEur: 50,
   processedTag: 'vacier_latam_customs_adjusted_v1',
   processingStartDate: '2026-05-01T00:00:00.000Z',
-  orderNumberFilter: [],
   fulfillmentStatuses: ['Vacier'],
   customerAccountId: '123',
   runWindowTimezone: 'Europe/Amsterdam',

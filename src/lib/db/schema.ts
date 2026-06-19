@@ -152,7 +152,7 @@ export const vacierLatamCustomsOverrides = pgTable('vacier_latam_customs_overrid
     sku: varchar('sku', { length: 120 }).notNull(),
     productName: varchar('product_name', { length: 255 }),
     customsValue: numeric('customs_value', { precision: 12, scale: 2 }).notNull(),
-    currency: varchar('currency', { length: 3 }).notNull().default('EUR'),
+    currency: varchar('currency', { length: 3 }).notNull().default('USD'),
     countryCode: varchar('country_code', { length: 10 }).notNull(),
     isActive: boolean('is_active').notNull().default(true),
     source: varchar('source', { length: 120 }),

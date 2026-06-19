@@ -22,11 +22,6 @@ export async function POST(req: NextRequest) {
   let trackingNumber = '';
   let trackingUrl = ''
   let labelUrl = '';
-  const postnlCallingapiProd = "https://vareyaship.vercel.app/api/postnl/label"
-  
-  const asendiaCallingapiProd = "https://vareyaship.vercel.app/api/asendia"
-
-  const royalMailCallingapiProd = "https://vareyaship.vercel.app/api/royalmail/label"
 
   const EU: any = ['AT', 'BE', 'BG', 'CY', 'CZ', 'DE', 'DK', 'EE', 'ES', 'FI', 'FR', 'GR', 'HR', 'HU', 'IE', 'IT', 'LT', 'LU', 'LV', 'MT', 'NL', 'PL', 'PT', 'RO', 'SE', 'SI', 'SK'];
 
@@ -34,7 +29,7 @@ export async function POST(req: NextRequest) {
     logInfo('Processing shipment update...');
     const shipmentData: ShipHeroWebhook = await req.json();
 
-    logInfo('Received shipment data.', { shipmentData: JSON.stringify(shipmentData, null, 2) });
+    logInfo('Received shipment data.', { shipmentData: JSON.stringify(shipmentData) });
 
     const firstPackage = shipmentData.packages[0];
 
@@ -116,7 +111,7 @@ export async function POST(req: NextRequest) {
     const filename = `${shipmentData.order_id}-${shipmentData.shipping_method}-${datetime}`
 
     if (Carrier ==="PostNL") {
-      const postNLApiResponse = await axios.post(postnlCallingapiProd, shipmentData, {
+      const postNLApiResponse = await axios.post(getInternalApiUrl(req, '/api/postnl/label'), shipmentData, {
         validateStatus: function (status) {
           return status < 500;
         }
@@ -264,7 +259,7 @@ export async function POST(req: NextRequest) {
           }, { status: 502 });
         }
       } else {
-        asendiaResponse = await axios.post(asendiaCallingapiProd, shipmentData)
+        asendiaResponse = await axios.post(getInternalApiUrl(req, '/api/asendia'), shipmentData)
         if (asendiaResponse && asendiaResponse.data) {
           trackingNumber = asendiaResponse.data.sequenceNumber
         }
@@ -291,7 +286,7 @@ export async function POST(req: NextRequest) {
         trackingUrl = `https://track.asendia.com/track/${trackingNumber}`;
       }
     } else if (Carrier === "RoyalMail") {
-      const royalMailResponse = await axios.post(royalMailCallingapiProd, shipmentData, {
+      const royalMailResponse = await axios.post(getInternalApiUrl(req, '/api/royalmail/label'), shipmentData, {
         validateStatus: function (status) {
           return status < 500;
         }
@@ -347,8 +342,6 @@ export async function POST(req: NextRequest) {
     const responseBody = JSON.stringify(responseBodyJson);
     logInfo('Shipment webhook response body.', { responseBody });
 
-    logger.end();
-
     return new NextResponse(responseBody, {
       status: 200,
       headers: {
@@ -374,8 +367,6 @@ export async function POST(req: NextRequest) {
         // req.log.error('Error occured while calling Carrier Endpoint :', { error: errorMessage })
       }
     }
-
-    logger.end();
 
     return new NextResponse(errorMessage, {
       status,

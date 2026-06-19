@@ -31,10 +31,6 @@
     {
       "path": "/api/cron/manifest-retention",
       "schedule": "30 2 * * *"
-    },
-    {
-      "path": "/api/cron/vacier-latam-customs",
-      "schedule": "*/10 3-18 * * 1-5"
     }
   ]
 }

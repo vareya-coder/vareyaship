@@ -9,7 +9,6 @@ export interface VacierLatamConfig {
   referenceValueEur: number;
   processedTag: string;
   processingStartDate: string;
-  orderNumberFilter: string[];
   fulfillmentStatuses: string[];
   customerAccountId: string;
   runWindowTimezone: string;

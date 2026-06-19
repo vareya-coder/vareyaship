@@ -8,6 +8,15 @@ import {
   getVacierTurkeyCustomsOverrideMap,
   isVacierTurkeyShipment,
 } from '@/modules/vacierTurkeyCustoms/customs.service';
+import {
+  isVacierLatamShipment,
+  requiresAsendiaReceiverTaxId,
+} from '@/modules/vacierLatamCustoms/latamConfig';
+import {
+  getVacierLatamLabelOverrideMap,
+  isVacierLatamCustomsDataError,
+  validateVacierLatamShipmentOverrides,
+} from '@/modules/vacierLatamCustoms/labelOverrides.service';
 
 import { Data } from '@/app/utils/postnl/postnltypes';
 import { logError, logInfo, logger } from '@/utils/logger';
@@ -19,6 +28,25 @@ export async function POST(req: NextRequest) {
     if (req.method === 'POST') {
       const shipmentData: ShipHeroWebhook = await req.json();
       logger.info(JSON.stringify(shipmentData));
+      const vacierLatamCustomsBySku = isVacierLatamShipment(shipmentData)
+        ? await getVacierLatamLabelOverrideMap()
+        : null;
+
+      if (vacierLatamCustomsBySku) {
+        validateVacierLatamShipmentOverrides(shipmentData, vacierLatamCustomsBySku);
+        if (
+          requiresAsendiaReceiverTaxId(shipmentData.to_address.country)
+          && !String(shipmentData.tax_id ?? '').trim()
+        ) {
+          return NextResponse.json({
+            message: `Missing required receiverTaxId/tax_id for Asendia LATAM destination ${shipmentData.to_address.country}`,
+            provider: 'VareyaShip',
+            carrier: 'Asendia',
+            errorCode: 'VACIER_LATAM_TAX_ID_REQUIRED',
+            countryCode: shipmentData.to_address.country,
+          }, { status: 400 });
+        }
+      }
       let customerMapping;
 
       try {
@@ -78,7 +106,7 @@ export async function POST(req: NextRequest) {
       const asendiaRequestBody:AsendiaParcelRequest = mapShipHeroToAsendia(
         shipmentData,
         customerMapping,
-        { vacierTurkeyCustomsBySku },
+        { vacierLatamCustomsBySku, vacierTurkeyCustomsBySku },
       );
   
       try {
@@ -183,6 +211,16 @@ export async function POST(req: NextRequest) {
     }
   } catch (error) {
     logError('Error processing the asendia sync shipment update.', { error: JSON.stringify(error) });
+    if (isVacierLatamCustomsDataError(error)) {
+      return NextResponse.json({
+        message: error.message,
+        provider: 'VareyaShip',
+        carrier: 'Asendia',
+        errorCode: error.errorCode,
+        sku: error.sku,
+        countryCode: error.countryCode,
+      }, { status: 400 });
+    }
     return new NextResponse('Internal Server Error', { status: 500 });
   }
 }

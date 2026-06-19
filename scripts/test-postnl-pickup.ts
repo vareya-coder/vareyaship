@@ -144,7 +144,6 @@ async function main() {
     vacier_latam_reference_value_eur: 50,
     vacier_latam_processed_tag: 'vacier_latam_customs_adjusted_v1',
     vacier_latam_processing_start_date: '2026-05-01T00:00:00.000Z',
-    vacier_latam_order_number_filter: [],
     vacier_latam_fulfillment_statuses: ['Vacier', 'unfulfilled'],
     vacier_latam_run_window_timezone: 'Europe/Amsterdam',
     vacier_latam_run_window_start: '05:00',

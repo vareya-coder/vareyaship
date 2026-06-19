@@ -3,7 +3,9 @@ import {
   normalizeVacierLatamOverrideCustomsValue,
   normalizeVacierLatamOverrideSku,
 } from './overrides.normalize';
+import { logger } from '@/utils/logger';
 import type { VacierLatamOverrideInput } from './overrides.repository';
+import { invalidateVacierLatamLabelOverrideCache } from './labelOverrides.service';
 
 export type VacierLatamResolvedOverride = {
   sku: string;
@@ -86,17 +88,23 @@ export async function listOverrides(filters: any) {
 
 export async function saveOverride(input: VacierLatamOverrideInput) {
   const { upsertVacierLatamCustomsOverride } = await import('./overrides.repository');
-  return upsertVacierLatamCustomsOverride(input);
+  const saved = await upsertVacierLatamCustomsOverride(input);
+  await invalidateCacheAfterMutation();
+  return saved;
 }
 
 export async function editOverride(id: number, input: Partial<VacierLatamOverrideInput>) {
   const { updateVacierLatamCustomsOverride } = await import('./overrides.repository');
-  return updateVacierLatamCustomsOverride(id, input);
+  const updated = await updateVacierLatamCustomsOverride(id, input);
+  await invalidateCacheAfterMutation();
+  return updated;
 }
 
 export async function deactivateOverride(id: number, updatedBy?: string | null) {
   const { deactivateVacierLatamCustomsOverride } = await import('./overrides.repository');
-  return deactivateVacierLatamCustomsOverride(id, updatedBy);
+  const deactivated = await deactivateVacierLatamCustomsOverride(id, updatedBy);
+  await invalidateCacheAfterMutation();
+  return deactivated;
 }
 
 export async function importOverridesFromCsv(
@@ -125,7 +133,7 @@ export async function importOverridesFromCsv(
         sku: row[index.get('SKU')!],
         productName: row[index.get('ProductName')!],
         customsValue: row[index.get('CustomsValue')!],
-        currency: row[index.get('Currency')!] || 'EUR',
+        currency: row[index.get('Currency')!] || 'USD',
         countryCode: row[index.get('CountryCode')!] || 'ALL',
         notes: row[index.get('Notes')!],
         source: options.source ?? 'csv_import',
@@ -139,7 +147,21 @@ export async function importOverridesFromCsv(
     }
   }
 
+  if (result.imported > 0) {
+    await invalidateCacheAfterMutation();
+  }
+
   return result;
+}
+
+async function invalidateCacheAfterMutation(): Promise<void> {
+  try {
+    await invalidateVacierLatamLabelOverrideCache();
+  } catch (error) {
+    logger.warn('vacier_latam_customs_cache_invalidation_failed', {
+      error: error instanceof Error ? error.message : String(error),
+    } as any);
+  }
 }
 
 function parseCsv(input: string): string[][] {

@@ -10,6 +10,14 @@ POSTNL_API_KEY=
 VAREYASHIP_DATABASE_DATABASE_URL=
 CRON_SECRET=
 
+# Vacier LATAM label-time customs overrides
+# Keep disabled until migration 0013 has been applied and filtered test orders are ready.
+VACIER_LATAM_CUSTOMS_ENABLED=false
+VACIER_LATAM_COUNTRIES=EC,BR,AR
+VACIER_LATAM_ASENDIA_TAX_ID_COUNTRIES=EC,BR,AR
+# Optional; defaults to 129600 seconds (36 hours).
+VACIER_LATAM_CUSTOMS_CACHE_TTL_SECONDS=129600
+
 # Royal Mail Click & Drop
 ROYALMAIL_API_BASE_URL=https://api.parcel.royalmail.com
 ROYALMAIL_API_TOKEN=
@@ -62,6 +70,23 @@ pnpm dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+
+## Vacier Customs Overrides
+
+Vacier LATAM customs values are applied only while generating PostNL or Asendia labels for account
+`73982`. The carrier payload uses the database override value and the ShipHero product name while the
+ShipHero order remains unchanged. The former ShipHero mutation cron is retired.
+
+Before enabling LATAM in production:
+
+1. Apply migration `0013_vacier_latam_label_time_customs`.
+2. Set `VACIER_LATAM_CUSTOMS_ENABLED=true`.
+3. Verify the PostNL customs data and the unchanged ShipHero invoice using fresh test orders.
+
+Internal management pages:
+
+- `/vacier-latam-customs`
+- `/vacier-turkey-customs`
 
 ## Asendia Manifest Automation (Headless)
 
